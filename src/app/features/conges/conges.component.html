@@ -1,0 +1,251 @@
+<!-- src/app/features/rh/conges/conges.component.html -->
+<div class="page">
+  <!-- HEADER -->
+  <div class="header-section">
+    <div class="header-content">
+      <div class="header-left">
+        <h1><i class="fas fa-calendar-check"></i> Mes demandes de congé</h1>
+        <p class="subtitle">
+          Consultez et gérez toutes vos demandes de congé en un seul endroit
+        </p>
+      </div>
+      <!-- 👈 Bouton Nouvelle demande conditionné -->
+      <a *ngIf="canCreate" class="btn-add" routerLink="/app/rh/conges/demande">
+        <i class="fas fa-plus-circle btn-icon"></i>
+        Nouvelle demande
+      </a>
+    </div>
+
+    <!-- Statistiques -->
+    @if (!loading()) {
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-number">{{ stats().total }}</span>
+          <span class="stat-label">
+            <i class="fas fa-inbox"></i> Total
+          </span>
+        </div>
+        <div class="stat-card status-pending-bg">
+          <span class="stat-number">{{ stats().enAttente }}</span>
+          <span class="stat-label">
+            <i class="fas fa-clock"></i> En attente
+          </span>
+        </div>
+        <div class="stat-card status-approved-bg">
+          <span class="stat-number">{{ stats().approuve }}</span>
+          <span class="stat-label">
+            <i class="fas fa-check-circle"></i> Approuvés
+          </span>
+        </div>
+        <div class="stat-card status-rejected-bg">
+          <span class="stat-number">{{ stats().rejete }}</span>
+          <span class="stat-label">
+            <i class="fas fa-times-circle"></i> Rejetés
+          </span>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Filtres -->
+  <div class="filter-section">
+    <div class="filter-group">
+      <label for="statutFilter">
+        <i class="fas fa-filter"></i> Filtrer par statut :
+      </label>
+      <select id="statutFilter" [(ngModel)]="selectedStatut" (change)="onFilterChange()">
+        @for (option of statutOptions; track option) {
+          <option [value]="option">
+            {{ option === 'TOUS' ? 'Tous les statuts' : statutLabel(option) }}
+          </option>
+        }
+      </select>
+    </div>
+    <span class="result-count">
+      <i class="fas fa-list"></i> {{ filteredConges().length }} demande(s)
+    </span>
+  </div>
+
+  <!-- Messages -->
+  @if (successMessage()) {
+    <div class="alert alert-success">
+      <i class="fas fa-check-circle alert-icon"></i>
+      {{ successMessage() }}
+    </div>
+  }
+
+  @if (errorMessage()) {
+    <div class="alert alert-error">
+      <i class="fas fa-exclamation-triangle alert-icon"></i>
+      {{ errorMessage() }}
+    </div>
+  }
+
+  <!-- Loading -->
+  @if (loading()) {
+    <div class="state loading">
+      <div class="spinner-large"></div>
+      <p><i class="fas fa-spinner fa-spin"></i> Chargement des demandes...</p>
+    </div>
+  }
+
+  <!-- Empty state -->
+  @if (!loading() && filteredConges().length === 0 && !errorMessage()) {
+    <div class="empty-state">
+      <div class="empty-icon">
+        <i class="fas fa-calendar-alt"></i>
+      </div>
+      <h3>Aucune demande de congé</h3>
+      @if (selectedStatut === 'TOUS') {
+        <p>
+          Vous n'avez encore effectué aucune demande de congé.
+        </p>
+      }
+      @if (selectedStatut !== 'TOUS') {
+        <p>
+          Aucune demande avec le statut "{{ statutLabel(selectedStatut) }}".
+        </p>
+      }
+      <a *ngIf="canCreate" class="btn-add" routerLink="/app/rh/conges/demande">
+        <i class="fas fa-plus-circle"></i> Créer ma première demande
+      </a>
+    </div>
+  }
+
+  <!-- Liste des congés -->
+  @if (!loading() && filteredConges().length > 0) {
+    <div class="conge-grid">
+      @for (c of paginatedConges(); track c.id) {
+        <div class="conge-card">
+          <div class="card-header">
+            <div class="card-title">
+              <h3>{{ c.typeConge | titlecase }}</h3>
+              <span class="card-duration">
+                <i class="far fa-clock"></i> {{ c.nbJour }} jour(s)
+              </span>
+            </div>
+            <span class="status-badge {{ statutClass(c.statut) }}">
+              <span class="status-icon">{{ getStatusIcon(c.statut) }}</span>
+              {{ statutLabel(c.statut) }}
+            </span>
+          </div>
+
+          <div class="card-body">
+            <div class="date-info">
+              <div class="date-item">
+                <span class="date-label">
+                  <i class="fas fa-calendar-day"></i> Du
+                </span>
+                <span class="date-value">{{ formatDate(c.jourDebut) }}</span>
+              </div>
+              <div class="date-item">
+                <span class="date-label">
+                  <i class="fas fa-calendar-day"></i> Au
+                </span>
+                <span class="date-value">{{ formatDate(c.jourFin) }}</span>
+              </div>
+            </div>
+
+            @if (c.commentaireManager) {
+              <div class="card-meta">
+                <span class="meta-label">
+                  <i class="fas fa-comment"></i> Commentaire manager :
+                </span>
+                <p class="meta-value">{{ c.commentaireManager }}</p>
+              </div>
+            }
+
+            @if (c.dateValidation) {
+              <div class="card-meta">
+                <span class="meta-label">
+                  <i class="fas fa-check-circle"></i> Validé le :
+                </span>
+                <span class="meta-value">{{ formatDate(c.dateValidation) }}</span>
+              </div>
+            }
+          </div>
+
+          @if (c.statut === 'EN_ATTENTE') {
+            <div class="card-actions">
+              <button class="btn-cancel" (click)="annuler(c.id)">
+                <i class="fas fa-ban"></i> Annuler la demande
+              </button>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- ============ PAGINATION ============ -->
+    @if (filteredConges().length > 0) {
+      <div class="pagination-container">
+        <div class="pagination-info">
+          <span>
+            Affichage de 
+            <strong>{{ (currentPage() - 1) * itemsPerPage + 1 }}</strong> 
+            à 
+            <strong>{{ Math.min(currentPage() * itemsPerPage, filteredConges().length) }}</strong> 
+            sur 
+            <strong>{{ filteredConges().length }}</strong> 
+            demandes
+          </span>
+          
+          <div class="page-size-selector">
+            <label for="pageSize">Lignes par page :</label>
+            <select id="pageSize" [(ngModel)]="itemsPerPage" (change)="onPageSizeChange()">
+              <option [value]="5">5</option>
+              <option [value]="10">10</option>
+              <option [value]="20">20</option>
+              <option [value]="50">50</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pagination-controls">
+          <button class="pagination-btn" 
+                  (click)="previousPage()" 
+                  [disabled]="currentPage() === 1"
+                  [class.disabled]="currentPage() === 1">
+            <i class="fas fa-chevron-left"></i>
+            <span>Précédent</span>
+          </button>
+
+          <div class="page-numbers">
+            <button *ngIf="totalPages() > 1" 
+                    class="page-number" 
+                    [class.active]="currentPage() === 1"
+                    (click)="goToPage(1)">
+              1
+            </button>
+
+            <span *ngIf="currentPage() > 3" class="ellipsis">…</span>
+
+            <button *ngFor="let page of getVisiblePages()" 
+                    class="page-number" 
+                    [class.active]="currentPage() === page"
+                    (click)="goToPage(page)">
+              {{ page }}
+            </button>
+
+            <span *ngIf="currentPage() < totalPages() - 2" class="ellipsis">…</span>
+
+            <button *ngIf="totalPages() > 1" 
+                    class="page-number" 
+                    [class.active]="currentPage() === totalPages()"
+                    (click)="goToPage(totalPages())">
+              {{ totalPages() }}
+            </button>
+          </div>
+
+          <button class="pagination-btn" 
+                  (click)="nextPage()" 
+                  [disabled]="currentPage() === totalPages()"
+                  [class.disabled]="currentPage() === totalPages()">
+            <span>Suivant</span>
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    }
+  }
+</div>

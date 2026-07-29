@@ -1,0 +1,247 @@
+<div class="role-list-container">
+
+  <!-- Header -->
+  <div class="page-header">
+
+    <div>
+      <h2>
+        <i class="fas fa-user-shield me-2"></i>
+        Gestion des Rôles
+      </h2>
+
+      <p>
+        Configuration des accès et permissions utilisateurs
+      </p>
+    </div>
+
+
+    <button class="btn-create" (click)="createRole()">
+
+      <i class="fas fa-plus"></i>
+
+      Nouveau rôle
+
+    </button>
+
+
+  </div>
+
+
+
+
+  <!-- Search -->
+
+  <div class="search-card">
+
+
+    <div class="search-box">
+
+      <i class="fas fa-search"></i>
+
+
+      <input
+        type="text"
+        placeholder="Rechercher un rôle..."
+        [(ngModel)]="searchTerm"
+        (input)="onSearch()"
+      />
+
+
+    </div>
+
+
+
+    <button 
+      class="refresh-btn"
+      (click)="loadRoles()">
+
+      <i class="fas fa-sync-alt"></i>
+
+    </button>
+
+
+  </div>
+
+
+
+
+
+  <!-- Loading -->
+
+  <div class="loading" *ngIf="isLoading">
+
+    <div class="spinner-border text-primary"></div>
+
+  </div>
+
+
+
+
+
+  <!-- Roles -->
+
+
+  <div class="roles-grid" *ngIf="!isLoading">
+
+
+    <div class="role-card" *ngFor="let role of filteredRoles">
+
+
+
+      <!-- Header card -->
+
+      <div class="role-header">
+
+
+        <div class="role-title">
+
+          <h5>
+            {{role.name}}
+          </h5>
+
+
+          <span>
+            Niveau {{role.hierarchyLevel}}
+          </span>
+
+
+        </div>
+
+
+
+        <i class="fas fa-shield-alt role-icon"></i>
+
+
+      </div>
+
+
+
+
+
+      <!-- Content -->
+
+      <div class="role-body">
+
+
+
+        <p>
+          {{role.description || 'Aucune description fournie'}}
+        </p>
+
+
+
+
+        <div class="badges">
+
+
+          <span class="scope">
+
+            {{role.visibilityScope || 'Global'}}
+
+          </span>
+
+
+
+          <span 
+            class="status"
+            [class.active]="role.active"
+            [class.inactive]="!role.active">
+
+
+            <i class="fas fa-circle"></i>
+
+            {{role.active ? 'Actif' : 'Inactif'}}
+
+
+          </span>
+
+
+
+        </div>
+
+
+
+
+
+
+        <div class="permissions">
+
+
+          <i class="fas fa-key"></i>
+
+
+          <strong>
+            {{role.permissionIds?.length || 0}}
+          </strong>
+
+          permissions
+
+
+
+        </div>
+
+
+
+      </div>
+
+
+
+
+
+      <!-- Actions -->
+
+
+      <div class="actions">
+
+
+        <button
+          title="Modifier"
+          (click)="editRole(role.id)">
+
+          <i class="fas fa-edit"></i>
+
+        </button>
+
+
+
+
+        <button
+          title="Gérer les permissions"
+          (click)="managePermissions(role.id)">
+
+
+          <i class="fas fa-key"></i>
+
+
+        </button>
+
+
+
+
+
+        <button
+          class="delete"
+          title="Supprimer"
+          (click)="deleteRole(role.id, role.name)">
+
+
+
+          <i class="fas fa-trash"></i>
+
+
+        </button>
+
+
+
+      </div>
+
+
+
+    </div>
+
+
+  </div>
+
+
+
+</div>

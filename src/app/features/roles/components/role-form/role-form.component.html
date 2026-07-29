@@ -1,0 +1,428 @@
+<div class="role-form-container">
+
+
+  <!-- HEADER -->
+
+  <div class="page-header">
+
+    <div class="header-left">
+
+      <button 
+        class="back-btn"
+        (click)="goBack()">
+
+        <i class="fas fa-arrow-left"></i>
+
+      </button>
+
+
+      <div>
+
+        <h2>
+          <i class="fas fa-users-cog"></i>
+
+          {{ isEditMode ? 'Modifier le rôle' : 'Nouveau rôle' }}
+
+        </h2>
+
+
+        <p>
+          Gestion des accès et permissions utilisateurs
+        </p>
+
+
+      </div>
+
+
+    </div>
+
+
+  </div>
+
+
+
+
+
+  <!-- LOADING -->
+
+  <div class="loading" *ngIf="isLoading">
+
+    <div class="spinner-border text-primary"></div>
+
+    <p>
+      Chargement du rôle...
+    </p>
+
+  </div>
+
+
+
+
+
+  <div class="form-layout" *ngIf="!isLoading">
+
+
+
+    <!-- FORMULAIRE -->
+
+    <div class="form-card">
+
+
+      <form 
+        [formGroup]="roleForm"
+        (ngSubmit)="onSubmit()">
+
+
+
+        <div class="card-title">
+
+          Informations du rôle
+
+        </div>
+
+
+
+
+        <!-- NOM -->
+
+        <div class="form-group">
+
+          <label>
+            Nom du rôle *
+          </label>
+
+
+          <input
+            class="form-control"
+            formControlName="name"
+            placeholder="Ex: ADMIN, RH, MANAGER"
+            [readonly]="isEditMode"
+          />
+
+
+        </div>
+
+
+
+
+
+        <!-- DESCRIPTION -->
+
+        <div class="form-group">
+
+
+          <label>
+            Description
+          </label>
+
+
+          <textarea
+            class="form-control"
+            rows="3"
+            formControlName="description"
+            placeholder="Description du rôle">
+          </textarea>
+
+
+        </div>
+
+
+
+
+
+        <!-- NIVEAU -->
+
+
+        <div class="form-group">
+
+
+          <label>
+            Niveau hiérarchique *
+          </label>
+
+
+
+          <div class="level-control">
+
+
+            <input
+              type="range"
+              class="form-range"
+              formControlName="hierarchyLevel"
+              min="1"
+              max="5"
+            />
+
+
+            <span>
+
+              {{f['hierarchyLevel'].value}}
+
+            </span>
+
+
+
+          </div>
+
+
+
+          <small>
+            {{getLevelLabel(f['hierarchyLevel'].value)}}
+          </small>
+
+
+
+        </div>
+
+
+
+
+
+        <!-- VISIBILITE -->
+
+
+        <div class="form-group">
+
+
+          <label>
+            Portée de visibilité *
+          </label>
+
+
+
+          <select
+            class="form-select"
+            formControlName="visibilityScope">
+
+
+            <option value="">
+              Sélectionner
+            </option>
+
+
+            <option 
+              *ngFor="let scope of visibilityScopes"
+              [value]="scope">
+
+
+              {{scope}}
+
+
+            </option>
+
+
+          </select>
+
+
+
+        </div>
+
+
+
+
+
+
+
+        <!-- ACTIVE -->
+
+        <div class="active-box">
+
+
+          <label>
+            Statut
+          </label>
+
+
+          <div class="switch">
+
+
+            <input
+              type="checkbox"
+              formControlName="active"
+              id="active"
+            />
+
+
+            <span></span>
+
+
+            <strong>
+
+              {{f['active'].value?'Actif':'Inactif'}}
+
+            </strong>
+
+
+          </div>
+
+
+        </div>
+
+
+
+
+
+        <!-- BUTTONS -->
+
+
+        <div class="actions-form">
+
+
+          <button
+            class="btn-save"
+            type="submit"
+            [disabled]="isSaving || roleForm.invalid">
+
+
+            <i class="fas fa-save"></i>
+
+            {{isEditMode?'Mettre à jour':'Créer'}}
+
+
+          </button>
+
+
+
+
+          <button
+            type="button"
+            class="btn-cancel"
+            (click)="goBack()">
+
+
+            Annuler
+
+
+          </button>
+
+
+        </div>
+
+
+
+      </form>
+
+
+    </div>
+
+
+
+
+
+
+
+
+    <!-- PERMISSIONS -->
+
+
+    <div class="permissions-card">
+
+
+
+      <div class="permissions-header">
+
+
+        <h5>
+
+          <i class="fas fa-key"></i>
+
+          Permissions
+
+        </h5>
+
+
+
+        <span>
+
+          {{getSelectedPermissionsCount()}}
+
+        </span>
+
+
+      </div>
+
+
+
+
+
+
+      <div class="search-permission">
+
+
+        <i class="fas fa-search"></i>
+
+
+        <input
+          type="text"
+          placeholder="Rechercher..."
+          [(ngModel)]="permissionSearch"
+          (input)="onPermissionSearch()"
+        />
+
+
+      </div>
+
+
+
+
+
+
+
+      <div class="permissions-list">
+
+
+        <div
+          class="permission-item"
+          *ngFor="let permission of filteredPermissions"
+          (click)="togglePermission(permission.id)"
+          [class.selected]="isPermissionSelected(permission.id)"
+        >
+
+
+          <div>
+
+
+            <strong>
+              {{permission.name}}
+            </strong>
+
+
+            <p>
+              {{permission.description || 'Aucune description'}}
+            </p>
+
+
+            <small>
+              {{permission.category}}
+            </small>
+
+
+          </div>
+
+
+
+          <i 
+            class="fas"
+            [class.fa-check-circle]="isPermissionSelected(permission.id)"
+            [class.fa-circle]="!isPermissionSelected(permission.id)">
+          </i>
+
+
+        </div>
+
+
+
+      </div>
+
+
+
+
+    </div>
+
+
+
+
+  </div>
+
+
+</div>

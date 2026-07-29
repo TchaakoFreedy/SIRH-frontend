@@ -1,0 +1,102 @@
+<!-- src/app/features/pay-slip/pay-slip-edit.component.html -->
+
+<div class="unity-container">
+  <!-- ========== HEADER ========== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">edit_note</span>
+      </div>
+      <div>
+        <h1>Modifier le bulletin</h1>
+        <p>Mise à jour des informations de la fiche de paie</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-secondary" (click)="goBack()">
+        <span class="material-symbols-outlined">arrow_back</span> Retour
+      </button>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div *ngIf="loading" class="loading-state">⏳ Chargement en cours...</div>
+  <div *ngIf="error" class="error-state">{{ error }}</div>
+  <div *ngIf="success" class="success-state">{{ success }}</div>
+
+  <!-- Formulaire -->
+  <div class="table-card" *ngIf="!loading">
+    <div class="table-header">
+      <div class="table-title">
+        <span class="material-symbols-outlined">receipt</span>
+        <h2>Informations du bulletin</h2>
+      </div>
+      <span class="table-info">ID : {{ id }}</span>
+    </div>
+
+    <div class="modal-body-scroll" style="padding: 28px;">
+      <form [formGroup]="editForm" (ngSubmit)="onSubmit()">
+        <div class="form-block">
+          <div class="block-title">
+            <span class="material-symbols-outlined">payments</span>
+            Salaires
+          </div>
+          <div class="form-grid grid-3">
+            <div class="form-group">
+              <label>Salaire brut *</label>
+              <input type="number" formControlName="grossSalary" step="0.01" placeholder="0.00" />
+              <small *ngIf="editForm.get('grossSalary')?.invalid && editForm.get('grossSalary')?.touched" class="error-text">
+                Salaire brut requis (≥ 0)
+              </small>
+            </div>
+            <div class="form-group">
+              <label>Salaire net *</label>
+              <input type="number" formControlName="netSalary" step="0.01" placeholder="0.00" />
+              <small *ngIf="editForm.get('netSalary')?.invalid && editForm.get('netSalary')?.touched" class="error-text">
+                Salaire net requis (≥ 0)
+              </small>
+            </div>
+            <div class="form-group">
+              <label>Déductions</label>
+              <input type="number" formControlName="deductions" step="0.01" placeholder="0.00" />
+              <small *ngIf="editForm.get('deductions')?.invalid && editForm.get('deductions')?.touched" class="error-text">
+                Doit être ≥ 0
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-block">
+          <div class="block-title">
+            <span class="material-symbols-outlined">calendar_month</span>
+            Période
+          </div>
+          <div class="form-grid grid-2">
+            <div class="form-group">
+              <label>Mois *</label>
+              <input type="number" formControlName="month" min="1" max="12" placeholder="1-12" />
+              <small *ngIf="editForm.get('month')?.invalid && editForm.get('month')?.touched" class="error-text">
+                Mois invalide (1-12)
+              </small>
+            </div>
+            <div class="form-group">
+              <label>Année *</label>
+              <input type="number" formControlName="year" min="2000" placeholder="2025" />
+              <small *ngIf="editForm.get('year')?.invalid && editForm.get('year')?.touched" class="error-text">
+                Année invalide (≥ 2000)
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Boutons d'action -->
+        <div class="modal-footer-bar" style="padding: 20px 0 0; border-top: none; justify-content: flex-end;">
+          <button type="button" class="btn btn-ghost" (click)="goBack()">Annuler</button>
+          <button type="submit" class="btn btn-primary" [disabled]="editForm.invalid || loading">
+            <span class="material-symbols-outlined">save</span> Enregistrer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

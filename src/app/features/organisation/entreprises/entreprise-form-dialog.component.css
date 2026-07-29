@@ -1,0 +1,212 @@
+/* ================== STRUCTURE GLOBALE DE LA MODALE ================== */
+.dialog-shell {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ================== EN-TÊTE COLORÉ ================== */
+.modal-header {
+  background: #f0fdfa; /* primary-50 */
+  padding: 1.75rem 2.25rem;
+  border-bottom: 1px solid #ccfbf1; /* primary-100 */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.modal-header-title {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.modal-icon-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #06b6d4 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 15px -3px rgba(13, 148, 136, 0.4);
+}
+
+.modal-icon-badge mat-icon { font-size: 24px; width: 24px; height: 24px; }
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.dialog-subtitle {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+/* Bouton fermer (X) */
+.btn-close-modal {
+  background: white;
+  border: 1px solid #e2e8f0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.btn-close-modal:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  transform: rotate(90deg);
+}
+
+/* ================== CONTENU ET CORRECTION DES BORDURES ================== */
+/* Forcer le padding pour que le texte ne touche pas les bords */
+::ng-deep .mat-mdc-dialog-content {
+  padding: 2.25rem !important;
+  overflow-y: auto;
+}
+
+.modal-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+/* Alignement des champs sur toute la largeur quand necessaire */
+.form-group { display: flex; flex-direction: column; }
+.form-group.full-width { grid-column: 1 / -1; }
+.full-width-field { width: 100%; }
+
+/* Personnalisation des champs Angular Material (appearance="outline") */
+::ng-deep .mat-mdc-form-field {
+  width: 100%;
+}
+
+/* Couleur de la bordure outline par défaut */
+::ng-deep .mat-mdc-form-field .mdc-notched-outline__leading,
+::ng-deep .mat-mdc-form-field .mdc-notched-outline__notch,
+::ng-deep .mat-mdc-form-field .mdc-notched-outline__trailing {
+  border-color: #e2e8f0 !important; /* Gris clair */
+}
+
+/* Couleur de la bordure outline au SURVOL */
+::ng-deep .mat-mdc-form-field:hover .mdc-notched-outline__leading,
+::ng-deep .mat-mdc-form-field:hover .mdc-notched-outline__notch,
+::ng-deep .mat-mdc-form-field:hover .mdc-notched-outline__trailing {
+  border-color: #14b8a6 !important; /* Turquoise */
+}
+
+/* Couleur de la bordure outline au FOCUS (quand on clique) */
+::ng-deep .mat-mdc-form-field.mat-focused .mdc-notched-outline__leading,
+::ng-deep .mat-mdc-form-field.mat-focused .mdc-notched-outline__notch,
+::ng-deep .mat-mdc-form-field.mat-focused .mdc-notched-outline__trailing {
+  border-color: #0d9488 !important; /* Turquoise foncé */
+  border-width: 2px !important;
+}
+
+/* Couleur du label au focus */
+::ng-deep .mat-mdc-form-field.mat-focused .mat-mdc-floating-label {
+  color: #0d9488 !important;
+}
+
+/* Couleur du texte saisi pour qu'il soit bien visible */
+::ng-deep .mat-mdc-input-element {
+  color: #0f172a !important;
+  font-weight: 500;
+}
+
+/* ================== BANNIÈRE D'ERREUR ================== */
+.error-banner {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  background: #fff1f2;
+  color: #b91c1c;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid #fecdd3;
+}
+.error-banner mat-icon { font-size: 20px; width: 20px; height: 20px; }
+
+/* ================== PIED DE PAGE & BOUTONS ================== */
+::ng-deep .mat-mdc-dialog-actions {
+  padding: 1.25rem 2.25rem 1.75rem !important;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin: 0 !important;
+  flex-shrink: 0;
+}
+
+.btn-cancel {
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+.btn-cancel:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.btn-submit {
+  padding: 0.75rem 1.75rem;
+  border-radius: 12px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #06b6d4 100%);
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 15px -3px rgba(13, 148, 136, 0.4);
+  transition: all 0.2s;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -3px rgba(13, 148, 136, 0.5);
+}
+.btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Spinner dans le bouton */
+.btn-submit mat-spinner {
+  margin-right: 4px;
+}
+::ng-deep .btn-submit mat-spinner circle {
+  stroke: white;
+}
+
+/* ================== RESPONSIVE MOBILE ================== */
+@media (max-width: 600px) {
+  .modal-form-grid { grid-template-columns: 1fr; }
+  .modal-header { padding: 1.25rem 1.5rem; }
+  ::ng-deep .mat-mdc-dialog-content { padding: 1.5rem !important; }
+  ::ng-deep .mat-mdc-dialog-actions { padding: 1rem 1.5rem !important; flex-direction: column; }
+  .btn-cancel, .btn-submit { width: 100%; justify-content: center; }
+}

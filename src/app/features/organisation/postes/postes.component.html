@@ -1,0 +1,265 @@
+<!-- src/app/features/rh/postes/postes.component.html -->
+
+<div class="unity-container">
+
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">work</span>
+      </div>
+      <div>
+        <h1>Gestion des postes</h1>
+        <p>Créer, modifier et administrer les postes de votre entreprise</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button *ngIf="canCreatePosition()" class="btn btn-primary" (click)="openModal()">
+        <span class="material-symbols-outlined">add</span>
+        Nouveau poste
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== STATS ==================== -->
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-icon"><span class="material-symbols-outlined">work_history</span></div>
+      <div class="stat-info">
+        <p>Total postes</p>
+        <h3>{{ postes().length }}</h3>
+      </div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon"><span class="material-symbols-outlined">check_circle</span></div>
+      <div class="stat-info">
+        <p>Actifs</p>
+        <h3>{{ postes().filter(p => p.active).length }}</h3>
+      </div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-icon"><span class="material-symbols-outlined">pending</span></div>
+      <div class="stat-info">
+        <p>Inactifs</p>
+        <h3>{{ postes().filter(p => !p.active).length }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== RECHERCHE ==================== -->
+  <div class="search-filter-bar">
+    <div class="search-wrapper">
+      <span class="material-symbols-outlined search-icon">search</span>
+      <input
+        type="text"
+        class="search-input"
+        placeholder="Rechercher un poste (code, libellé, description)..."
+        [(ngModel)]="searchText"
+        (input)="search()"
+      />
+      <button class="clear-search" *ngIf="searchText" (click)="clearSearch()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="filter-results">
+      <span class="result-count">
+        <span class="material-symbols-outlined">list_alt</span>
+        {{ filteredPostes().length }} poste(s)
+      </span>
+    </div>
+  </div>
+
+  <!-- ==================== TABLEAU ==================== -->
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">
+        <span class="material-symbols-outlined">list_alt</span>
+        <h2>Liste des postes</h2>
+      </div>
+      <span class="table-info" *ngIf="!loading()">
+        {{ filteredPostes().length }} sur {{ postes().length }}
+      </span>
+    </div>
+
+    <div class="responsive-wrapper">
+      <table class="up-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Libellé</th>
+            <th>Description</th>
+            <th>Département</th>
+            <th>Statut</th>
+            <th class="th-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading()">
+            <td colspan="6" class="loading-state">
+              <div class="spinner"></div>
+              <p>Chargement des postes...</p>
+            </td>
+          </tr>
+
+          <ng-container *ngIf="!loading()">
+            <tr *ngFor="let poste of paginatedPostes(); let i = index" [style.--row-index]="i">
+              <td><span class="code-badge">{{ poste.code }}</span></td>
+              <td class="libelle-cell">{{ poste.libelle }}</td>
+              <td class="desc-cell">{{ poste.description || '—' }}</td>
+              <!-- ✅ Utilisation de getDepartementName avec l'ID -->
+              <td>{{ getDepartementName(poste.departement?.id || poste.departementId) }}</td>
+              <td>
+                <span class="status-pill" [class.active]="poste.active" [class.inactive]="!poste.active">
+                  <span class="material-symbols-outlined">{{ poste.active ? 'check_circle' : 'cancel' }}</span>
+                  {{ poste.active ? 'Actif' : 'Inactif' }}
+                </span>
+              </td>
+              <td>
+                <div class="actions-cell">
+                  <button *ngIf="canUpdatePosition()" class="action-btn warning" (click)="edit(poste)" title="Modifier">
+                    <span class="material-symbols-outlined">edit</span>
+                  </button>
+                  <button *ngIf="canDeletePosition()" class="action-btn danger" (click)="delete(poste.id!)" title="Supprimer">
+                    <span class="material-symbols-outlined">delete</span>
+                  </button>
+                  <button *ngIf="canTogglePosition()" class="action-btn toggle" (click)="toggle(poste.id!)" title="Basculer">
+                    <span class="material-symbols-outlined">sync</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <tr *ngIf="filteredPostes().length === 0">
+              <td colspan="6">
+                <div class="empty-state">
+                  <span class="material-symbols-outlined">inbox</span>
+                  <p>Aucun poste trouvé</p>
+                  <p class="empty-hint" *ngIf="searchText">Modifiez votre recherche</p>
+                </div>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ==================== PAGINATION ==================== -->
+    <div class="pagination-container" *ngIf="filteredPostes().length > 0 && !loading()">
+      <div class="pagination-info">
+        <span>
+          Affichage de <strong>{{ (currentPage() - 1) * itemsPerPage + 1 }}</strong>
+          à <strong>{{ Math.min(currentPage() * itemsPerPage, filteredPostes().length) }}</strong>
+          sur <strong>{{ filteredPostes().length }}</strong> postes
+        </span>
+        <div class="page-size-selector">
+          <label for="pageSize">Lignes :</label>
+          <select id="pageSize" [(ngModel)]="itemsPerPage" (change)="onPageSizeChange()">
+            <option [value]="5">5</option>
+            <option [value]="10" selected>10</option>
+            <option [value]="25">25</option>
+            <option [value]="50">50</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pagination-controls">
+        <button class="pagination-btn" (click)="previousPage()" [disabled]="currentPage() === 1">
+          <span class="material-symbols-outlined">chevron_left</span> Précédent
+        </button>
+
+        <div class="page-numbers">
+          <button *ngIf="totalPages() > 1" class="page-number" [class.active]="currentPage() === 1" (click)="goToPage(1)">1</button>
+          <span *ngIf="currentPage() > 3" class="ellipsis">…</span>
+          <button *ngFor="let page of getVisiblePages()" class="page-number" [class.active]="currentPage() === page" (click)="goToPage(page)">{{ page }}</button>
+          <span *ngIf="currentPage() < totalPages() - 2" class="ellipsis">…</span>
+          <button *ngIf="totalPages() > 1" class="page-number" [class.active]="currentPage() === totalPages()" (click)="goToPage(totalPages())">{{ totalPages() }}</button>
+        </div>
+
+        <button class="pagination-btn" (click)="nextPage()" [disabled]="currentPage() === totalPages()">
+          Suivant <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODALE ==================== -->
+<div class="modal-overlay" *ngIf="showModal" (click)="closeModalOnBackdrop($event)">
+  <div class="modal-glass max-md">
+    <div class="modal-top-header">
+      <div class="modal-title-group">
+        <div class="modal-icon">
+          <span class="material-symbols-outlined">{{ isEditMode ? 'edit' : 'add' }}</span>
+        </div>
+        <div>
+          <h3>{{ isEditMode ? 'Modifier un poste' : 'Créer un poste' }}</h3>
+          <p>{{ isEditMode ? 'Mise à jour' : 'Nouveau poste' }}</p>
+        </div>
+      </div>
+      <button class="close-btn" (click)="closeModal()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="modal-body-scroll">
+      <div class="alert alert-danger" *ngIf="errorMessage()">
+        <span class="material-symbols-outlined">error</span>
+        {{ errorMessage() }}
+      </div>
+
+      <form>
+        <div class="form-block">
+          <div class="block-title"><span class="material-symbols-outlined">badge</span> Identifiant</div>
+          <div class="form-grid grid-2">
+            <div class="form-group">
+              <label>Code *</label>
+              <input type="text" [(ngModel)]="posteForm.code" name="code" placeholder=" DEV-001" />
+              <small class="error-text" *ngIf="!posteForm.code?.trim() && submitted">Requis</small>
+            </div>
+            <div class="form-group">
+              <label>Libellé *</label>
+              <input type="text" [(ngModel)]="posteForm.libelle" name="libelle" placeholder=" Développeur Full Stack" />
+              <small class="error-text" *ngIf="!posteForm.libelle?.trim() && submitted">Requis</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-block">
+          <div class="block-title"><span class="material-symbols-outlined">description</span> Détails</div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea rows="3" [(ngModel)]="posteForm.description" name="description" placeholder="Description détaillée..."></textarea>
+          </div>
+        </div>
+
+        <div class="form-block">
+          <div class="block-title"><span class="material-symbols-outlined">corporate_fare</span> Affectation</div>
+          <div class="form-group">
+            <label>Département</label>
+            <div class="select-wrapper">
+              <select [(ngModel)]="posteForm.departement.id" name="departementId" [disabled]="loadingDepartements()">
+                <option value="">-- Choisir --</option>
+                <option *ngFor="let dept of departements()" [value]="dept.id">{{ dept.name }}</option>
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+            <small class="text-muted" *ngIf="loadingDepartements()">Chargement...</small>
+          </div>
+        </div>
+
+        <div class="form-check">
+          <input type="checkbox" [(ngModel)]="posteForm.active" name="active" id="activeCheck">
+          <label for="activeCheck">Poste actif</label>
+        </div>
+      </form>
+    </div>
+
+    <div class="modal-footer-bar">
+      <button class="btn btn-ghost" (click)="closeModal()">Annuler</button>
+      <button class="btn btn-primary" (click)="save()" [disabled]="loading()">
+        <span class="material-symbols-outlined">{{ isEditMode ? 'save' : 'add' }}</span>
+        {{ isEditMode ? 'Enregistrer' : 'Créer' }}
+      </button>
+    </div>
+  </div>
+</div>

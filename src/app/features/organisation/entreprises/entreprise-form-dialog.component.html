@@ -1,0 +1,92 @@
+<div class="dialog-shell">
+  
+  <!-- En-tête coloré et espacé -->
+  <div class="modal-header">
+    <div class="modal-header-title">
+      <div class="modal-icon-badge">
+        <mat-icon>{{ isEditMode ? 'edit_note' : 'business_center' }}</mat-icon>
+      </div>
+      <div>
+        <h2>{{ isEditMode ? 'Modifier l\'entreprise' : 'Nouvelle entreprise' }}</h2>
+        <p class="dialog-subtitle">Remplissez les informations de la structure ci-dessous.</p>
+      </div>
+    </div>
+    <button class="btn-close-modal" aria-label="Fermer" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Contenu du formulaire avec padding forcéré -->
+  <mat-dialog-content [formGroup]="form" class="modal-content">
+    
+    <div class="modal-form-grid">
+      
+      <div class="form-group">
+        <mat-form-field appearance="outline" class="full-width-field">
+          <mat-label>Nom de l'entreprise *</mat-label>
+          <input matInput formControlName="name" autocomplete="off">
+          <mat-error *ngIf="form.get('name')?.hasError('required')">Le nom est requis.</mat-error>
+          <mat-error *ngIf="form.get('name')?.hasError('minlength')">Minimum 2 caractères.</mat-error>
+          <mat-error *ngIf="form.get('name')?.hasError('maxlength')">Maximum 100 caractères.</mat-error>
+        </mat-form-field>
+      </div>
+
+      <div class="form-group">
+        <mat-form-field appearance="outline" class="full-width-field">
+          <mat-label>Siège social</mat-label>
+          <input matInput formControlName="siege" autocomplete="off">
+        </mat-form-field>
+      </div>
+
+      <div class="form-group full-width">
+        <mat-form-field appearance="outline" class="full-width-field">
+          <mat-label>Adresse complète</mat-label>
+          <input matInput formControlName="adresse" autocomplete="off">
+        </mat-form-field>
+      </div>
+
+      <div class="form-group">
+        <mat-form-field appearance="outline" class="full-width-field">
+          <mat-label>Téléphone</mat-label>
+          <input matInput formControlName="telephone" autocomplete="off">
+          <mat-error *ngIf="form.get('telephone')?.invalid">Format invalide.</mat-error>
+        </mat-form-field>
+      </div>
+
+      <div class="form-group">
+        <mat-form-field appearance="outline" class="full-width-field">
+          <mat-label>Email de contact</mat-label>
+          <input matInput formControlName="email" autocomplete="off">
+          <mat-error *ngIf="form.get('email')?.invalid">Email invalide.</mat-error>
+        </mat-form-field>
+      </div>
+
+      <div class="form-group full-width">
+        <mat-form-field appearance="outline" class="full-width-field">
+          <mat-label>Statut de l'entreprise</mat-label>
+          <mat-select formControlName="statut">
+            <mat-option value="ACTIF">🟢 ACTIF</mat-option>
+            <mat-option value="SUSPENDU">🔴 SUSPENDU</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+    </div>
+
+    <div *ngIf="errorMessage()" class="error-banner">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ errorMessage() }}</span>
+    </div>
+
+  </mat-dialog-content>
+
+  <!-- Pied de page avec boutons modernes -->
+  <mat-dialog-actions align="end" class="modal-footer">
+    <button class="btn-cancel" type="button" (click)="close()">Annuler</button>
+    <button class="btn-submit" type="button" [disabled]="form.invalid || isLoading()" (click)="submit()">
+      <mat-spinner *ngIf="isLoading()" diameter="18"></mat-spinner>
+      <span>{{ isEditMode ? 'Mettre à jour' : 'Créer l\'entreprise' }}</span>
+    </button>
+  </mat-dialog-actions>
+
+</div>

@@ -1,0 +1,457 @@
+/* src/app/features/rh/conges/demande-conge/demande-conge.component.css */
+:host {
+  display: block;
+  min-height: 100vh;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 24px 40px;
+  background: linear-gradient(135deg, #f0fdfa 0%, #e6f7f5 100%);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.form-card {
+  background: white;
+  padding: 48px 60px;
+  border-radius: 24px;
+  width: 100%;
+  max-width: 1200px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 191, 166, 0.1);
+  animation: slideUp 0.3s ease;
+  margin: 0 auto;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.form-header {
+  margin-bottom: 40px;
+  padding-bottom: 32px;
+  border-bottom: 2px solid #f0fdfa;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.eyebrow {
+  color: #0d9488;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.eyebrow i {
+  margin-right: 6px;
+}
+
+.btn-back {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.btn-back i {
+  margin-right: 6px;
+}
+
+.btn-back:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+h2 {
+  margin: 8px 0 8px 0;
+  color: #0f172a;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+h2 i {
+  color: #0d9488;
+  margin-right: 12px;
+}
+
+p {
+  color: #64748b;
+  font-size: 16px;
+  margin: 0;
+}
+
+/* Badges */
+.solde-badge {
+  margin-top: 16px;
+  background: linear-gradient(135deg, #f0fdfa, #d1fae5);
+  padding: 16px 24px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #a7f3d0;
+}
+
+.solde-icon {
+  font-size: 24px;
+  color: #0d9488;
+}
+
+.solde-text {
+  color: #065f46;
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.solde-text strong {
+  color: #0d9488;
+  font-size: 18px;
+}
+
+.info-badge {
+  margin-top: 16px;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  padding: 16px 24px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  font-size: 15px;
+}
+
+.info-badge i {
+  font-size: 20px;
+  color: #3b82f6;
+}
+
+.info-badge strong {
+  color: #1e40af;
+}
+
+/* Alertes */
+.alert {
+  padding: 16px 24px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.alert-success {
+  background: #f0fdfa;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.alert-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.alert-icon {
+  font-size: 20px;
+}
+
+.alert-success .alert-icon {
+  color: #0d9488;
+}
+
+.alert-error .alert-icon {
+  color: #ef4444;
+}
+
+/* Formulaire en grille large */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px 32px;
+}
+
+.form-grid .full-width {
+  grid-column: 1 / -1;
+}
+
+.field {
+  margin-bottom: 0;
+}
+
+.field label {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+.field label i {
+  color: #0d9488;
+  margin-right: 8px;
+}
+
+.required {
+  color: #ef4444;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 2px solid #e2e8f0;
+  font-size: 16px;
+  transition: all 0.2s;
+  background: white;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.field textarea {
+  min-height: 100px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: #0d9488;
+  box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.1);
+}
+
+.field input.invalid,
+.field select.invalid {
+  border-color: #ef4444;
+}
+
+.field input.readonly {
+  background: #f8fafc;
+  cursor: not-allowed;
+}
+
+.input-with-info {
+  position: relative;
+}
+
+.input-with-info input {
+  padding-right: 70px;
+}
+
+.input-info {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.input-info i {
+  margin-right: 4px;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.field-hint i {
+  margin-right: 4px;
+}
+
+.field-hint strong {
+  color: #0d9488;
+}
+
+.field-hint .text-warning {
+  color: #f59e0b;
+}
+
+.field-hint .text-danger {
+  color: #ef4444;
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 40px;
+  padding-top: 32px;
+  border-top: 2px solid #f1f5f9;
+}
+
+.btn-primary,
+.btn-secondary {
+  flex: 1;
+  padding: 16px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 16px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #00bfa6, #009f8b);
+  color: white;
+}
+
+.btn-primary i {
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 191, 166, 0.3);
+}
+
+.btn-primary:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.btn-secondary i {
+  color: #475569;
+}
+
+.btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .form-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 16px 20px;
+  }
+  
+  .form-card {
+    padding: 32px 24px;
+    border-radius: 16px;
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .form-grid .full-width {
+    grid-column: 1;
+  }
+  
+  .actions {
+    flex-direction: column;
+  }
+  
+  .header-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  h2 {
+    font-size: 24px;
+  }
+  
+  .solde-badge,
+  .info-badge {
+    padding: 12px 16px;
+    font-size: 13px;
+    display: flex;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 12px;
+  }
+  
+  .form-card {
+    padding: 20px 16px;
+  }
+  
+  h2 {
+    font-size: 20px;
+  }
+  
+  .field input,
+  .field select,
+  .field textarea {
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+}

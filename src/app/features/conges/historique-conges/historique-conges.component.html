@@ -1,0 +1,286 @@
+<!-- src/app/features/rh/historique-conges/historique-conges.component.html -->
+<div class="page">
+  <!-- Header -->
+  <div class="header-section">
+    <div class="header-content">
+      <div>
+        <h1><i class="fas fa-history"></i> Historique des congés</h1>
+        <p class="subtitle">Consultez l'historique complet de toutes les demandes de congé</p>
+      </div>
+      <button class="btn-export" (click)="exportCSV()" [disabled]="filteredConges().length === 0">
+        <i class="fas fa-file-export"></i> Exporter CSV
+      </button>
+    </div>
+
+    <!-- Statistiques annuelles -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-number">{{ statsAnnuelles().total }}</span>
+        <span class="stat-label">
+          <i class="fas fa-inbox"></i> Total demandes
+        </span>
+      </div>
+      <div class="stat-card status-approved-bg">
+        <span class="stat-number">{{ statsAnnuelles().approuve }}</span>
+        <span class="stat-label">
+          <i class="fas fa-check-circle"></i> Approuvés
+        </span>
+      </div>
+      <div class="stat-card status-rejected-bg">
+        <span class="stat-number">{{ statsAnnuelles().rejete }}</span>
+        <span class="stat-label">
+          <i class="fas fa-times-circle"></i> Rejetés
+        </span>
+      </div>
+      <div class="stat-card status-cancelled-bg">
+        <span class="stat-number">{{ statsAnnuelles().annule }}</span>
+        <span class="stat-label">
+          <i class="fas fa-ban"></i> Annulés
+        </span>
+      </div>
+      <div class="stat-card status-pending-bg">
+        <span class="stat-number">{{ statsAnnuelles().enAttente }}</span>
+        <span class="stat-label">
+          <i class="fas fa-clock"></i> En attente
+        </span>
+      </div>
+      <div class="stat-card status-ongoing-bg">
+        <span class="stat-number">{{ statsAnnuelles().joursPris }}</span>
+        <span class="stat-label">
+          <i class="fas fa-calendar-check"></i> Jours pris
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  @if (errorMessage()) {
+    <div class="alert alert-error">
+      <i class="fas fa-exclamation-triangle alert-icon"></i>
+      {{ errorMessage() }}
+    </div>
+  }
+
+  <!-- Filtres -->
+  <div class="filter-section">
+    <div class="filter-row">
+      <div class="filter-group">
+        <label for="anneeFilter">
+          <i class="fas fa-calendar-alt"></i> Année
+        </label>
+        <select id="anneeFilter" [(ngModel)]="selectedAnnee" (change)="onFilterChange()">
+          @for (annee of annees; track annee) {
+            <option [value]="annee">{{ annee }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="statutFilter">
+          <i class="fas fa-filter"></i> Statut
+        </label>
+        <select id="statutFilter" [(ngModel)]="selectedStatut" (change)="onFilterChange()">
+          @for (option of statutOptions; track option) {
+            <option [value]="option">
+              {{ option === 'TOUS' ? 'Tous' : statutLabel(option) }}
+            </option>
+          }
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="searchTerm">
+          <i class="fas fa-search"></i> Recherche
+        </label>
+        <input 
+          id="searchTerm" 
+          type="text" 
+          [(ngModel)]="searchTerm" 
+          (input)="onFilterChange()"
+          placeholder="Nom, type ou statut..."
+        />
+      </div>
+
+      <button class="btn-reset" (click)="resetFilters()">
+        <i class="fas fa-undo-alt"></i> Réinitialiser
+      </button>
+    </div>
+    <div class="filter-result">
+      <i class="fas fa-list"></i>
+      <span>{{ filteredConges().length }} demande(s) trouvée(s) pour {{ selectedAnnee }}</span>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  @if (loading()) {
+    <div class="state loading">
+      <div class="spinner-large"></div>
+      <p><i class="fas fa-spinner fa-spin"></i> Chargement de l'historique...</p>
+    </div>
+  }
+
+  <!-- Empty state -->
+  @if (!loading() && filteredConges().length === 0 && !errorMessage()) {
+    <div class="empty-state">
+      <div class="empty-icon">
+        <i class="fas fa-history"></i>
+      </div>
+      <h3>Aucune demande trouvée</h3>
+      <p>Aucune demande de congé ne correspond à vos critères pour {{ selectedAnnee }}.</p>
+    </div>
+  }
+
+  <!-- Timeline des congés -->
+  @if (!loading() && filteredConges().length > 0) {
+    <div class="timeline">
+      <div class="timeline-line"></div>
+      
+      @for (c of paginatedConges(); track c.id; let i = $index) {
+        <div class="timeline-item">
+          <div class="timeline-marker" [ngClass]="statutClass(c.statut)">
+            <span class="marker-icon">{{ getStatusIcon(c.statut) }}</span>
+          </div>
+          
+          <div class="timeline-content">
+            <div class="timeline-header">
+              <div class="timeline-title">
+                <!-- ✅ Affichage du nom de l'employé -->
+                <span class="employee-name">
+                  <i class="fas fa-user-circle"></i>
+                  {{ getEmployeeNameById(c.employee?.id) }}
+                </span>
+                <h3>{{ getTypeLabel(c.typeConge) }}</h3>
+                <span class="timeline-date">
+                  <i class="far fa-calendar-alt"></i> {{ formatDate(c.jourDebut) }} - {{ formatDate(c.jourFin) }}
+                </span>
+              </div>
+              <span class="status-badge {{ statutClass(c.statut) }}">
+                <span class="status-icon">{{ getStatusIcon(c.statut) }}</span>
+                {{ statutLabel(c.statut) }}
+              </span>
+            </div>
+            
+            <div class="timeline-body">
+              <div class="timeline-info">
+                <div class="info-item">
+                  <span class="info-label">
+                    <i class="far fa-clock"></i> Durée
+                  </span>
+                  <span class="info-value">{{ c.nbJour }} jour(s)</span>
+                </div>
+                @if (c.dateValidation) {
+                  <div class="info-item">
+                    <span class="info-label">
+                      <i class="fas fa-check-circle"></i> Validé le
+                    </span>
+                    <span class="info-value">{{ formatDate(c.dateValidation) }}</span>
+                  </div>
+                }
+                @if (c.managerId) {
+                  <div class="info-item">
+                    <span class="info-label">
+                      <i class="fas fa-user-check"></i> Validé par
+                    </span>
+                    <span class="info-value">{{ getValidatorName(c.managerId) }}</span>
+                  </div>
+                }
+              </div>
+              
+              @if (c.commentaireManager) {
+                <div class="timeline-comment">
+                  <span class="comment-label">
+                    <i class="fas fa-comment"></i> Commentaire :
+                  </span>
+                  <span class="comment-text">{{ c.commentaireManager }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- ============ PAGINATION ============ -->
+    @if (filteredConges().length > 0) {
+      <div class="pagination-container">
+        <!-- Pagination Info -->
+        <div class="pagination-info">
+          <span>
+            Affichage de 
+            <strong>{{ (currentPage() - 1) * itemsPerPage + 1 }}</strong> 
+            à 
+            <strong>{{ Math.min(currentPage() * itemsPerPage, filteredConges().length) }}</strong> 
+            sur 
+            <strong>{{ filteredConges().length }}</strong> 
+            demandes
+          </span>
+          
+          <div class="page-size-selector">
+            <label for="pageSize">Lignes par page :</label>
+            <select id="pageSize" [(ngModel)]="itemsPerPage" (change)="onPageSizeChange()">
+              <option [value]="5">5</option>
+              <option [value]="10">10</option>
+              <option [value]="20">20</option>
+              <option [value]="50">50</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="pagination-controls">
+          <!-- Previous Button -->
+          <button class="pagination-btn" 
+                  (click)="previousPage()" 
+                  [disabled]="currentPage() === 1"
+                  [class.disabled]="currentPage() === 1">
+            <i class="fas fa-chevron-left"></i>
+            <span>Précédent</span>
+          </button>
+
+          <!-- Page Numbers -->
+          <div class="page-numbers">
+            <!-- First Page -->
+            <button *ngIf="totalPages() > 1" 
+                    class="page-number" 
+                    [class.active]="currentPage() === 1"
+                    (click)="goToPage(1)">
+              1
+            </button>
+
+            <!-- Left Ellipsis -->
+            <span *ngIf="currentPage() > 3" class="ellipsis">…</span>
+
+            <!-- Pages around current -->
+            <button *ngFor="let page of getVisiblePages()" 
+                    class="page-number" 
+                    [class.active]="currentPage() === page"
+                    (click)="goToPage(page)">
+              {{ page }}
+            </button>
+
+            <!-- Right Ellipsis -->
+            <span *ngIf="currentPage() < totalPages() - 2" class="ellipsis">…</span>
+
+            <!-- Last Page -->
+            <button *ngIf="totalPages() > 1" 
+                    class="page-number" 
+                    [class.active]="currentPage() === totalPages()"
+                    (click)="goToPage(totalPages())">
+              {{ totalPages() }}
+            </button>
+          </div>
+
+          <!-- Next Button -->
+          <button class="pagination-btn" 
+                  (click)="nextPage()" 
+                  [disabled]="currentPage() === totalPages()"
+                  [class.disabled]="currentPage() === totalPages()">
+            <span>Suivant</span>
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    }
+    <!-- ============ END PAGINATION ============ -->
+  }
+</div>

@@ -1,0 +1,136 @@
+<!-- src/app/features/pay-slip/pay-slip-detail.component.html -->
+<div class="detail-container">
+
+  <!-- ========== HEADER ========== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">receipt_long</span>
+      </div>
+      <div>
+        <h1>Bulletin de paie</h1>
+        <p>{{ paySlip?.period || 'Période non définie' }}</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-secondary" routerLink="/app/paie/historique">
+        <span class="material-symbols-outlined">arrow_back</span> Retour
+      </button>
+    </div>
+  </div>
+
+  <!-- ========== CHARGEMENT / ERREUR ========== -->
+  <div *ngIf="loading" class="loading-state">⏳ Chargement en cours...</div>
+  <div *ngIf="error" class="error-state">{{ error }}</div>
+
+  <!-- ========== CONTENU ========== -->
+  <div *ngIf="paySlip && !loading" class="detail-card">
+
+    <!-- Informations employé -->
+    <div class="employee-section">
+      <div class="employee-avatar">
+        <span>{{ paySlip.employeeFullName | slice:0:1 }}</span>
+      </div>
+      <div class="employee-info">
+        <h2>{{ paySlip.employeeFullName }}</h2>
+        <p>
+          <span class="material-symbols-outlined">badge</span>
+          <strong>Matricule :</strong> {{ paySlip.employeeMatricule }}
+        </p>
+        <p>
+          <span class="material-symbols-outlined">calendar_month</span>
+          <strong>Période :</strong> {{ paySlip.period }}
+        </p>
+        <p>
+          <span class="material-symbols-outlined">check_circle</span>
+          <strong>Statut :</strong>
+          <span class="badge" [class]="getStatusBadgeClass(paySlip.status)">
+            {{ getStatusLabel(paySlip.status) }}
+          </span>
+          <span *ngIf="hasErrors()" class="badge-error-icon" title="Erreurs détectées">
+            <span class="material-symbols-outlined">error</span>
+          </span>
+        </p>
+        <p *ngIf="hasErrors()" class="error-list">
+          <span class="material-symbols-outlined">error_outline</span>
+          <span>Erreurs : {{ paySlip.importErrors?.length }}</span>
+          <span class="error-detail" *ngFor="let err of paySlip.importErrors">{{ err }}</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Détails salaire -->
+    <div class="salary-grid">
+      <div class="salary-item brut">
+        <span class="label">Salaire brut</span>
+        <span class="value">{{ paySlip.grossSalary | currency:'XOF':'symbol':'1.0-0' }}</span>
+      </div>
+      <div class="salary-item deductions">
+        <span class="label">Déductions</span>
+        <span class="value">{{ paySlip.deductions | currency:'XOF':'symbol':'1.0-0' }}</span>
+      </div>
+      <div class="salary-item net">
+        <span class="label">Salaire net</span>
+        <span class="value">{{ paySlip.netSalary | currency:'XOF':'symbol':'1.0-0' }}</span>
+      </div>
+    </div>
+
+    <!-- ========== PAGES ========== -->
+    <div *ngIf="paySlip.imageIds && paySlip.imageIds.length > 0" class="pages-section">
+      <div class="pages-header">
+        <h3>
+          <span class="material-symbols-outlined">image</span>
+          Pages du bulletin ({{ paySlip.imageIds.length }})
+        </h3>
+        <div class="pages-actions">
+          <button *ngIf="canDownload && paySlip.imageIds.length > 1" class="btn btn-sm btn-primary" (click)="downloadZip()">
+            <span class="material-symbols-outlined">folder_zip</span> Tout télécharger (ZIP)
+          </button>
+          <button *ngIf="canDownload" class="btn btn-sm btn-secondary" (click)="downloadPdf()">
+            <span class="material-symbols-outlined">description</span> PDF original
+          </button>
+        </div>
+      </div>
+
+      <div class="pages-grid">
+        <div *ngFor="let url of pageUrls; let i = index" class="page-item" (click)="viewPage(i)">
+          <!-- CORRECTION : plus d'assignation de variable -->
+          <img [src]="url" [alt]="'Page ' + (i+1)" (error)="onImageError(i)" />
+          <div class="page-overlay">
+            <span>Page {{ i + 1 }}</span>
+            <div class="page-actions-overlay">
+              <button class="btn-icon" (click)="$event.stopPropagation(); viewPage(i)" title="Voir">
+                <span class="material-symbols-outlined">visibility</span>
+              </button>
+              <button class="btn-icon" (click)="$event.stopPropagation(); downloadPage(i)" title="Télécharger" *ngIf="canDownload">
+                <span class="material-symbols-outlined">download</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== ACTIONS GLOBALES ========== -->
+    <div class="actions-section">
+      <button *ngIf="canDownload" class="btn btn-primary" (click)="downloadPdf()">
+        <span class="material-symbols-outlined">download</span> Télécharger le PDF
+      </button>
+      <button *ngIf="canDownload && paySlip.imageIds && paySlip.imageIds.length > 1" class="btn btn-success" (click)="downloadZip()">
+        <span class="material-symbols-outlined">folder_zip</span> Télécharger en ZIP
+      </button>
+    </div>
+
+    <!-- Métadonnées -->
+    <div class="meta-section">
+      <small>
+        <span class="material-symbols-outlined">create</span>
+        Créé le {{ paySlip.createdAt | date:'dd/MM/yyyy HH:mm' }} par {{ paySlip.createdBy }}
+      </small>
+      <small *ngIf="paySlip.updatedAt">
+        <span class="material-symbols-outlined">edit</span>
+        Modifié le {{ paySlip.updatedAt | date:'dd/MM/yyyy HH:mm' }}
+      </small>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,56 @@
+<div class="permission-detail-container">
+  <div class="d-flex align-items-center mb-4">
+    <button class="btn btn-outline-primary me-3" (click)="goBack()">
+      <i class="fas fa-arrow-left"></i>
+    </button>
+    <h2 class="mb-0">Détail de la Permission</h2>
+  </div>
+
+  <div *ngIf="!isLoading && permission" class="card">
+    <div class="card-header">
+      <h5 class="mb-0 fw-bold">{{ permission.name }}</h5>
+      <span class="badge" [class]="getCategoryBadgeClass(permission.category)">
+        {{ permission.category || 'N/A' }}
+      </span>
+    </div>
+
+    <div class="card-body">
+      <div class="row">
+        <!-- Colonne 1 : Général -->
+        <div class="col-md-6 info-section">
+          <div class="section-title">Informations Générales</div>
+          <div class="data-row"><div class="label">ID</div><div class="value">{{ permission.id }}</div></div>
+          <div class="data-row"><div class="label">Nom</div><div class="value">{{ permission.name }}</div></div>
+          <div class="data-row"><div class="label">Description</div><div class="value">{{ permission.description || '-' }}</div></div>
+          <div class="data-row"><div class="label">Niveau Requis</div><div class="value"><span class="badge bg-secondary">{{ permission.requiredLevel }}</span></div></div>
+          <div class="data-row">
+            <div class="label">Statut</div>
+            <div class="value">
+              <span class="badge" [class.bg-success]="permission.active" [class.bg-danger]="!permission.active">
+                {{ permission.active ? 'Actif' : 'Inactif' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Colonne 2 : Audit -->
+        <div class="col-md-6 info-section">
+          <div class="section-title">Audit système</div>
+          <div class="data-row"><div class="label">Créé le</div><div class="value">{{ permission.createdAt | date:'dd/MM/yyyy HH:mm' }}</div></div>
+          <div class="data-row"><div class="label">Créé par</div><div class="value">{{ permission.createdBy || '-' }}</div></div>
+          <div class="data-row"><div class="label">Modifié le</div><div class="value">{{ permission.updatedAt | date:'dd/MM/yyyy HH:mm' }}</div></div>
+          <div class="data-row"><div class="label">Modifié par</div><div class="value">{{ permission.updatedBy || '-' }}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-footer">
+      <button class="btn btn-warning" (click)="editPermission()">
+        <i class="fas fa-edit me-2"></i>Modifier
+      </button>
+      <button class="btn btn-danger" (click)="deletePermission()" [disabled]="isDeleting">
+        <i class="fas fa-trash me-2"></i>Supprimer
+      </button>
+    </div>
+  </div>
+</div>

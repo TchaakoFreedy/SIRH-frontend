@@ -1,0 +1,416 @@
+<div class="role-permissions-container">
+
+
+  <!-- HEADER -->
+
+  <div class="page-header">
+
+
+    <div class="header-left">
+
+
+      <button 
+        class="back-btn"
+        (click)="goBack()">
+
+        <i class="fas fa-arrow-left"></i>
+
+      </button>
+
+
+
+      <div>
+
+        <h2>
+
+          <i class="fas fa-key"></i>
+
+          Gestion des Permissions
+
+        </h2>
+
+
+        <p *ngIf="role">
+
+          Rôle :
+          <strong>{{role.name}}</strong>
+
+        </p>
+
+
+      </div>
+
+
+
+    </div>
+
+
+
+  </div>
+
+
+
+
+
+
+
+  <!-- LOADING -->
+
+  <div 
+    class="loading"
+    *ngIf="isLoading">
+
+
+    <div class="spinner-border text-primary"></div>
+
+
+    <p>
+      Chargement des données...
+    </p>
+
+
+  </div>
+
+
+
+
+
+
+
+  <div *ngIf="!isLoading && role">
+
+
+
+
+
+
+    <!-- STATISTIQUES -->
+
+
+    <div class="stats-grid">
+
+
+      <div class="stat-card">
+
+
+        <div>
+
+          <span>
+            {{getTotalCount()}}
+          </span>
+
+          <p>
+            Permissions totales
+          </p>
+
+        </div>
+
+
+        <i class="fas fa-key"></i>
+
+
+      </div>
+
+
+
+
+
+      <div class="stat-card">
+
+
+        <div>
+
+          <span>
+            {{getSelectedCount()}}
+          </span>
+
+          <p>
+            Permissions attribuées
+          </p>
+
+        </div>
+
+
+        <i class="fas fa-check-circle"></i>
+
+
+      </div>
+
+
+
+
+
+      <div class="stat-card">
+
+
+        <div>
+
+          <span>
+            {{(getSelectedCount()/getTotalCount()*100)|number:'1.0-0'}}%
+          </span>
+
+
+          <p>
+            Couverture
+          </p>
+
+
+        </div>
+
+
+        <i class="fas fa-chart-pie"></i>
+
+
+      </div>
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+    <!-- SEARCH ACTIONS -->
+
+
+    <div class="toolbar">
+
+
+      <div class="search-box">
+
+
+        <i class="fas fa-search"></i>
+
+
+        <input
+          type="text"
+          placeholder="Rechercher une permission..."
+          [(ngModel)]="permissionSearch"
+        />
+
+
+      </div>
+
+
+
+
+
+      <div class="toolbar-actions">
+
+
+        <button
+          class="btn-outline"
+          (click)="toggleAll()">
+
+
+
+          <i class="fas"
+          [class.fa-check-square]="!isAllSelected()"
+          [class.fa-square]="isAllSelected()">
+          </i>
+
+
+
+          {{isAllSelected()
+          ?'Désélectionner'
+          :'Tout sélectionner'}}
+
+
+        </button>
+
+
+
+
+
+        <button
+          class="btn-save"
+          (click)="savePermissions()"
+          [disabled]="isSaving">
+
+
+
+          <span
+          *ngIf="isSaving"
+          class="spinner-border spinner-border-sm">
+          </span>
+
+
+          <i class="fas fa-save"></i>
+
+
+          Sauvegarder
+
+
+
+        </button>
+
+
+      </div>
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+    <!-- PERMISSIONS -->
+
+
+    <div class="permissions-container">
+
+
+
+      <div class="section-title">
+
+
+        <i class="fas fa-list"></i>
+
+        Liste des permissions
+
+
+      </div>
+
+
+
+
+
+
+
+      <div class="permissions-grid">
+
+
+
+        <div
+          class="permission-card"
+          *ngFor="let permission of filterPermissions()"
+          (click)="togglePermission(permission.id)"
+          [class.selected]="isPermissionSelected(permission.id)"
+        >
+
+
+
+
+          <div class="permission-content">
+
+
+
+            <div>
+
+
+              <h6>
+                {{permission.name}}
+              </h6>
+
+
+              <p>
+
+                {{permission.description || 
+                'Aucune description'}}
+
+              </p>
+
+
+
+              <div class="tags">
+
+
+                <span>
+
+                  {{permission.category || 'N/A'}}
+
+                </span>
+
+
+
+                <span>
+
+                  Niveau {{permission.requiredLevel}}
+
+                </span>
+
+
+
+              </div>
+
+
+            </div>
+
+
+
+
+
+
+            <div class="check-icon">
+
+
+              <i 
+              class="fas"
+              [class.fa-check-circle]="isPermissionSelected(permission.id)"
+              [class.fa-circle]="!isPermissionSelected(permission.id)">
+              </i>
+
+
+
+            </div>
+
+
+
+
+          </div>
+
+
+
+        </div>
+
+
+
+
+      </div>
+
+
+
+
+
+
+      <div 
+      class="empty"
+      *ngIf="filterPermissions().length===0">
+
+
+        <i class="fas fa-search"></i>
+
+
+        <p>
+          Aucune permission trouvée
+        </p>
+
+
+      </div>
+
+
+
+
+
+    </div>
+
+
+
+
+
+  </div>
+
+
+
+</div>

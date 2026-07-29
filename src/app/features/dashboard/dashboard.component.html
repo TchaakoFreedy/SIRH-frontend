@@ -1,0 +1,28 @@
+<app-dashboard-header
+  [userName]="userName()"
+  [userRole]="currentRole()"
+/>
+
+@if (loading()) {
+  <app-dashboard-loading />
+} @else if (error()) {
+  <app-dashboard-error [message]="error()!" (retry)="loadDashboard(currentRole())" />
+} @else {
+  @switch (currentRole()) {
+    @case ('RH') {
+      <app-rh-dashboard [data]="rhData!" />
+    }
+    @case ('TOP_MANAGER') {
+      <app-rh-dashboard [data]="rhData!" />
+    }
+    @case ('DIRECTION') {
+      <app-direction-dashboard [data]="directionData!" />
+    }
+    @case ('MANAGER') {
+      <app-manager-dashboard [data]="managerData!" />
+    }
+    @case ('EMPLOYEE') {
+      <app-employee-dashboard [data]="employeeData!" />
+    }
+  }
+}

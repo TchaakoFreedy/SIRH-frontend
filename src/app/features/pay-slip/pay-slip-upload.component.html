@@ -1,0 +1,151 @@
+<!-- src/app/features/pay-slip/pay-slip-upload.component.html -->
+<div class="unity-container">
+
+  <!-- ========== HEADER ========== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">upload_file</span>
+      </div>
+      <div>
+        <h1>Importer des bulletins de paie</h1>
+        <p>Téléchargez un fichier PDF contenant l'ensemble des bulletins pour une période donnée.</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-secondary" routerLink="/app/paie/historique">
+        <span class="material-symbols-outlined">arrow_back</span> Retour
+      </button>
+    </div>
+  </div>
+
+  <!-- ========== ZONE D'UPLOAD ========== -->
+  <div class="upload-card">
+    <div class="upload-zone" [class.dragover]="false">
+      <input type="file" id="fileInput" accept=".pdf" (change)="onFileSelected($event)" />
+      <div class="upload-content">
+        <span class="material-symbols-outlined upload-icon">cloud_upload</span>
+        <strong>{{ selectedFile ? + selectedFile.name : 'Glissez-déposez votre fichier PDF ici' }}</strong>
+        <span *ngIf="!selectedFile" class="hint">ou cliquez pour parcourir vos dossiers</span>
+        <span *ngIf="selectedFile" class="file-size">{{ (selectedFile.size / 1024) | number:'1.0-0' }} Ko</span>
+      </div>
+    </div>
+
+    <!-- Barre de progression -->
+    <div *ngIf="uploading" class="progress-container">
+      <div class="progress-bar" [style.width.%]="progress">
+        <span>{{ progress }}%</span>
+      </div>
+      <span class="progress-label">Traitement en cours...</span>
+    </div>
+
+    <div class="upload-actions">
+      <!-- Reset button – disabled during upload/processing -->
+      <button type="button" class="btn btn-secondary" 
+              (click)="resetForm(); $event.stopPropagation()" 
+              *ngIf="selectedFile || response"
+              [disabled]="isUploadingOrProcessing">
+        <span class="material-symbols-outlined">refresh</span> Réinitialiser
+      </button>
+      <!-- Upload button – uses the getter -->
+      <button type="button" class="btn btn-primary"
+              (click)="upload(); $event.stopPropagation()"
+              [disabled]="!selectedFile || isUploadingOrProcessing">
+        <span class="material-symbols-outlined">{{ uploading ? 'hourglass_top' : 'upload' }}</span>
+        {{ uploading ? 'Upload en cours...' : 'Uploader' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- ========== MESSAGES D'ERREUR ========== -->
+  <div *ngIf="error && !hasSucceeded" class="error-state">
+    <span class="material-symbols-outlined">error</span>
+    {{ error }}
+  </div>
+
+  <!-- ========== RÉSULTAT ========== -->
+  <div *ngIf="response" class="result-card">
+    <div class="result-header">
+      <span class="material-symbols-outlined" [class.success]="failureCount === 0">check_circle</span>
+      <span class="material-symbols-outlined" *ngIf="failureCount > 0" style="color:#ef4444">warning</span>
+      <h3>Résumé de l'import</h3>
+      <span class="badge" [class.success]="failureCount === 0" [class.partial]="failureCount > 0 && successCount > 0" [class.fail]="successCount === 0">
+        {{ failureCount === 0 ? 'Succès' : failureCount > 0 && successCount > 0 ? 'Partiel' : 'Échec' }}
+      </span>
+    </div>
+
+    <!-- Métriques avancées -->
+    <div *ngIf="hasMetrics" class="metrics-grid">
+      <div class="metric-item">
+        <span class="metric-label">📄 Pages totales</span>
+        <span class="metric-value">{{ response.totalPages || response.totalEmployeesProcessed }}</span>
+      </div>
+      <div class="metric-item" *ngIf="response.textPages !== undefined">
+        <span class="metric-label">📝 Pages texte</span>
+        <span class="metric-value">{{ response.textPages }}</span>
+      </div>
+      <div class="metric-item" *ngIf="response.ocrPages !== undefined">
+        <span class="metric-label">🔍 Pages OCR</span>
+        <span class="metric-value">{{ response.ocrPages }}</span>
+      </div>
+      <div class="metric-item" *ngIf="response.employeesMatched !== undefined">
+        <span class="metric-label">✅ Employés trouvés</span>
+        <span class="metric-value">{{ response.employeesMatched }}</span>
+      </div>
+      <div class="metric-item" *ngIf="response.employeesNotMatched !== undefined">
+        <span class="metric-label">❌ Employés non trouvés</span>
+        <span class="metric-value">{{ response.employeesNotMatched }}</span>
+      </div>
+      <div class="metric-item" *ngIf="response.processingTime">
+        <span class="metric-label">⏱️ Temps de traitement</span>
+        <span class="metric-value">{{ response.processingTime }}</span>
+      </div>
+    </div>
+
+    <!-- Statistiques simplifiées -->
+    <div class="stats-grid" *ngIf="!hasMetrics">
+      <div class="stat-card blue">
+        <div class="stat-icon"><span class="material-symbols-outlined">receipt</span></div>
+        <div class="stat-info">
+          <p>Total traités</p>
+          <h3>{{ response.totalEmployeesProcessed || 0 }}</h3>
+        </div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-icon"><span class="material-symbols-outlined">check_circle</span></div>
+        <div class="stat-info">
+          <p>Succès</p>
+          <h3>{{ response.successCount || 0 }}</h3>
+        </div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-icon"><span class="material-symbols-outlined">error</span></div>
+        <div class="stat-info">
+          <p>Échecs</p>
+          <h3>{{ response.failureCount || 0 }}</h3>
+        </div>
+      </div>
+    </div>
+
+    <!-- Détails des erreurs -->
+    <div *ngIf="response.errors && response.errors.length > 0" class="errors-section">
+      <h4>Détails des erreurs ({{ response.errors.length }}) :</h4>
+      <ul>
+        <li *ngFor="let err of response.errors">
+          <span class="material-symbols-outlined">error_outline</span>
+          {{ err }}
+        </li>
+      </ul>
+    </div>
+
+    <!-- Actions -->
+    <div class="result-actions">
+      <button type="button" class="btn btn-secondary" (click)="resetForm(); $event.stopPropagation()">
+        <span class="material-symbols-outlined">add</span> Nouvel import
+      </button>
+      <button type="button" class="btn btn-primary" routerLink="/app/paie/historique">
+        <span class="material-symbols-outlined">list</span> Voir l'historique
+      </button>
+    </div>
+  </div>
+</div>

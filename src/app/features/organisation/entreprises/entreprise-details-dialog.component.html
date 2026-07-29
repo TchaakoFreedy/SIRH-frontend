@@ -1,0 +1,72 @@
+<div class="dialog-shell">
+  
+  <!-- En-tête coloré et espacé -->
+  <div class="modal-header">
+    <div class="modal-header-title">
+      <div class="modal-icon-badge badge-blue">
+        <mat-icon>visibility</mat-icon>
+      </div>
+      <div>
+        <h2>Détails de l'entreprise</h2>
+        <p class="dialog-subtitle">{{ data.entreprise.name }}</p>
+      </div>
+    </div>
+    <button class="btn-close-modal" aria-label="Fermer" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Contenu avec padding forcé -->
+  <mat-dialog-content class="modal-content">
+    
+    <div class="details-grid">
+      
+      <!-- <div class="details-card full-width">
+        <span class="details-label">Identifiant unique</span>
+        <span class="details-value id-value">{{ data.entreprise.id }}</span>
+      </div> -->
+
+      <div class="details-card">
+        <span class="details-label">Siège social</span>
+        <span class="details-value">{{ data.entreprise.siege || '—' }}</span>
+      </div>
+
+      <div class="details-card">
+        <span class="details-label">Téléphone</span>
+        <span class="details-value">
+          <span *ngIf="data.entreprise.telephone"><mat-icon inline>phone</mat-icon> {{ data.entreprise.telephone }}</span>
+          <span *ngIf="!data.entreprise.telephone">—</span>
+        </span>
+      </div>
+
+      <div class="details-card full-width">
+        <span class="details-label">Adresse complète</span>
+        <span class="details-value">{{ data.entreprise.adresse || '—' }}</span>
+      </div>
+
+      <div class="details-card full-width">
+        <span class="details-label">Email de contact</span>
+        <span class="details-value">
+          <span *ngIf="data.entreprise.email"><mat-icon inline>email</mat-icon> {{ data.entreprise.email }}</span>
+          <span *ngIf="!data.entreprise.email">—</span>
+        </span>
+      </div>
+
+      <div class="details-card full-width statut-card" [ngClass]="{'active-bg': data.entreprise.statut === 'ACTIF', 'suspended-bg': data.entreprise.statut === 'SUSPENDU'}">
+        <span class="details-label">Statut actuel</span>
+        <span class="status-pill" [ngClass]="{'pill-active': data.entreprise.statut === 'ACTIF', 'pill-suspended': data.entreprise.statut === 'SUSPENDU'}">
+          <span class="status-dot"></span>
+          {{ data.entreprise.statut || 'ACTIF' }}
+        </span>
+      </div>
+
+    </div>
+
+  </mat-dialog-content>
+
+  <!-- Pied de page avec bouton moderne -->
+  <mat-dialog-actions align="end" class="modal-footer">
+    <button class="btn-cancel" type="button" (click)="close()">Fermer</button>
+  </mat-dialog-actions>
+
+</div>

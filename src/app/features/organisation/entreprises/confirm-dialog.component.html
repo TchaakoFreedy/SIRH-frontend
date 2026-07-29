@@ -1,0 +1,14 @@
+<div class="confirm-shell">
+  <div class="confirm-header">
+    <h2>{{ data.title }}</h2>
+  </div>
+
+  <div class="confirm-content">
+    <p>{{ data.message }}</p>
+  </div>
+
+  <div class="confirm-actions">
+    <button mat-button type="button" (click)="close(false)">{{ data.cancelLabel || 'Annuler' }}</button>
+    <button mat-flat-button color="warn" type="button" (click)="close(true)">{{ data.confirmLabel || 'Confirmer' }}</button>
+  </div>
+</div>

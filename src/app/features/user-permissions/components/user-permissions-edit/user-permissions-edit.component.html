@@ -1,0 +1,181 @@
+<!-- src/app/features/user-permissions/components/user-permissions-edit/user-permissions-edit.component.html -->
+
+<div class="unity-container">
+
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">edit_note</span>
+      </div>
+      <div>
+        <h1>Modifier les overrides</h1>
+        <p *ngIf="userPermissions">
+          Rôle : <strong>{{ userPermissions.role?.name || 'Non défini' }}</strong>
+          <span class="badge level-badge">Niv. {{ userPermissions.role?.hierarchyLevel || 0 }}</span>
+          <span class="badge scope-badge">{{ userPermissions.role?.visibilityScope || 'N/A' }}</span>
+        </p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-ghost" (click)="goBack()">
+        <span class="material-symbols-outlined">arrow_back</span>
+        Retour
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== LOADING ==================== -->
+  <div *ngIf="isLoading" class="loading-state">
+    <div class="spinner"></div>
+    <p>Chargement des données...</p>
+  </div>
+
+  <!-- ==================== CONTENU ==================== -->
+  <ng-container *ngIf="!isLoading && userPermissions">
+
+    <!-- Légende -->
+    <div class="stats-grid" style="margin-bottom: 20px;">
+      <div class="stat-card green">
+        <div class="stat-icon"><span class="material-symbols-outlined">add_circle</span></div>
+        <div class="stat-info">
+          <p>Ajoutées</p>
+          <h3>{{ grantedIds.size }}</h3>
+          <small>Permissions individuelles</small>
+        </div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-icon"><span class="material-symbols-outlined">remove_circle</span></div>
+        <div class="stat-info">
+          <p>Révoquées</p>
+          <h3>{{ revokedIds.size }}</h3>
+          <small>Permissions retirées</small>
+        </div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-icon"><span class="material-symbols-outlined">check_circle</span></div>
+        <div class="stat-info">
+          <p>Héritées</p>
+          <h3>{{ (userPermissions.rolePermissions?.length || 0) - revokedIds.size + grantedIds.size }}</h3>
+          <small>Depuis le rôle</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Barre d'outils -->
+    <div class="search-filter-bar">
+      <div class="search-wrapper">
+        <span class="material-symbols-outlined search-icon">search</span>
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Rechercher une permission..."
+          [(ngModel)]="searchTerm"
+          (input)="onSearch()"
+        />
+        <button class="clear-search" *ngIf="searchTerm" (click)="clearSearch()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="btn-group" style="margin-left: auto;">
+        <button class="btn btn-secondary" (click)="resetOverrides()">
+          <span class="material-symbols-outlined">undo</span>
+          Réinitialiser
+        </button>
+        <button class="btn btn-primary" (click)="savePermissions()" [disabled]="isSaving">
+          <span class="material-symbols-outlined">save</span>
+          {{ isSaving ? 'Enregistrement...' : 'Sauvegarder' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Grille des permissions -->
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title">
+          <span class="material-symbols-outlined">key</span>
+          <h2>Gestion des permissions</h2>
+        </div>
+        <span class="table-info">{{ filteredPermissions().length }} permission(s)</span>
+      </div>
+
+      <div class="permissions-grid">
+        <div
+          class="permission-item"
+          *ngFor="let permission of filteredPermissions()"
+          [class.granted]="isGranted(permission.id)"
+          [class.revoked]="isRevoked(permission.id)"
+          [class.effective]="isEffective(permission.id)"
+        >
+          <div class="permission-info">
+            <div class="permission-name">{{ permission.name }}</div>
+            <div class="permission-desc">{{ permission.description || 'Aucune description' }}</div>
+            <div class="permission-tags">
+              <span class="badge category-badge">{{ permission.category || 'N/A' }}</span>
+              <span class="badge level-badge">Niv. {{ permission.requiredLevel }}</span>
+              <span class="badge status-badge" [class.active]="isEffective(permission.id)" [class.inactive]="!isEffective(permission.id)">
+                <span class="material-symbols-outlined">{{ isEffective(permission.id) ? 'check_circle' : 'cancel' }}</span>
+                {{ getStatusText(permission.id) }}
+              </span>
+            </div>
+          </div>
+          <div class="permission-actions">
+            <button
+              class="action-btn success"
+              [class.active]="isGranted(permission.id)"
+              (click)="toggleGrant(permission.id)"
+              title="Ajouter"
+            >
+              <span class="material-symbols-outlined">add</span>
+            </button>
+            <button
+              class="action-btn danger"
+              [class.active]="isRevoked(permission.id)"
+              (click)="toggleRevoke(permission.id)"
+              title="Révoquer"
+            >
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Message vide -->
+        <div *ngIf="filteredPermissions().length === 0" class="empty-state">
+          <span class="material-symbols-outlined">sentiment_dissatisfied</span>
+          <p>Aucune permission correspondante</p>
+        </div>
+      </div>
+
+      <!-- Pied de tableau -->
+      <div class="table-footer-legend">
+        <span><span class="material-symbols-outlined text-success">add_circle</span> Ajoutée</span>
+        <span><span class="material-symbols-outlined text-danger">remove_circle</span> Révoquée</span>
+        <span><span class="material-symbols-outlined text-primary">check_circle</span> Héritée</span>
+      </div>
+    </div>
+
+    <!-- Footer stats -->
+    <div class="footer-stats">
+      <span>
+        <span class="material-symbols-outlined">info</span>
+        Modifier les overrides utilisateur
+      </span>
+      <div>
+        <span class="badge add-badge">
+          <span class="material-symbols-outlined">add_circle</span>
+          {{ grantedIds.size }} ajoutée(s)
+        </span>
+        <span class="badge remove-badge">
+          <span class="material-symbols-outlined">remove_circle</span>
+          {{ revokedIds.size }} révoquée(s)
+        </span>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- Message si aucune donnée -->
+  <div *ngIf="!isLoading && !userPermissions" class="empty-state">
+    <span class="material-symbols-outlined">error</span>
+    <p>Aucune donnée disponible pour cet utilisateur.</p>
+  </div>
+</div>

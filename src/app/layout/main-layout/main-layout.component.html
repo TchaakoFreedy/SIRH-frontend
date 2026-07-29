@@ -1,0 +1,12 @@
+<div class="app-shell" [class.sidebar-collapsed]="sidebarCollapsed()">
+
+  <app-sidebar (collapseChange)="onCollapseChange($event)" />
+
+  <div class="main-area">
+    <app-header />
+    <main class="main-content">
+      <router-outlet />
+    </main>
+  </div>
+
+</div>

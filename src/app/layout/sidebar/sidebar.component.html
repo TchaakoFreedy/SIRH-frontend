@@ -1,0 +1,154 @@
+<!-- src/app/layout/sidebar/sidebar.component.html -->
+
+<!-- ============================================
+     Bouton hamburger (visible uniquement sur mobile)
+     ============================================ -->
+@if (isMobile() && !mobileOpen()) {
+  <button class="mobile-trigger" (click)="openMobile()" aria-label="Ouvrir le menu">
+    <mat-icon>menu</mat-icon>
+  </button>
+}
+
+<!-- Overlay mobile -->
+@if (isMobile()) {
+  <div
+    class="sidebar-overlay"
+    [class.visible]="mobileOpen()"
+    (click)="closeMobile()"
+  ></div>
+}
+
+<aside
+  class="sidebar"
+  [class.collapsed]="collapsed() && !isMobile()"
+  [class.mobile]="isMobile()"
+  [class.mobile-open]="mobileOpen()"
+>
+
+  <!-- ===== En-tête : logo + toggle ===== -->
+  <div class="sidebar-logo">
+    <!-- Logo ou titre -->
+    <!-- <span class="logo-text">Mon App</span> -->
+
+    <!-- Toggle réduction (desktop uniquement) -->
+    @if (!isMobile()) {
+      <button
+        class="toggle-btn"
+        (click)="toggleCollapse()"
+        [matTooltip]="collapsed() ? 'Agrandir' : 'Réduire'"
+        matTooltipPosition="right"
+      >
+        <mat-icon>{{ collapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+      </button>
+    }
+
+    <!-- Fermeture (mobile uniquement) -->
+    @if (isMobile()) {
+      <button class="toggle-btn" (click)="closeMobile()" aria-label="Fermer le menu">
+        <mat-icon>close</mat-icon>
+      </button>
+    }
+  </div>
+
+  <!-- ===== Navigation ===== -->
+  <nav class="sidebar-nav">
+    <ul>
+      @for (item of visibleNavItems(); track item.label) {
+        <li
+          class="nav-item"
+          [class.has-children]="item.children"
+          [class.expanded]="item.expanded"
+          (mouseenter)="onGroupEnter(item)"
+          (mouseleave)="onGroupLeave()"
+        >
+
+          <!-- ===== Item sans enfants ===== -->
+          @if (!item.children) {
+            <a
+              [routerLink]="item.route"
+              routerLinkActive="active"
+              class="nav-link"
+              (click)="onLinkClick()"
+              [matTooltip]="collapsed() && !isMobile() ? item.label : ''"
+              matTooltipPosition="right"
+            >
+              <span class="active-bar"></span>
+              <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+              @if (!collapsed() || isMobile()) {
+                <span class="nav-label">{{ item.label }}</span>
+              }
+            </a>
+          }
+
+          <!-- ===== Item avec enfants ===== -->
+          @if (item.children && item.children.length > 0) {
+            <button
+              class="nav-link nav-group"
+              [class.group-active]="isGroupActive(item)"
+              (click)="toggleMenu(item)"
+              [matTooltip]="collapsed() && !isMobile() ? item.label : ''"
+              matTooltipPosition="right"
+            >
+              <span class="active-bar"></span>
+              <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+              @if (!collapsed() || isMobile()) {
+                <span class="nav-label">{{ item.label }}</span>
+                <mat-icon class="chevron" [class.rotated]="item.expanded">
+                  expand_more
+                </mat-icon>
+              }
+            </button>
+
+            <!-- ===== Sous-menu (mode étendu) ===== -->
+            <div
+              class="sub-menu-wrapper"
+              [class.open]="item.expanded && (!collapsed() || isMobile())"
+            >
+              <ul class="sub-menu">
+                @for (child of item.children; track child.label) {
+                  <li>
+                    <a
+                      [routerLink]="child.route"
+                      routerLinkActive="active"
+                      class="sub-link"
+                      (click)="onLinkClick()"
+                    >
+                      <span class="connector"></span>
+                      <mat-icon class="sub-icon">{{ child.icon }}</mat-icon>
+                      <span class="sub-label">{{ child.label }}</span>
+                      <span class="active-dot"></span>
+                    </a>
+                  </li>
+                }
+              </ul>
+            </div>
+
+            <!-- ===== Flyout (mode réduit : sous-menu au survol) ===== -->
+            @if (collapsed() && !isMobile() && flyoutItem === item) {
+              <div
+                class="flyout"
+                (mouseenter)="onGroupEnter(item)"
+                (mouseleave)="onGroupLeave()"
+              >
+                <p class="flyout-title">{{ item.label }}</p>
+                @for (child of item.children; track child.label) {
+                  <a
+                    [routerLink]="child.route"
+                    routerLinkActive="active"
+                    class="flyout-link"
+                    (click)="onLinkClick()"
+                  >
+                    <mat-icon class="sub-icon">{{ child.icon }}</mat-icon>
+                    <span>{{ child.label }}</span>
+                  </a>
+                }
+              </div>
+            }
+          }
+
+        </li>
+      }
+    </ul>
+  </nav>
+
+</aside>

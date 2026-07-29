@@ -1,0 +1,65 @@
+.permission-detail-container {
+  width: 100%;
+  padding: 1.5rem;
+
+  .card {
+    width: 100%;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  .card-header {
+    background: #f8fafc;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  // Section des données alignées
+  .info-section {
+    padding: 1.5rem;
+
+    .section-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--primary-600);
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #f1f5f9;
+    }
+  }
+
+  .data-row {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f8fafc;
+
+    &:last-child { border-bottom: none; }
+
+    .label {
+      width: 30%;
+      color: #64748b;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+
+    .value {
+      width: 70%;
+      color: #1e293b;
+      font-weight: 600;
+    }
+  }
+
+  .card-footer {
+    padding: 1rem 1.5rem;
+    background: #f8fafc;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+  }
+}

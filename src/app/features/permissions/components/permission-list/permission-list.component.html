@@ -1,0 +1,230 @@
+<!-- permission-list.component.html -->
+<div class="unity-container">
+
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">lock_open</span>
+      </div>
+      <div>
+        <h1>Gestion des Permissions</h1>
+        <p>Configurez et gérez les accès du système</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary" (click)="createPermission()">
+        <span class="material-symbols-outlined">add</span> Nouvelle Permission
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== STATS ==================== -->
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-icon"><span class="material-symbols-outlined">shield</span></div>
+      <div class="stat-info">
+        <p>Total Permissions</p>
+        <h3>{{ permissions.length }}</h3>
+      </div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon"><span class="material-symbols-outlined">check_circle</span></div>
+      <div class="stat-info">
+        <p>Actives</p>
+        <h3>{{ permissions.filter(p => p.active).length }}</h3>
+      </div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-icon"><span class="material-symbols-outlined">category</span></div>
+      <div class="stat-info">
+        <p>Catégories</p>
+        <h3>{{ categories.length }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== RECHERCHE & FILTRES ==================== -->
+  <div class="search-filter-bar">
+    <div class="search-wrapper">
+      <span class="material-symbols-outlined search-icon">search</span>
+      <input
+        type="text"
+        class="search-input"
+        [(ngModel)]="searchTerm"
+        (input)="applyFilters()"
+        placeholder="Rechercher une permission..."
+        autocomplete="off"
+      />
+      <button class="clear-search" *ngIf="searchTerm" (click)="clearSearch()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="filter-wrapper">
+      <span class="material-symbols-outlined filter-icon">filter_list</span>
+      <select class="filter-select" [(ngModel)]="selectedCategory" (change)="applyFilters()">
+        <option value="all">Toutes les catégories</option>
+        <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+      </select>
+      <span class="material-symbols-outlined select-arrow">expand_more</span>
+      <button class="clear-filter" *ngIf="selectedCategory !== 'all'" (click)="clearCategoryFilter()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="filter-results">
+      <span class="result-count">
+        <span class="material-symbols-outlined">people</span>
+        {{ allFiltered.length }} résultat(s)
+      </span>
+      <button class="btn-reset-filters" (click)="resetFilters()" *ngIf="searchTerm || selectedCategory !== 'all'">
+        <span class="material-symbols-outlined">refresh</span>
+        Réinitialiser
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== TABLEAU ==================== -->
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">
+        <span class="material-symbols-outlined">list_alt</span>
+        <h2>Permissions</h2>
+      </div>
+      <div class="table-actions">
+        <span class="table-info">{{ filteredPermissions.length }} sur {{ allFiltered.length }} affichées</span>
+      </div>
+    </div>
+
+    <div class="responsive-wrapper">
+      <table class="up-table" *ngIf="!isLoading">
+        <thead>
+          <tr>
+            <th>Permission</th>
+            <th>Description</th>
+            <th>Catégorie</th>
+            <th>Niveau</th>
+            <th>Statut</th>
+            <th class="th-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of filteredPermissions; let i = index" [style.--row-index]="i">
+            <td><span class="permission-name">{{ p.name }}</span></td>
+            <td class="permission-description">{{ p.description || '—' }}</td>
+            <td>
+              <span class="badge category-badge">{{ p.category || 'N/A' }}</span>
+            </td>
+            <td>
+              <span class="badge level-badge">{{ p.requiredLevel || '—' }}</span>
+            </td>
+            <td>
+              <span class="status-pill" [class.active]="p.active" [class.inactive]="!p.active">
+                {{ p.active ? 'Actif' : 'Inactif' }}
+              </span>
+            </td>
+            <td>
+              <div class="actions-cell" (click)="$event.stopPropagation()">
+                <button class="action-btn info" (click)="viewPermission(p.id)" title="Voir">
+                  <span class="material-symbols-outlined">visibility</span>
+                </button>
+                <button class="action-btn warning" (click)="editPermission(p.id)" title="Modifier">
+                  <span class="material-symbols-outlined">edit</span>
+                </button>
+                <button class="action-btn danger" (click)="deletePermission(p.id, p.name)" title="Supprimer">
+                  <span class="material-symbols-outlined">delete</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="filteredPermissions.length === 0">
+            <td colspan="6">
+              <div class="empty-state">
+                <span class="material-symbols-outlined">sentiment_dissatisfied</span>
+                <p>Aucune permission trouvée</p>
+                <p class="empty-hint" *ngIf="searchTerm || selectedCategory !== 'all'">
+                  Essayez de modifier vos critères de recherche
+                </p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- État de chargement -->
+      <div class="loading-state" *ngIf="isLoading">
+        <div class="spinner"></div>
+        <p>Chargement des permissions...</p>
+      </div>
+    </div>
+
+    <!-- ==================== PAGINATION ==================== -->
+    <div class="pagination-container" *ngIf="!isLoading && filteredPermissions.length > 0">
+      <div class="pagination-info">
+        <span>
+          Affichage de
+          <strong>{{ (currentPage - 1) * itemsPerPage + 1 }}</strong>
+          à
+          <strong>{{ Math.min(currentPage * itemsPerPage, allFiltered.length) }}</strong>
+          sur
+          <strong>{{ allFiltered.length }}</strong>
+          permission(s)
+        </span>
+
+        <div class="page-size-selector">
+          <label for="pageSize">Lignes par page :</label>
+          <select id="pageSize" [(ngModel)]="itemsPerPage" (change)="onPageSizeChange()">
+            <option [value]="5">5</option>
+            <option [value]="10">10</option>
+            <option [value]="25">25</option>
+            <option [value]="50">50</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pagination-controls">
+        <button class="pagination-btn"
+                (click)="changePage(currentPage - 1)"
+                [disabled]="currentPage === 1">
+          <span class="material-symbols-outlined">chevron_left</span>
+          <span>Précédent</span>
+        </button>
+
+        <div class="page-numbers">
+          <button *ngIf="totalPages > 1"
+                  class="page-number"
+                  [class.active]="currentPage === 1"
+                  (click)="changePage(1)">
+            1
+          </button>
+
+          <span *ngIf="currentPage > 3" class="ellipsis">…</span>
+
+          <button *ngFor="let page of getVisiblePages()"
+                  class="page-number"
+                  [class.active]="currentPage === page"
+                  (click)="changePage(page)">
+            {{ page }}
+          </button>
+
+          <span *ngIf="currentPage < totalPages - 2" class="ellipsis">…</span>
+
+          <button *ngIf="totalPages > 1"
+                  class="page-number"
+                  [class.active]="currentPage === totalPages"
+                  (click)="changePage(totalPages)">
+            {{ totalPages }}
+          </button>
+        </div>
+
+        <button class="pagination-btn"
+                (click)="changePage(currentPage + 1)"
+                [disabled]="currentPage === totalPages">
+          <span>Suivant</span>
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

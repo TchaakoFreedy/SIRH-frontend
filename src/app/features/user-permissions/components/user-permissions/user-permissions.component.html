@@ -1,0 +1,286 @@
+<!-- src/app/features/user-permissions/components/user-permissions/user-permissions.component.html -->
+
+<div class="unity-container">
+
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">manage_accounts</span>
+      </div>
+      <div>
+        <h1>Gestion des Permissions Utilisateurs</h1>
+        <p>Attribuez et gérez les droits d'accès par utilisateur</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-ghost" (click)="goBack()">
+        <span class="material-symbols-outlined">arrow_back</span>
+        Retour
+      </button>
+    </div>
+  </div>
+
+  <!-- Layout 2 colonnes -->
+  <div class="two-column-layout">
+    <!-- Colonne gauche : Liste des utilisateurs -->
+    <div class="col-left">
+      <div class="table-card">
+        <div class="table-header">
+          <div class="table-title">
+            <span class="material-symbols-outlined">group</span>
+            <h2>Utilisateurs</h2>
+          </div>
+          <span class="table-info">{{ filteredUsers.length }} utilisateur(s)</span>
+        </div>
+
+        <!-- Search -->
+        <div class="search-filter-bar" style="border:none; padding:12px 20px; margin-bottom:0;">
+          <div class="search-wrapper" style="flex:1;">
+            <span class="material-symbols-outlined search-icon">search</span>
+            <input
+              type="text"
+              class="search-input"
+              placeholder="Rechercher un utilisateur..."
+              [(ngModel)]="searchTerm"
+              (input)="onSearch()"
+            />
+            <button class="clear-search" *ngIf="searchTerm" (click)="clearSearch()">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="user-list-container">
+          <div *ngIf="isLoadingUsers" class="loading-state">
+            <div class="spinner"></div>
+            <p>Chargement...</p>
+          </div>
+
+          <div class="user-list" *ngIf="!isLoadingUsers">
+            <div
+              *ngFor="let user of filteredUsers; let i = index"
+              class="user-item"
+              [class.active]="selectedUserId === user.id"
+              [style.--row-index]="i"
+              (click)="selectUser(user.id)"
+            >
+              <div class="user-avatar">{{ getInitials(user) }}</div>
+              <div class="user-info">
+                <div class="user-name">{{ getFullName(user) }}</div>
+                <div class="user-email">{{ user.email }}</div>
+              </div>
+            </div>
+
+            <div *ngIf="filteredUsers.length === 0" class="empty-state">
+              <span class="material-symbols-outlined">sentiment_dissatisfied</span>
+              <p>Aucun utilisateur trouvé</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Colonne droite : Détail des permissions -->
+    <div class="col-right">
+      <!-- Message si aucun utilisateur sélectionné -->
+      <div *ngIf="!selectedUserId" class="card empty-card">
+        <div class="empty-state">
+          <span class="material-symbols-outlined">hand_point</span>
+          <h4>Sélectionnez un utilisateur</h4>
+          <p>Cliquez sur un utilisateur dans la liste de gauche</p>
+        </div>
+      </div>
+
+      <!-- Détail des permissions -->
+      <ng-container *ngIf="selectedUserId">
+        <div class="table-card">
+          <div class="table-header" style="background: linear-gradient(135deg, #0d9488, #14b8a6); color: white;">
+            <div class="table-title">
+              <span class="material-symbols-outlined" style="color:white;">key</span>
+              <h2 style="color:white;">Permissions</h2>
+            </div>
+            <button class="btn btn-light" (click)="editPermissions()">
+              <span class="material-symbols-outlined">edit</span>
+              Modifier
+            </button>
+          </div>
+
+          <!-- Loading -->
+          <div *ngIf="isLoading" class="loading-state" style="padding:2rem;">
+            <div class="spinner"></div>
+            <p>Chargement des permissions...</p>
+          </div>
+
+          <!-- Contenu -->
+          <ng-container *ngIf="!isLoading && userPermissions">
+            <!-- Stats -->
+            <div class="stats-grid" style="padding:16px 20px 0;">
+              <div class="stat-card blue">
+                <div class="stat-icon"><span class="material-symbols-outlined">shield</span></div>
+                <div class="stat-info">
+                  <p>Total</p>
+                  <h3>{{ totalPermissions }}</h3>
+                </div>
+              </div>
+              <div class="stat-card green">
+                <div class="stat-icon"><span class="material-symbols-outlined">add_circle</span></div>
+                <div class="stat-info">
+                  <p>Ajoutées</p>
+                  <h3>{{ grantedCount }}</h3>
+                </div>
+              </div>
+              <div class="stat-card red">
+                <div class="stat-icon"><span class="material-symbols-outlined">remove_circle</span></div>
+                <div class="stat-info">
+                  <p>Retirées</p>
+                  <h3>{{ revokedCount }}</h3>
+                </div>
+              </div>
+              <div class="stat-card orange">
+                <div class="stat-icon"><span class="material-symbols-outlined">check_circle</span></div>
+                <div class="stat-info">
+                  <p>Effectives</p>
+                  <h3>{{ effectiveCount }}</h3>
+                </div>
+              </div>
+            </div>
+
+            <!-- Role info -->
+            <div class="role-info">
+              <span class="material-symbols-outlined">badge</span>
+              <strong>Rôle :</strong> {{ userPermissions.role?.name || 'Non défini' }}
+              <span class="badge level-badge">Niv. {{ userPermissions.role?.hierarchyLevel || 0 }}</span>
+              <span class="badge scope-badge">{{ userPermissions.role?.visibilityScope || 'N/A' }}</span>
+            </div>
+
+            <!-- Tableau des permissions -->
+            <div class="responsive-wrapper">
+              <table class="up-table">
+                <thead>
+                  <tr>
+                    <th>Permission</th>
+                    <th>Catégorie</th>
+                    <th class="th-center">Héritée</th>
+                    <th class="th-center">Ajoutée</th>
+                    <th class="th-center">Retirée</th>
+                    <th class="th-center">Effective</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let p of paginatedPermissions">
+                    <td>
+                      <div class="permission-name">{{ p.name }}</div>
+                      <div class="permission-desc">{{ p.description || '-' }}</div>
+                    </td>
+                    <td>
+                      <span class="badge category-badge">{{ p.category || 'N/A' }}</span>
+                    </td>
+                    <td class="th-center">
+                      <span class="material-symbols-outlined text-success">check_circle</span>
+                    </td>
+                    <td class="th-center">
+                      <span class="material-symbols-outlined" [class.text-success]="isPermissionGranted(p.id)" [class.text-muted]="!isPermissionGranted(p.id)">
+                        {{ isPermissionGranted(p.id) ? 'add_circle' : 'remove_circle' }}
+                      </span>
+                    </td>
+                    <td class="th-center">
+                      <span class="material-symbols-outlined" [class.text-danger]="isPermissionRevoked(p.id)" [class.text-muted]="!isPermissionRevoked(p.id)">
+                        {{ isPermissionRevoked(p.id) ? 'cancel' : 'check_circle' }}
+                      </span>
+                    </td>
+                    <td class="th-center">
+                      <span class="material-symbols-outlined" [class.text-success]="isPermissionEffective(p.id)" [class.text-muted]="!isPermissionEffective(p.id)">
+                        check_circle
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination des permissions -->
+            <div class="pagination-container" *ngIf="userPermissions?.rolePermissions?.length > permissionsPerPage">
+              <div class="pagination-info">
+                <span>
+                  Affichage de
+                  <strong>{{ (currentPermissionPage - 1) * permissionsPerPage + 1 }}</strong>
+                  à
+                  <strong>{{ Math.min(currentPermissionPage * permissionsPerPage, userPermissions?.rolePermissions?.length || 0) }}</strong>
+                  sur
+                  <strong>{{ userPermissions?.rolePermissions?.length || 0 }}</strong>
+                  permission(s)
+                </span>
+                <div class="page-size-selector">
+                  <label for="permPageSize">Lignes par page :</label>
+                  <select id="permPageSize" [(ngModel)]="permissionsPerPage" (change)="onPermissionsPerPageChange()">
+                    <option [value]="5">5</option>
+                    <option [value]="10">10</option>
+                    <option [value]="25">25</option>
+                    <option [value]="50">50</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="pagination-controls">
+                <button class="pagination-btn"
+                        (click)="changePermissionPage(currentPermissionPage - 1)"
+                        [disabled]="currentPermissionPage === 1">
+                  <span class="material-symbols-outlined">chevron_left</span>
+                  <span>Précédent</span>
+                </button>
+
+                <div class="page-numbers">
+                  <button *ngIf="totalPermissionPages > 1"
+                          class="page-number"
+                          [class.active]="currentPermissionPage === 1"
+                          (click)="changePermissionPage(1)">
+                    1
+                  </button>
+
+                  <span *ngIf="currentPermissionPage > 3" class="ellipsis">…</span>
+
+                  <button *ngFor="let page of getVisiblePermissionPages()"
+                          class="page-number"
+                          [class.active]="currentPermissionPage === page"
+                          (click)="changePermissionPage(page)">
+                    {{ page }}
+                  </button>
+
+                  <span *ngIf="currentPermissionPage < totalPermissionPages - 2" class="ellipsis">…</span>
+
+                  <button *ngIf="totalPermissionPages > 1"
+                          class="page-number"
+                          [class.active]="currentPermissionPage === totalPermissionPages"
+                          (click)="changePermissionPage(totalPermissionPages)">
+                    {{ totalPermissionPages }}
+                  </button>
+                </div>
+
+                <button class="pagination-btn"
+                        (click)="changePermissionPage(currentPermissionPage + 1)"
+                        [disabled]="currentPermissionPage === totalPermissionPages">
+                  <span>Suivant</span>
+                  <span class="material-symbols-outlined">chevron_right</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Légende -->
+            <div class="table-footer-legend">
+              <span><span class="material-symbols-outlined text-success">check_circle</span> Héritée du rôle</span>
+              <span><span class="material-symbols-outlined text-success">add_circle</span> Ajoutée</span>
+              <span><span class="material-symbols-outlined text-danger">cancel</span> Retirée</span>
+            </div>
+          </ng-container>
+
+          <!-- Message d'erreur -->
+          <div *ngIf="!isLoading && !userPermissions" class="empty-state">
+            <span class="material-symbols-outlined">error</span>
+            <p>Aucune permission trouvée pour cet utilisateur.</p>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+  </div>
+</div>

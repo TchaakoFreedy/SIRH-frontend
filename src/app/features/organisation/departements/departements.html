@@ -1,0 +1,327 @@
+<!-- src/app/features/organisation/departements/departements.html -->
+
+<div class="unity-container">
+  
+  <!-- Toast Notification -->
+  <div *ngIf="showSuccessToast()" class="modern-toast" [class.error-toast]="isErrorToast()">
+    <span class="toast-text">{{ successMessage() }}</span>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div *ngIf="isLoading()" class="loading-overlay">
+    <div class="loader-box">
+      <div class="spinner"></div>
+      <span>Traitement en cours...</span>
+    </div>
+  </div>
+
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">corporate_fare</span>
+      </div>
+      <div>
+        <h1>Gestion des Départements</h1>
+        <p>Créez et administrez les départements liés à vos entreprises</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <!-- ✅ Nouveau département - Permission DEPARTMENT_CREATE -->
+      <button *ngIf="canCreateDepartement()" class="btn btn-primary" (click)="openModal()">
+        <span class="material-symbols-outlined">add</span> Nouveau département
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== STATS ==================== -->
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-icon"><span class="material-symbols-outlined">corporate_fare</span></div>
+      <div class="stat-info">
+        <p>Total départements</p>
+        <h3>{{ stats().total }}</h3>
+      </div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon"><span class="material-symbols-outlined">check_circle</span></div>
+      <div class="stat-info">
+        <p>Actifs</p>
+        <h3>{{ stats().actifs }}</h3>
+      </div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-icon"><span class="material-symbols-outlined">block</span></div>
+      <div class="stat-info">
+        <p>Suspendus</p>
+        <h3>{{ stats().suspendus }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== RECHERCHE & FILTRES ==================== -->
+  <div class="search-filter-bar">
+    <div class="search-wrapper">
+      <span class="material-symbols-outlined search-icon">search</span>
+      <input 
+        type="text" 
+        class="search-input" 
+        [(ngModel)]="searchTerm" 
+        (input)="applyFilters()"
+        placeholder=" Rechercher par nom de département..."
+        autocomplete="off"
+      />
+      <button class="clear-search" *ngIf="searchTerm" (click)="clearSearch()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="filter-wrapper">
+      <span class="material-symbols-outlined filter-icon">filter_list</span>
+      <select class="filter-select" [(ngModel)]="selectedEntreprise" (change)="applyFilters()">
+        <option value="">Toutes les entreprises</option>
+        <option *ngFor="let entreprise of entreprises()" [value]="entreprise.id">{{ entreprise.name }}</option>
+      </select>
+      <span class="material-symbols-outlined select-arrow">expand_more</span>
+      <button class="clear-filter" *ngIf="selectedEntreprise" (click)="clearFilter()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="filter-results">
+      <span class="result-count">
+        <span class="material-symbols-outlined">people</span>
+        {{ filteredDepartements().length }} département(s)
+      </span>
+      <button class="btn-reset-filters" *ngIf="searchTerm || selectedEntreprise" (click)="resetFilters()">
+        <span class="material-symbols-outlined">refresh</span>
+        Réinitialiser
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== TABLEAU ==================== -->
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">
+        <span class="material-symbols-outlined">apartment</span>
+        <h2>Liste des départements</h2>
+      </div>
+      <span class="table-info">{{ filteredDepartements().length }} résultat(s)</span>
+    </div>
+
+    <div class="responsive-wrapper">
+      <table class="up-table">
+        <thead>
+          <tr>
+            <th>Département</th>
+            <th>Entreprise</th>
+            <th>Statut</th>
+            <th class="th-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="paginatedDepartements().length === 0">
+            <td colspan="4">
+              <div class="empty-state">
+                <span class="material-symbols-outlined">domain_disabled</span>
+                <p>Aucun département trouvé</p>
+                <p class="empty-hint">Créez votre premier département à l'aide du formulaire ci-dessus.</p>
+              </div>
+            </td>
+          </tr>
+
+          <tr *ngFor="let dep of paginatedDepartements()" class="data-row" [class.row-suspended]="isSuspended(dep.statut)">
+            <td>
+              <div class="user-cell">
+                <div class="avatar small" [style.background]="'var(--primary)'" [style.color]="'white'">
+                  {{ dep.name ? dep.name.charAt(0).toUpperCase() : '?' }}
+                </div>
+                <div>
+                  <div class="name">{{ dep.name }}</div>
+                  <div class="meta">ID: {{ dep.id }}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="entreprise-label">{{ getEntrepriseName(dep.entrepriseId) }}</span>
+            </td>
+            <td>
+              <span class="status-pill" [class.active]="isActive(dep.statut)" [class.suspended]="isSuspended(dep.statut)">
+                {{ dep.statut || 'ACTIF' }}
+              </span>
+            </td>
+            <td>
+              <div class="actions-cell">
+                <!-- ✅ Modifier - Permission DEPARTMENT_UPDATE -->
+                <button *ngIf="canUpdateDepartement()" 
+                        class="action-btn warning" 
+                        matTooltip="Modifier" 
+                        (click)="edit(dep)">
+                  <span class="material-symbols-outlined">edit</span>
+                </button>
+
+                <!-- ✅ Suspendre - Permission DEPARTMENT_SUSPEND -->
+                <button *ngIf="isActive(dep.statut) && canSuspendDepartement()" 
+                        class="action-btn danger" 
+                        matTooltip="Suspendre" 
+                        (click)="suspendre(dep.id)">
+                  <span class="material-symbols-outlined">block</span>
+                </button>
+
+                <!-- ✅ Réactiver - Permission DEPARTMENT_REACTIVATE -->
+                <button *ngIf="isSuspended(dep.statut) && canReactivateDepartement()" 
+                        class="action-btn success" 
+                        matTooltip="Réactiver" 
+                        (click)="reactiver(dep.id)">
+                  <span class="material-symbols-outlined">check_circle</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ==================== PAGINATION ==================== -->
+    <div class="pagination-container" *ngIf="filteredDepartements().length > 0">
+      <div class="pagination-info">
+        <span>
+          Affichage de 
+          <strong>{{ (currentPage - 1) * pageSize + 1 }}</strong> 
+          à 
+          <strong>{{ Math.min(currentPage * pageSize, filteredDepartements().length) }}</strong> 
+          sur 
+          <strong>{{ filteredDepartements().length }}</strong> 
+          départements
+        </span>
+        <div class="page-size-selector">
+          <label for="pageSizeDepartement">Lignes par page :</label>
+          <select id="pageSizeDepartement" [(ngModel)]="pageSize" (change)="onPageSizeChange()">
+            <option [value]="5">5</option>
+            <option [value]="10">10</option>
+            <option [value]="25">25</option>
+            <option [value]="50">50</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pagination-controls">
+        <button class="pagination-btn" 
+                (click)="previousPage()" 
+                [disabled]="currentPage === 1"
+                [class.disabled]="currentPage === 1">
+          <span class="material-symbols-outlined">chevron_left</span>
+          <span>Précédent</span>
+        </button>
+
+        <div class="page-numbers">
+          <button *ngIf="totalPages > 1" 
+                  class="page-number" 
+                  [class.active]="currentPage === 1"
+                  (click)="goToPage(1)">
+            1
+          </button>
+
+          <span *ngIf="currentPage > 3" class="ellipsis">…</span>
+
+          <button *ngFor="let page of getPageNumbers()" 
+                  class="page-number" 
+                  [class.active]="currentPage === page"
+                  (click)="goToPage(page)">
+            {{ page }}
+          </button>
+
+          <span *ngIf="currentPage < totalPages - 2" class="ellipsis">…</span>
+
+          <button *ngIf="totalPages > 1" 
+                  class="page-number" 
+                  [class.active]="currentPage === totalPages"
+                  (click)="goToPage(totalPages)">
+            {{ totalPages }}
+          </button>
+        </div>
+
+        <button class="pagination-btn" 
+                (click)="nextPage()" 
+                [disabled]="currentPage === totalPages"
+                [class.disabled]="currentPage === totalPages">
+          <span>Suivant</span>
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ==================== MODALE ==================== -->
+<div class="modal-overlay" *ngIf="showModal()">
+  <div class="modal-glass max-md">
+    <!-- Header -->
+    <div class="modal-top-header">
+      <div class="modal-title-group">
+        <div class="modal-icon" [class.badge-edit]="editMode()">
+          <span class="material-symbols-outlined">{{ editMode() ? 'edit_note' : 'add_circle' }}</span>
+        </div>
+        <div>
+          <h3>{{ editMode() ? 'Modifier le département' : 'Nouveau département' }}</h3>
+          <p>{{ editMode() ? 'Mettez à jour les informations ci-dessous.' : 'Renseignez le nom et l\'entreprise associée.' }}</p>
+        </div>
+      </div>
+      <button class="close-btn" (click)="closeModal()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body-scroll">
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <div class="form-block">
+          <div class="block-title"><span class="material-symbols-outlined">business_center</span> Informations générales</div>
+          <div class="form-grid grid-2">
+            <div class="form-group span-2">
+              <label for="name">Nom du département <span class="required">*</span></label>
+              <input id="name" type="text" formControlName="name" placeholder="Ex: Ressources Humaines" 
+                     class="form-control" [class.is-invalid]="form.get('name')?.invalid && form.get('name')?.touched">
+              <div class="error-message" *ngIf="form.get('name')?.invalid && form.get('name')?.touched">
+                <span *ngIf="form.get('name')?.errors?.['required']">Le nom est requis.</span>
+                <span *ngIf="form.get('name')?.errors?.['minlength']">Minimum 2 caractères.</span>
+              </div>
+            </div>
+            <div class="form-group span-2">
+              <label for="entrepriseId">Entreprise <span class="required">*</span></label>
+              <div class="select-wrapper">
+                <select id="entrepriseId" formControlName="entrepriseId" class="form-control" 
+                        [class.is-invalid]="form.get('entrepriseId')?.invalid && form.get('entrepriseId')?.touched">
+                  <option value="">Sélectionnez une entreprise</option>
+                  <option *ngFor="let entreprise of entreprises()" [value]="entreprise.id">{{ entreprise.name }}</option>
+                </select>
+                <span class="material-symbols-outlined select-arrow">expand_more</span>
+              </div>
+              <div class="error-message" *ngIf="form.get('entrepriseId')?.invalid && form.get('entrepriseId')?.touched">
+                Vous devez sélectionner une entreprise.
+              </div>
+            </div>
+            <div class="form-group span-2">
+              <label for="statut">Statut</label>
+              <div class="select-wrapper">
+                <select id="statut" formControlName="statut" class="form-control">
+                  <option *ngFor="let option of statutOptions" [value]="option">{{ option }}</option>
+                </select>
+                <span class="material-symbols-outlined select-arrow">expand_more</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer-bar">
+          <button type="button" class="btn btn-ghost" (click)="closeModal()">Annuler</button>
+          <button type="submit" [disabled]="form.invalid || isLoading()" class="btn btn-primary">
+            {{ editMode() ? 'Mettre à jour' : 'Créer' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,594 @@
+.role-form-container {
+
+padding:1.5rem;
+background:#f5f8fa;
+min-height:100vh;
+
+}
+
+
+
+/* HEADER */
+
+.page-header {
+
+margin-bottom:1.5rem;
+
+
+.header-left {
+
+display:flex;
+align-items:center;
+gap:1rem;
+
+
+}
+
+
+
+h2 {
+
+margin:0;
+font-size:1.4rem;
+font-weight:700;
+color:#1e293b;
+
+
+i {
+
+color:var(--primary-500);
+margin-right:.5rem;
+
+}
+
+}
+
+
+p {
+
+margin:5px 0 0;
+color:#64748b;
+font-size:.9rem;
+
+}
+
+
+}
+
+
+
+
+
+.back-btn {
+
+
+width:42px;
+height:42px;
+
+border:none;
+
+border-radius:10px;
+
+background:white;
+
+color:var(--primary-500);
+
+
+box-shadow:0 3px 10px rgba(0,0,0,.06);
+
+
+
+}
+
+
+
+
+/* LAYOUT */
+
+
+.form-layout {
+
+
+display:grid;
+
+grid-template-columns:1fr 1fr;
+
+gap:1.2rem;
+
+
+}
+
+
+
+
+.form-card,
+.permissions-card {
+
+
+background:white;
+
+border-radius:14px;
+
+padding:1.2rem;
+
+box-shadow:0 4px 12px rgba(0,0,0,.06);
+
+
+}
+
+
+
+
+
+
+.card-title {
+
+
+font-size:1rem;
+
+font-weight:700;
+
+margin-bottom:1rem;
+
+color:#1e293b;
+
+border-bottom:1px solid #eee;
+
+padding-bottom:.7rem;
+
+
+}
+
+
+
+
+
+
+.form-group {
+
+
+margin-bottom:1rem;
+
+
+label {
+
+font-size:.85rem;
+
+font-weight:600;
+
+margin-bottom:.4rem;
+
+display:block;
+
+}
+
+
+
+.form-control,
+.form-select {
+
+border-radius:9px;
+
+padding:.65rem;
+
+border:1px solid #dbe4ea;
+
+
+&:focus {
+
+border-color:var(--primary-500);
+
+box-shadow:0 0 0 .15rem rgba(24,184,200,.15);
+
+}
+
+
+}
+
+
+
+}
+
+
+
+
+
+/* LEVEL */
+
+
+.level-control {
+
+
+display:flex;
+
+gap:1rem;
+
+align-items:center;
+
+
+
+span {
+
+background:var(--primary-500);
+
+color:white;
+
+padding:.4rem .8rem;
+
+border-radius:8px;
+
+font-weight:700;
+
+}
+
+
+}
+
+
+
+
+.form-range::-webkit-slider-thumb {
+
+background:var(--primary-500);
+
+}
+
+
+
+
+
+
+
+
+/* ACTIVE */
+
+
+.active-box {
+
+
+margin:1rem 0;
+
+
+label {
+
+font-weight:600;
+
+}
+
+
+
+.switch {
+
+
+display:flex;
+
+align-items:center;
+
+gap:.7rem;
+
+
+input {
+
+display:none;
+
+}
+
+
+span {
+
+
+width:42px;
+height:22px;
+
+background:#cbd5e1;
+
+border-radius:20px;
+
+
+position:relative;
+
+
+
+&:before {
+
+content:"";
+
+position:absolute;
+
+width:18px;
+height:18px;
+
+background:white;
+
+border-radius:50%;
+
+top:2px;
+left:2px;
+
+transition:.3s;
+
+}
+
+
+}
+
+
+input:checked + span {
+
+background:var(--primary-500);
+
+
+}
+
+
+input:checked + span:before {
+
+transform:translateX(20px);
+
+}
+
+
+}
+
+
+}
+
+
+
+
+
+
+
+/* BUTTONS */
+
+
+.actions-form {
+
+
+display:flex;
+
+gap:1rem;
+
+margin-top:1.5rem;
+
+
+}
+
+
+.btn-save {
+
+
+background:var(--primary-500);
+
+color:white;
+
+border:none;
+
+padding:.7rem 1.4rem;
+
+border-radius:10px;
+
+font-weight:600;
+
+
+}
+
+
+
+.btn-cancel {
+
+
+background:#f1f5f9;
+
+border:none;
+
+padding:.7rem 1.4rem;
+
+border-radius:10px;
+
+}
+
+
+
+
+
+
+/* PERMISSIONS */
+
+
+.permissions-header {
+
+
+display:flex;
+
+justify-content:space-between;
+
+align-items:center;
+
+
+h5 {
+
+font-size:1rem;
+
+font-weight:700;
+
+}
+
+
+span {
+
+background:var(--primary-500);
+
+color:white;
+
+padding:.3rem .7rem;
+
+border-radius:20px;
+
+}
+
+
+}
+
+
+
+
+
+.search-permission {
+
+
+display:flex;
+
+align-items:center;
+
+gap:.5rem;
+
+background:#f8fafc;
+
+padding:.6rem 1rem;
+
+border-radius:10px;
+
+margin:1rem 0;
+
+
+i {
+
+color:var(--primary-500);
+
+}
+
+
+input {
+
+border:none;
+
+outline:none;
+
+background:none;
+
+width:100%;
+
+}
+
+
+}
+
+
+
+
+
+
+.permissions-list {
+
+
+max-height:500px;
+
+overflow-y:auto;
+
+
+}
+
+
+
+
+
+
+.permission-item {
+
+
+padding:.8rem;
+
+border:1px solid #e5e7eb;
+
+border-radius:10px;
+
+margin-bottom:.6rem;
+
+display:flex;
+
+justify-content:space-between;
+
+align-items:center;
+
+cursor:pointer;
+
+transition:.2s;
+
+
+
+strong {
+
+font-size:.85rem;
+
+}
+
+
+
+p {
+
+margin:3px 0;
+
+font-size:.75rem;
+
+color:#64748b;
+
+}
+
+
+
+small {
+
+background:var(--primary-50);
+
+color:var(--primary-700);
+
+padding:.2rem .5rem;
+
+border-radius:10px;
+
+}
+
+
+
+
+i {
+
+color:#cbd5e1;
+
+}
+
+
+
+&:hover,
+&.selected {
+
+border-color:var(--primary-500);
+
+background:var(--primary-50);
+
+
+i {
+
+color:var(--primary-500);
+
+}
+
+}
+
+
+}
+
+
+
+
+
+@media(max-width:992px){
+
+.form-layout{
+
+grid-template-columns:1fr;
+
+}
+
+}

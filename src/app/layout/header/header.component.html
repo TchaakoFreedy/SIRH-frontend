@@ -1,0 +1,186 @@
+<header class="app-header" (click)="$event.stopPropagation()">
+  
+  <!-- Logo et Brand -->
+  <a class="header-brand" routerLink="/app/dashboard">
+    <div class="logo-icon">
+      <img src="logo.png" alt="@fric SIRH" class="logo-img"
+           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+      <span class="logo-fallback" style="display:none;">🏢</span>
+    </div>
+    
+    <div class="brand-info">
+      <span class="app-title">@fric SIRH</span>
+      <span class="app-subtitle">Gestion des Ressources Humaines</span>
+    </div>
+  </a>
+
+  <!-- Séparateur -->
+  <div class="header-divider"></div>
+
+ 
+  <!-- Espaceur -->
+  <div class="spacer"></div>
+
+  <!-- Actions -->
+  <div class="header-actions">
+
+    <!-- Notifications -->
+    <div class="action-group">
+      <button
+        class="icon-btn notif-btn"
+        [class.active]="showNotifications()"
+        (click)="toggleNotifications()"
+        aria-label="Notifications"
+        matTooltip="Notifications"
+      >
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/>
+        </svg>
+        @if (unreadCount() > 0) {
+          <span class="notif-badge">{{ unreadCount() }}</span>
+        }
+      </button>
+
+      <!-- Dropdown Notifications -->
+      @if (showNotifications()) {
+        <div class="notif-dropdown" (click)="$event.stopPropagation()">
+          <div class="notif-header">
+            <h3 class="notif-title">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+              </svg>
+              Notifications
+            </h3>
+            <div class="notif-header-actions">
+              @if (unreadCount() > 0) {
+                <button
+                  class="mark-all-btn"
+                  (click)="markAllAsRead()"
+                  aria-label="Marquer tout comme lu"
+                >
+                  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                  </svg>
+                  Tout lire
+                </button>
+              }
+              <button class="notif-close-btn" (click)="showNotifications.set(false)">
+                ✕
+              </button>
+            </div>
+          </div>
+
+          @if (!isLoadingNotif()) {
+            <div class="notif-list">
+              @if (notifications().length > 0) {
+                @for (notif of notifications(); track notif.id) {
+                  <div
+                    class="notif-item"
+                    [class.unread]="!notif.read"
+                    (click)="markAsRead(notif)"
+                  >
+                    <div
+                      class="notif-icon-wrap"
+                      [style.background]="getNotifColor(notif.type) + '15'"
+                      [style.color]="getNotifColor(notif.type)"
+                    >
+                      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                    </div>
+                    <div class="notif-body">
+                      <p class="notif-msg">{{ notif.message }}</p>
+                      <span class="notif-time">{{ getTimeAgo(notif.createdAt) }}</span>
+                    </div>
+                    @if (!notif.read) {
+                      <span class="unread-dot"></span>
+                    }
+                  </div>
+                }
+              } @else {
+                <div class="notif-empty">
+                  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z"/>
+                  </svg>
+                  <p>Aucune notification</p>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="notif-loading">
+              <mat-spinner diameter="32"></mat-spinner>
+            </div>
+          }
+
+          <!-- ✅ Nouveau : Footer avec lien vers toutes les notifications -->
+          <div class="notif-footer">
+            <a routerLink="/app/notifications" (click)="closeDropdowns()" class="notif-view-all">
+              Voir toutes les notifications
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Séparateur -->
+    <div class="divider"></div>
+
+    <!-- Profil Utilisateur -->
+    <div class="action-group">
+      <button
+        class="user-btn"
+        [matMenuTriggerFor]="userMenu"
+        aria-label="Menu utilisateur"
+      >
+        <div class="avatar" [class.loading]="isLoading()">
+          @if (!isLoading()) {
+            {{ currentUser().initiales }}
+          } @else {
+            <mat-spinner diameter="20"></mat-spinner>
+          }
+        </div>
+        
+        <div class="user-info">
+          <span class="user-name">{{ currentUser().nom }}</span>
+          <span class="user-role">{{ currentUser().roleLabel }}</span>
+        </div>
+        
+        <span class="chevron">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
+          </svg>
+        </span>
+      </button>
+
+      <!-- Menu Utilisateur Material -->
+      <mat-menu #userMenu="matMenu" class="user-menu-material" xPosition="before">
+        <div class="menu-header">
+          <div class="menu-avatar">{{ currentUser().initiales }}</div>
+          <div class="menu-user-info">
+            <p class="menu-user-name">{{ currentUser().nom }}</p>
+            <p class="menu-user-role">{{ currentUser().roleLabel }}</p>
+            <p class="menu-user-email">{{ currentUser().email }}</p>
+          </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <a mat-menu-item routerLink="/app/mon-espace/profil" (click)="closeDropdowns()">
+          <mat-icon>person</mat-icon>
+          <span>Mon Profil</span>
+        </a>
+
+        <mat-divider></mat-divider>
+
+        <button mat-menu-item (click)="logout()" class="logout-item">
+          <mat-icon>logout</mat-icon>
+          <span>Déconnexion</span>
+        </button>
+      </mat-menu>
+    </div>
+
+  </div>
+</header>

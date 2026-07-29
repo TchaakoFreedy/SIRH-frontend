@@ -1,0 +1,309 @@
+<!-- src/app/features/rh/documents/documents.component.html -->
+
+<div class="page">
+  <!-- Header -->
+  <div class="header-section">
+    <div class="header-content">
+      <div class="header-left">
+        <!-- ✅ Logo de l'entreprise -->
+        <div class="company-logo">
+          <img 
+            [src]="entrepriseLogo() || '/logo.png'" 
+            [alt]="'Logo ' + entrepriseName()"
+            (error)="onImageError($event)"
+          />
+        </div>
+        <div>
+          <h1><i class="fas fa-file-pdf"></i> Gestion des Documents de Travail</h1>
+          <p class="subtitle">
+            Générez vos certificats et attestations en quelques clics
+          </p>
+          <div class="company-info">
+            <span class="company-name">{{ entrepriseName() || 'FRIC' }}</span>
+            <span class="company-address">
+              <i class="fas fa-map-marker-alt"></i>{{ previewData?.adresseSociete || entrepriseAddress() }}
+            </span>
+            <span class="company-phone">
+              <i class="fas fa-phone"></i> {{ entrepriseTelephone() || '+237 222 222 222' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Messages de notification -->
+  @if (successMessage()) {
+    <div class="alert alert-success">
+      <i class="fas fa-check-circle alert-icon"></i>
+      {{ successMessage() }}
+    </div>
+  }
+
+  @if (errorMessage()) {
+    <div class="alert alert-error">
+      <i class="fas fa-exclamation-triangle alert-icon"></i>
+      {{ errorMessage() }}
+    </div>
+  }
+
+  <!-- Indicateur de chargement -->
+  @if (loading() && !selectedEmployee) {
+    <div class="loading-container">
+      <div class="spinner"></div>
+      <p>Chargement de vos informations en cours...</p>
+    </div>
+  }
+
+  <!-- Informations de l'employé sélectionné -->
+  @if (selectedEmployee) {
+    <div class="employee-card">
+      <div class="employee-info">
+        <div class="employee-avatar">
+          {{ selectedEmployee.prenom?.[0] || selectedEmployee.firstName?.[0] }}{{ selectedEmployee.nom?.[0] || selectedEmployee.lastName?.[0] }}
+        </div>
+        <div class="employee-details">
+          <h3>{{ selectedEmployee.prenom || selectedEmployee.firstName }} {{ selectedEmployee.nom || selectedEmployee.lastName }}</h3>
+          <div class="employee-meta">
+            <span><i class="fas fa-id-badge"></i> Matricule : {{ selectedEmployee.matriculeInterne || selectedEmployee.matricule_interne || 'N/A' }}</span>
+            <span><i class="fas fa-briefcase"></i> Poste : {{ posteNom() || selectedEmployee.poste || 'Non défini' }}</span>
+            <span><i class="fas fa-building"></i> Département : {{ departementNom() || selectedEmployee.departement || 'Non défini' }}</span>
+            <span><i class="fas fa-calendar-alt"></i> Date d'embauche : {{ (selectedEmployee.date_embauche || selectedEmployee.dateEmbauche) | date:'dd/MM/yyyy' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Sélection du type de document -->
+  <div class="document-type-selector">
+    <div class="type-option" 
+         [class.active]="documentType === 'ATTESTATION_STAGE'"
+         (click)="selectDocumentType('ATTESTATION_STAGE')">
+      <i class="fas fa-file-alt"></i>
+      <div class="type-content">
+        <span class="type-title">Attestation de stage</span>
+        <small>Attestation pour les stagiaires en formation</small>
+      </div>
+    </div>
+    <div class="type-option" 
+         [class.active]="documentType === 'ATTESTATION'"
+         (click)="selectDocumentType('ATTESTATION')">
+      <i class="fas fa-file-signature"></i>
+      <div class="type-content">
+        <span class="type-title">Attestation de travail</span>
+        <small>Attestation de situation professionnelle</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Formulaire de génération -->
+  <div class="form-card">
+    <div class="form-group">
+      <label for="motif">
+        <i class="fas fa-comment"></i> Motif de la demande <span class="optional">(optionnel)</span>
+      </label>
+      <input 
+        id="motif"
+        type="text" 
+        [(ngModel)]="motif"
+        placeholder="Ex: Demande de prêt bancaire, constitution de dossier, inscription universitaire..."
+        class="form-control"
+      />
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-preview" (click)="previewDocument()" [disabled]="loading() || !selectedEmployee">
+        <i class="fas fa-eye"></i> Prévisualiser
+      </button>
+      <button class="btn btn-generate" (click)="generateDocument()" [disabled]="loading() || !selectedEmployee">
+        @if (!loading()) {
+          <i class="fas fa-download"></i>
+        } @else {
+          <i class="fas fa-spinner fa-spin"></i>
+        }
+        {{ loading() ? 'Génération en cours...' : 'Générer et télécharger' }}
+      </button>
+    </div>
+
+    <div class="info-note">
+      <i class="fas fa-info-circle"></i>
+      <span>
+        Le document sera généré au format PDF et téléchargé automatiquement. 
+        Après téléchargement, vous pourrez l'imprimer pour signature.
+      </span>
+    </div>
+  </div>
+
+  <!-- Guide d'utilisation -->
+  <div class="instructions-card">
+    <h4><i class="fas fa-info-circle"></i> Comment utiliser ce service</h4>
+    <ol>
+      <li><strong>Sélectionnez le type de document</strong> : Attestation de stage ou Attestation de travail</li>
+      <li><strong>Indiquez un motif</strong> (optionnel) pour contextualiser votre demande</li>
+      <li><strong>Prévisualisez</strong> le document pour vérifier l'exactitude des informations</li>
+      <li><strong>Générez et téléchargez</strong> le PDF officiel</li>
+      <li><strong>Imprimez</strong> le document et <strong>faites-le signer</strong> par votre supérieur hiérarchique</li>
+    </ol>
+  </div>
+
+  <!-- Modal de prévisualisation -->
+  @if (showPreviewModal() && previewData) {
+    <div class="modal-overlay" (click)="closePreview()">
+      <div class="modal-preview" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <div class="modal-header-left">
+            <!-- ✅ Logo dans le modal -->
+            <div class="modal-logo">
+              <img 
+                [src]="entrepriseLogo() || '/logo.png'" 
+                [alt]="'Logo ' + entrepriseName()"
+                (error)="onImageError($event)"
+              />
+            </div>
+            <h3>
+              {{ getDocumentTypeLabel(documentType) }}
+            </h3>
+          </div>
+          <button class="close-btn" (click)="closePreview()">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <div class="preview-content">
+            <div class="preview-header">
+              <!-- ✅ Logo et informations de l'entreprise -->
+              <div class="preview-company">
+                <div class="preview-logo">
+                  <img 
+                    [src]="entrepriseLogo() || '/logo.png'" 
+                    [alt]="'Logo ' + entrepriseName()"
+                    (error)="onImageError($event)"
+                  />
+                </div>
+                <div class="preview-company-info">
+                  <h4>{{ previewData?.raisonSociale || entrepriseName() }}</h4>
+                  <p>{{ previewData?.adresseSociete || entrepriseAddress() }}</p>
+                  <p>
+                    <i class="fas fa-phone"></i> {{ previewData?.telephoneSociete || entrepriseTelephone() }} 
+                    <i class="fas fa-envelope"></i> {{ previewData?.emailSociete || entrepriseEmail() }}
+                  </p>
+                </div>
+              </div>
+              <div class="preview-separator"></div>
+            </div>
+
+            <div class="preview-title">
+              <h2>{{ getDocumentTitle(documentType) }}</h2>
+              <span class="preview-number">N° {{ previewData?.numeroDocument || 'N/A' }}</span>
+            </div>
+
+            <div class="preview-body">
+             @if (documentType === 'ATTESTATION_STAGE') {
+  <!-- Attestation de stage -->
+  <p>
+    La société <strong>{{ previewData?.raisonSociale || entrepriseName() }}</strong>, 
+    dont le siège social est situé à {{ previewData?.adresseSociete || entrepriseAddress() }},
+    atteste par la présente que :
+  </p>
+
+  <p style="margin-left: 20px; font-size: 1.1em; line-height: 1.8;">
+    <strong>{{ previewData?.employeeName || (selectedEmployee?.prenom + ' ' + selectedEmployee?.nom) }}</strong>,
+    {{ previewData?.stagiaireFormation || 'étudiant(e)' }},
+    a effectué un stage au sein de notre structure du 
+    <strong>{{ previewData?.dateEmbauche || '...' }}</strong> au 
+    <strong>{{ previewData?.stageDateFin || '...' }}</strong>,
+    soit une durée totale de <strong>{{ previewData?.stageDuree || '...' }}</strong>.
+  </p>
+
+  <p>
+    Durant cette période, 
+    <strong>{{ previewData?.employeeName || (selectedEmployee?.prenom + ' ' + selectedEmployee?.nom) }}</strong>
+    a été intégré(e) au sein du service 
+    <strong>{{ previewData?.stageService || previewData?.employeeDepartement || '...' }}</strong>
+    où il/elle a été encadré(e) par <strong>{{ previewData?.stageEncadrant || 'le responsable du service' }}</strong>.
+  </p>
+
+  <p>
+    {{ previewData?.employeeName || (selectedEmployee?.prenom + ' ' + selectedEmployee?.nom) }} 
+    a fait preuve de {{ previewData?.stagiaireQualites || 'sérieux, rigueur et autonomie' }} 
+    tout au long de son stage. Il/Elle a su s'intégrer parfaitement dans l'équipe et 
+    a contribué activement aux projets qui lui ont été confiés.
+  </p>
+
+  <p>
+    La présente attestation est délivrée à l'intéressé(e) pour servir et valoir ce que de droit.
+  </p>
+}
+
+              @if (documentType === 'ATTESTATION') {
+                <!-- Attestation de travail -->
+               <p>
+                        La société <strong>{{ previewData?.raisonSociale || entrepriseName() }}</strong>, 
+    dont le siège social est situé à {{ previewData?.adresseSociete || entrepriseAddress() }},
+    atteste par la présente que :
+  </p>
+
+                <p style="margin-left: 20px; font-size: 1.1em; line-height: 1.8;">
+                  <strong>{{ previewData?.employeeName || (selectedEmployee?.prenom + ' ' + selectedEmployee?.nom) }}</strong>
+                  (Matricule : {{ previewData?.employeeMatricule || selectedEmployee?.matriculeInterne }}),
+                  est employé(e) au sein de notre société en qualité de 
+                  <strong>{{ previewData?.employeePoste || posteNom() }}</strong>,
+                  au sein du département 
+                  <strong>{{ previewData?.employeeDepartement || departementNom() }}</strong>.
+                </p>
+
+                <p>
+                  Date d'embauche : <strong>{{ previewData?.dateEmbauche || '...' }}</strong>.
+                  Le/La présent(e) employé(e) est actuellement en poste et remplit ses fonctions avec assiduité.
+                </p>
+
+                <p>
+                  La présente attestation est délivrée à l'intéressé(e) pour servir et valoir ce que de droit.
+                </p>
+              }
+
+              <!-- Motif (optionnel) -->
+              @if (previewData?.motif || motif) {
+                <p>
+                  <strong>Motif de la demande :</strong> {{ previewData?.motif || motif }}
+                </p>
+              }
+
+              <p style="margin-top: 30px;">
+                Fait à <strong>{{ previewData?.adresseSociete || entrepriseAddress() }}</strong>,
+                le {{ formatDate(previewData?.dateGeneration) }}.
+              </p>
+            </div>
+
+            <div class="preview-signatures" style="display: flex; justify-content: space-between; margin-top: 50px;">
+              <div class="signature-left">
+                <p><strong>La Direction des Ressources Humaines</strong></p>
+                <p style="margin-top: 60px;"><em>Signature et Cachet</em></p>
+              </div>
+              <div class="signature-right">
+                <p><strong>L'intéressé(e)</strong></p>
+                <p style="margin-top: 60px;"><em>(Signature précédée de la mention "Lu et approuvé")</em></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="closePreview()">
+            <i class="fas fa-times"></i> Fermer
+          </button>
+          <button class="btn btn-generate" (click)="generateDocument()" [disabled]="loading()">
+            @if (!loading()) {
+              <i class="fas fa-download"></i>
+            } @else {
+              <i class="fas fa-spinner fa-spin"></i>
+            }
+            {{ loading() ? 'Génération en cours...' : 'Générer et télécharger' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

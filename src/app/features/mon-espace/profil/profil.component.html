@@ -1,0 +1,820 @@
+<!-- src/app/features/mon-espace/profil/profil.component.html -->
+<div class="profil-wrapper">
+  <!-- ── Notification Toast ──────────────────────────────────────────────── -->
+  @if (notification()) {
+    <div class="toast" [class]="'toast--' + notification()!.type">
+      <span class="toast__icon">
+        @if (notification()!.type === 'success') {
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        } @else if (notification()!.type === 'info') {
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+        } @else {
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+        }
+      </span>
+      <span>{{ notification()!.message }}</span>
+      <button class="toast__close" (click)="notification.set(null)">✕</button>
+    </div>
+  }
+
+  <!-- ── Loader ──────────────────────────────────────────────────────────── -->
+  @if (isLoading()) {
+    <div class="loader-container">
+      <div class="loader">
+        <div class="loader__ring"></div>
+        <span class="loader__text">Chargement de votre profil...</span>
+      </div>
+    </div>
+  } @else {
+
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <!-- HERO CARD -->
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <div class="hero-card">
+      <div class="hero-card__bg"></div>
+      <div class="hero-card__content">
+        <!-- Avatar -->
+        <div class="avatar-wrapper">
+          <div class="avatar" [class.avatar--edit]="isEditMode()">
+            @if (photoPreview) {
+              <img [src]="photoPreview" alt="Photo de profil" class="avatar__img"/>
+            } @else if (profil?.photoUrl) {
+              <img [src]="profil!.photoUrl" alt="Photo de profil" class="avatar__img"/>
+            } @else {
+              <span class="avatar__initiales">{{ initiales() }}</span>
+            }
+            @if (isEditMode()) {
+              <button class="avatar__edit-btn" (click)="triggerPhotoInput()" title="Changer la photo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+              </button>
+            }
+            <input id="photoInput" type="file" accept="image/*" hidden (change)="onPhotoChange($event)"/>
+          </div>
+          <span class="statut-badge" [class]="getStatutClass(profil?.statut ?? 'ACTIF')">
+            <span class="statut-badge__dot"></span>
+            {{ getStatutLabel(profil?.statut ?? 'ACTIF') }}
+          </span>
+        </div>
+
+        <!-- Identité -->
+        <div class="hero-card__identity">
+          <div class="hero-card__name-wrapper">
+            <h1 class="hero-card__name">{{ profil?.prenom }} {{ profil?.nom }}</h1>
+            @if (userRoleLabel) {
+              <span class="role-badge">{{ userRoleLabel }}</span>
+            }
+          </div>
+          <p class="hero-card__role">
+            {{ posteNom() || 'Poste non assigné' }}
+          </p>
+          <p class="hero-card__email">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+            {{ currentUser?.email }}
+          </p>
+
+          <div class="hero-card__tags">
+            @if (profil?.matriculeInterne) {
+              <span class="tag tag--matricule">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="3" y1="9" x2="21" y2="9"/>
+                  <line x1="3" y1="15" x2="21" y2="15"/>
+                  <line x1="9" y1="3" x2="9" y2="21"/>
+                </svg>
+                {{ profil?.matriculeInterne }}
+              </span>
+            }
+            @if (contratActif()) {
+              <span class="tag" [class]="getTypeContratBadge(contratActif()!.typeContrat)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                  <polyline points="10 9 9 9 8 9"/>
+                </svg>
+                {{ contratActif()!.typeContrat }}
+              </span>
+            }
+            @if (anciennete()) {
+              <span class="tag tag--anciennete">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                {{ anciennete() }}
+              </span>
+            }
+            @if (departementNom()) {
+              <span class="tag tag--dept">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                </svg>
+                {{ departementNom() }}
+              </span>
+            }
+          </div>
+        </div>
+
+        <!-- Actions rapides -->
+        <div class="hero-card__actions">
+         
+          
+          <a class="btn btn--outline" href="mailto:rh@entreprise.com">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+            Contacter RH
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <!-- RÉSUMÉ INFOS -->
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <div class="resume-rh">
+      <div class="resume-rh__item">
+        <span class="resume-rh__icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </span>
+        <div>
+          <span class="resume-rh__label">Matricule</span>
+          <span class="resume-rh__value">{{ profil?.matriculeInterne || '—' }}</span>
+        </div>
+      </div>
+      <div class="resume-rh__item">
+        <span class="resume-rh__icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+          </svg>
+        </span>
+        <div>
+          <span class="resume-rh__label">Poste</span>
+          <span class="resume-rh__value">
+            {{ posteNom() || '—' }}
+          </span>
+        </div>
+      </div>
+      <div class="resume-rh__item">
+        <span class="resume-rh__icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </span>
+        <div>
+          <span class="resume-rh__label">Embauche</span>
+          <span class="resume-rh__value">{{ formatDate(profil?.date_embauche) }}</span>
+        </div>
+      </div>
+      <div class="resume-rh__item">
+        <span class="resume-rh__icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="3" width="15" height="13" rx="2" ry="2"/>
+            <polyline points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+            <circle cx="5.5" cy="18" r="2.5"/>
+            <circle cx="18.5" cy="18" r="2.5"/>
+          </svg>
+        </span>
+        <div>
+          <span class="resume-rh__label">CNPS</span>
+          <span class="resume-rh__value">{{ profil?.matricule_CNPS || '—' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <!-- ZONE ONGLETS -->
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <div class="onglets-container">
+      <nav class="onglets-nav" role="tablist">
+        @for (onglet of onglets; track onglet.id) {
+          <button class="onglet-btn" [class.onglet-btn--actif]="ongletActif() === onglet.id" (click)="changerOnglet(onglet.id)" role="tab" [attr.aria-selected]="ongletActif() === onglet.id">
+            <span class="onglet-btn__icon">
+              @if (onglet.id === 'personnel') {
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              } @else if (onglet.id === 'professionnel') {
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                </svg>
+              } @else if (onglet.id === 'documents') {
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                  <polyline points="13 2 13 9 20 9"/>
+                </svg>
+              } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="12" cy="12" r="2"/>
+                  <circle cx="12" cy="8" r="1"/>
+                  <circle cx="12" cy="16" r="1"/>
+                </svg>
+              }
+            </span>
+            <span class="onglet-btn__label">{{ onglet.label }}</span>
+          </button>
+        }
+      </nav>
+
+      <!-- ═══ ONGLET PERSONNEL ═══ -->
+      @if (ongletActif() === 'personnel') {
+        <div class="onglet-content" role="tabpanel">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Informations personnelles</h2>
+              <p class="section-subtitle">Consultez et mettez à jour vos coordonnées</p>
+            </div>
+            @if (!isEditMode()) {
+              <button class="btn btn--primary" (click)="activerModification()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                Modifier
+              </button>
+            } @else {
+              <div class="action-group">
+                <button class="btn btn--ghost" (click)="annulerModification()" [disabled]="isSaving()">
+                  Annuler
+                </button>
+                <button class="btn btn--primary" [disabled]="isSaving()" (click)="sauvegarderModifications()">
+                  @if (isSaving()) {
+                    <span class="btn__spinner"></span>
+                  } @else {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                      <polyline points="17 21 17 13 7 13 7 21"/>
+                      <polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    Sauvegarder
+                  }
+                </button>
+              </div>
+            }
+          </div>
+
+          <form [formGroup]="personalForm" class="profil-form">
+            <div class="form-grid">
+              <!-- Nom complet -->
+              <div class="form-field form-field--full">
+                <label class="form-label">Nom complet</label>
+                <div class="form-readonly">
+                  <span>{{ profil?.prenom }} {{ profil?.nom }}</span>
+                  <span class="form-readonly__badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                      <path d="M7 7h.01M7 12h.01M7 17h.01"/>
+                      <path d="M12 7h5M12 12h5M12 17h5"/>
+                    </svg>
+                  </span>
+                </div>
+              </div>
+
+              <!-- Genre -->
+              <div class="form-field">
+                <label class="form-label">Genre</label>
+                <div class="form-readonly">
+                  <span>{{ profil?.sexe || 'Non spécifié' }}</span>
+                </div>
+              </div>
+
+              <!-- Date de naissance -->
+              <div class="form-field">
+                <label class="form-label">Date de naissance</label>
+                <div class="form-readonly">
+                  <span>{{ formatDate(profil?.date_naissance) }}</span>
+                </div>
+              </div>
+
+              <!-- Téléphone -->
+              <div class="form-field">
+                <label class="form-label">
+                  Téléphone
+                  @if (isEditMode()) {
+                    <span class="form-label__editable">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                    </span>
+                  }
+                </label>
+                @if (isEditMode()) {
+                  <input
+                    type="tel"
+                    formControlName="telephone"
+                    class="form-input"
+                    [class.form-input--error]="f['telephone'].invalid && f['telephone'].touched"
+                    placeholder="Ex: 06 12 34 56 78"/>
+                  @if (f['telephone'].invalid && f['telephone'].touched) {
+                    <span class="form-error">Format invalide</span>
+                  }
+                } @else {
+                  <div class="form-readonly form-readonly--editable">
+                    <span>{{ profil?.telephone || 'Non renseigné' }}</span>
+                  </div>
+                }
+              </div>
+
+              <!-- Adresse -->
+              <div class="form-field form-field--full">
+                <label class="form-label">
+                  Adresse de résidence
+                  @if (isEditMode()) {
+                    <span class="form-label__editable">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                    </span>
+                  }
+                </label>
+                @if (isEditMode()) {
+                  <input
+                    type="text"
+                    formControlName="adresse"
+                    class="form-input"
+                    [class.form-input--error]="f['adresse'].invalid && f['adresse'].touched"
+                    placeholder="Votre adresse complète"/>
+                  @if (f['adresse'].invalid && f['adresse'].touched) {
+                    <span class="form-error">Adresse requise</span>
+                  }
+                } @else {
+                  <div class="form-readonly form-readonly--editable">
+                    <span>{{ profil?.addresse || 'Non renseignée' }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          </form>
+        </div>
+      }
+
+      <!-- ═══ ONGLET PROFESSIONNEL ═══ -->
+      @if (ongletActif() === 'professionnel') {
+        <div class="onglet-content" role="tabpanel">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Structure professionnelle</h2>
+              <p class="section-subtitle">Données certifiées par les RH</p>
+            </div>
+            <span class="readonly-notice">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <path d="M7 7h.01M7 12h.01M7 17h.01"/>
+                <path d="M12 7h5M12 12h5M12 17h5"/>
+              </svg>
+              Lecture seule
+            </span>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-card">
+              <div class="info-card__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </div>
+              <div class="info-card__content">
+                <span class="info-card__label">Matricule interne</span>
+                <span class="info-card__value">{{ profil?.matriculeInterne || '—' }}</span>
+              </div>
+            </div>
+            <div class="info-card">
+              <div class="info-card__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="1" y="3" width="15" height="13" rx="2" ry="2"/>
+                  <polyline points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+                  <circle cx="5.5" cy="18" r="2.5"/>
+                  <circle cx="18.5" cy="18" r="2.5"/>
+                </svg>
+              </div>
+              <div class="info-card__content">
+                <span class="info-card__label">Matricule CNPS</span>
+                <span class="info-card__value">{{ profil?.matricule_CNPS || 'Non affilié' }}</span>
+              </div>
+            </div>
+            <div class="info-card">
+              <div class="info-card__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                </svg>
+              </div>
+              <div class="info-card__content">
+                <span class="info-card__label">Poste actuel</span>
+                <span class="info-card__value">
+                  {{ posteNom() || '—' }}
+                </span>
+              </div>
+            </div>
+            <div class="info-card">
+              <div class="info-card__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                </svg>
+              </div>
+              <div class="info-card__content">
+                <span class="info-card__label">Département</span>
+                <span class="info-card__value">{{ departementNom() || '—' }}</span>
+              </div>
+            </div>
+            <div class="info-card">
+              <div class="info-card__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+              </div>
+              <div class="info-card__content">
+                <span class="info-card__label">Date d'embauche</span>
+                <span class="info-card__value">{{ formatDate(profil?.date_embauche) }}</span>
+              </div>
+            </div>
+            <div class="info-card">
+              <div class="info-card__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <div class="info-card__content">
+                <span class="info-card__label">Ancienneté</span>
+                <span class="info-card__value">{{ anciennete() || '—' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Contrats -->
+          <div class="sub-section">
+            <div class="sub-section__header">
+              <div>
+                <h3 class="sub-section__title">Historique des contrats</h3>
+                <p class="sub-section__subtitle">Tous vos contrats enregistrés</p>
+              </div>
+              <span class="sub-section__count">{{ contrats.length }} contrat(s)</span>
+            </div>
+
+            @if (contrats.length > 0) {
+              <div class="contrats-list">
+                @for (c of contrats; track c.id) {
+                  <div class="contrat-item" [class.contrat-item--actif]="c.statut === 'ACTIF'">
+                    <div class="contrat-item__left">
+                      <span class="badge-contrat" [class]="getTypeContratBadge(c.typeContrat)">
+                        {{ c.typeContrat }}
+                      </span>
+                      <div class="contrat-item__dates">
+                        <span>Du {{ formatDate(c.dateDebut) }}</span>
+                        <span>au {{ c.dateFin ? formatDate(c.dateFin) : 'Indéterminé' }}</span>
+                      </div>
+                    </div>
+                    <div class="contrat-item__right">
+                      <span class="statut-inline" [class]="c.statut === 'ACTIF' ? 'badge--actif' : 'badge--archive'">
+                        {{ c.statut }}
+                      </span>
+                      @if (c.imageUrls?.length > 0) {
+                        <button class="btn btn--outline-sm" (click)="downloadDocument(c.imageUrls[0], 'contrat_' + c.typeContrat)">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                          </svg>
+                          Télécharger
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="empty-state empty-state--sm">
+                <span class="empty-state__icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                    <polyline points="13 2 13 9 20 9"/>
+                  </svg>
+                </span>
+                <p>Aucun contrat enregistré</p>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- ═══ ONGLET DOCUMENTS ═══ -->
+      @if (ongletActif() === 'documents') {
+        <div class="onglet-content" role="tabpanel">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Documents personnels</h2>
+              <p class="section-subtitle">Tous vos justificatifs numériques</p>
+            </div>
+            <div class="section-actions">
+              <span class="sub-section__count">{{ documents.length }} document(s)</span>
+            </div>
+          </div>
+
+          @if (documents.length > 0) {
+            <div class="documents-grid">
+              @for (doc of documents; track doc.id) {
+                <div class="document-card" [class.document-card--has-images]="doc.imageUrls?.length > 0">
+                  <div class="document-card__header">
+                    <div class="document-card__type-badge">
+                      <span class="document-card__icon">{{ getDocumentIcon(doc.typeDocument) }}</span>
+                      <span class="document-card__type">{{ getTypeDocumentLabel(doc.typeDocument) }}</span>
+                    </div>
+                    @if (doc.imageUrls?.length > 0) {
+                      <span class="document-card__file-count">
+                        {{ doc.imageUrls.length }} fichier(s)
+                      </span>
+                    } @else {
+                      <span class="document-card__file-count badge--warning">
+                        ⚠️ Sans fichier
+                      </span>
+                    }
+                  </div>
+                  
+                  <div class="document-card__info">
+                    <span class="document-card__name">{{ doc.name || 'Document' }}</span>
+                    <div class="document-card__meta">
+                      <span class="document-card__date">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                          <line x1="16" y1="2" x2="16" y2="6"/>
+                          <line x1="8" y1="2" x2="8" y2="6"/>
+                          <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                        {{ formatDate(doc.dateUpload || doc.createdAt) }}
+                      </span>
+                      @if (doc.createdBy) {
+                        <span class="document-card__uploader">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                          </svg>
+                          {{ doc.createdBy }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+
+                  @if (doc.imageUrls && doc.imageUrls.length > 0) {
+                   <!-- Mini preview thumbnails -->
+<div class="document-card__thumbnails">
+  @for (url of doc.imageUrls.slice(0, 3); track url; let i = $index) {
+    <div class="thumbnail-mini" (click)="openDocumentPreview(doc)">
+      @if (isImage(doc)) {
+        <!-- CORRECTION: Utiliser l'URL complète du backend -->
+        <img [src]="getDocumentPreviewUrl(doc.id)" [alt]="doc.name + ' ' + (i + 1)" (error)="onImageError($event)"/>
+      } @else {
+        <div class="thumbnail-mini__placeholder">
+          {{ getDocumentIcon(doc.typeDocument) }}
+        </div>
+      }
+    </div>
+  }
+  @if (doc.imageUrls.length > 3) {
+    <div class="thumbnail-mini thumbnail-mini--more" (click)="openDocumentPreview(doc)">
+      +{{ doc.imageUrls.length - 3 }}
+    </div>
+  }
+</div>
+                  }
+
+                  <!-- UPDATED: Document card actions with downloadDocumentById -->
+                  <div class="document-card__actions">
+                    @if (doc.imageUrls && doc.imageUrls.length > 0) {
+                      <button class="btn btn--outline-sm" (click)="openDocumentPreview(doc)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                          <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        Voir
+                      </button>
+                      <button class="btn btn--primary-sm" 
+                              (click)="downloadDocumentById(doc.id, doc.name || 'document')" 
+                              [disabled]="isDownloading()">
+                        @if (isDownloading()) {
+                          <span class="btn__spinner-sm"></span>
+                        } @else {
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                          </svg>
+                          Télécharger
+                        }
+                      </button>
+                    } @else {
+                      <span class="document-card__no-file">Aucun fichier attaché</span>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="empty-state">
+              <span class="empty-state__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                  <polyline points="13 2 13 9 20 9"/>
+                </svg>
+              </span>
+              <h4>Aucun document disponible</h4>
+              <p>Vos justificatifs (CNI, diplômes, etc.) seront visibles ici une fois téléversés par les RH.</p>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- ═══ ONGLET PARAMÈTRES ═══ -->
+      @if (ongletActif() === 'parametres') {
+        <div class="onglet-content" role="tabpanel">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Sécurité du compte</h2>
+              <p class="section-subtitle">Gérez vos identifiants et accès</p>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h3 class="settings-group__title">Identifiants de connexion</h3>
+            
+            <div class="settings-item">
+              <div class="settings-item__info">
+                <span class="settings-item__icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                    <polyline points="22,6 12,13 2,6"/>
+                  </svg>
+                </span>
+                <div>
+                  <span class="settings-item__label">Adresse email</span>
+                  <span class="settings-item__desc">{{ currentUser?.email }}</span>
+                </div>
+              </div>
+              <span class="settings-item__status">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                Vérifié
+              </span>
+            </div>
+
+            <div class="settings-item">
+              <div class="settings-item__info">
+                <span class="settings-item__icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <path d="M7 7h.01M7 12h.01M7 17h.01"/>
+                    <path d="M12 7h5M12 12h5M12 17h5"/>
+                  </svg>
+                </span>
+                <div>
+                  <span class="settings-item__label">Mot de passe</span>
+                  <span class="settings-item__desc">••••••••••••••</span>
+                </div>
+              </div>
+              <button class="btn btn--primary" (click)="ouvrirModalMotDePasse()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                Changer
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h3 class="settings-group__title">Informations de session</h3>
+            <div class="settings-item">
+              <div class="settings-item__info">
+                <span class="settings-item__icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </span>
+                <div>
+                  <span class="settings-item__label">Rôle</span>
+                  <span class="settings-item__desc">{{ userRoleLabel || 'Non défini' }}</span>
+                </div>
+              </div>
+              <span class="role-badge">{{ userRoleLabel || '—' }}</span>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- DOCUMENT PREVIEW MODAL -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+@if (showDocumentPreview()) {
+  <app-document-preview-modal
+    [isOpen]="showDocumentPreview()"
+    [document]="selectedDocument()"
+    (closeModal)="closeDocumentPreview()"
+    (downloadDocument)="downloadSingleDocument($event)"
+    (downloadAllDocuments)="downloadAllDocuments($event)"
+  ></app-document-preview-modal>
+}
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL CHANGEMENT DE MOT DE PASSE -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+@if (showPasswordModal()) {
+  <div class="modal-overlay" (click)="fermerModalMotDePasse()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal__header">
+        <h3>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <path d="M7 7h.01M7 12h.01M7 17h.01"/>
+            <path d="M12 7h5M12 12h5M12 17h5"/>
+          </svg>
+          Changer le mot de passe
+        </h3>
+        <button class="modal__close" (click)="fermerModalMotDePasse()">✕</button>
+      </div>
+      <div class="modal__body">
+        <form [formGroup]="passwordForm">
+          <div class="form-field">
+            <label class="form-label">Mot de passe actuel</label>
+            <input type="password" formControlName="ancienMotDePasse" class="form-input" [class.form-input--error]="fp['ancienMotDePasse'].invalid && fp['ancienMotDePasse'].touched" placeholder="Entrez votre mot de passe actuel"/>
+            @if (fp['ancienMotDePasse'].invalid && fp['ancienMotDePasse'].touched) {
+              <span class="form-error">Mot de passe requis</span>
+            }
+          </div>
+          <div class="form-field">
+            <label class="form-label">Nouveau mot de passe <span class="form-label__hint">(8 caractères minimum)</span></label>
+            <input type="password" formControlName="nouveauMotDePasse" class="form-input" [class.form-input--error]="fp['nouveauMotDePasse'].invalid && fp['nouveauMotDePasse'].touched" placeholder="Nouveau mot de passe"/>
+            @if (fp['nouveauMotDePasse'].invalid && fp['nouveauMotDePasse'].touched) {
+              <span class="form-error">Minimum 8 caractères</span>
+            }
+          </div>
+          <div class="form-field">
+            <label class="form-label">Confirmer le nouveau mot de passe</label>
+            <input type="password" formControlName="confirmationMotDePasse" class="form-input" [class.form-input--error]="passwordForm.errors?.['mismatch'] && fp['confirmationMotDePasse'].touched" placeholder="Confirmez le nouveau mot de passe"/>
+            @if (passwordForm.errors?.['mismatch'] && fp['confirmationMotDePasse'].touched) {
+              <span class="form-error">Les mots de passe ne correspondent pas</span>
+            }
+          </div>
+        </form>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--ghost" (click)="fermerModalMotDePasse()" [disabled]="isSaving()">
+          Annuler
+        </button>
+        <button class="btn btn--primary" (click)="changerMotDePasse()" [disabled]="isSaving() || passwordForm.invalid">
+          @if (isSaving()) {
+            <span class="btn__spinner"></span>
+          } @else {
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 4v6h-6"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            Mettre à jour
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,39 @@
+<div class="notifications-page">
+  <div class="page-container">
+    
+    <!-- En-tête -->
+    <header class="page-header">
+      <div class="header-left">
+        <div class="header-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+        </div>
+        <div>
+          <h1>Notifications</h1>
+          <p class="subtitle">Restez informé des activités importantes</p>
+        </div>
+      </div>
+      
+    </header>
+
+    <!-- Onglets -->
+   
+    
+
+    <!-- Liste -->
+    <div class="list-container">
+      <app-notification-list
+        [maxHeight]="'600px'"
+        [showActions]="true"
+        [filterRead]="selectedTab === 'unread' ? false : selectedTab === 'read' ? true : undefined"
+        [limit]="100"
+        (notificationRead)="loadNotifications(currentPage)"
+        (notificationClicked)="onNotificationClicked($event)"
+        (refreshRequested)="onRefreshRequested()">
+      </app-notification-list>
+    </div>
+
+  </div>
+</div>

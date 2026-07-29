@@ -1,0 +1,157 @@
+<!-- src/app/features/permissions/components/permission-form/permission-form.component.html -->
+
+<div class="permission-form-container">
+  <div class="d-flex align-items-center mb-4">
+    <button class="btn btn-outline-primary me-3" (click)="goBack()">
+      <i class="fas fa-arrow-left"></i>
+    </button>
+    <h2 class="mb-0">
+      <i class="fas fa-key me-2 text-primary"></i>
+      {{ isEditMode ? 'Modifier la Permission' : 'Nouvelle Permission' }}
+    </h2>
+  </div>
+
+  <!-- Loading -->
+  <div class="text-center py-5" [hidden]="!isLoading">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Chargement...</span>
+    </div>
+  </div>
+
+  <!-- Form -->
+  <div class="card" [hidden]="isLoading">
+    <div class="card-body">
+      <form [formGroup]="permissionForm" (ngSubmit)="onSubmit()">
+        <!-- Name -->
+        <div class="mb-3">
+          <label for="name" class="form-label fw-semibold">
+            Nom de la Permission <span class="text-danger">*</span>
+          </label>
+          <input
+            type="text"
+            id="name"
+            class="form-control"
+            formControlName="name"
+            [class.is-invalid]="f['name'].invalid && f['name'].touched"
+            placeholder="Ex: USER_VIEW_ALL"
+            [readonly]="isEditMode"
+          />
+          <div class="invalid-feedback" [hidden]="!f['name'].invalid || !f['name'].touched">
+            <span [hidden]="!f['name'].errors?.['required']">Le nom est obligatoire</span>
+            <span [hidden]="!f['name'].errors?.['maxlength']">Le nom ne peut pas dépasser 50 caractères</span>
+          </div>
+          <div class="form-text text-muted" [hidden]="!isEditMode">
+            <i class="fas fa-info-circle me-1"></i>
+            Le nom ne peut pas être modifié
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div class="mb-3">
+          <label for="description" class="form-label fw-semibold">Description</label>
+          <textarea
+            id="description"
+            class="form-control"
+            formControlName="description"
+            rows="3"
+            placeholder="Description de la permission..."
+            [class.is-invalid]="f['description'].invalid && f['description'].touched"
+          ></textarea>
+          <div class="invalid-feedback" [hidden]="!f['description'].invalid || !f['description'].touched">
+            <span [hidden]="!f['description'].errors?.['maxlength']">La description ne peut pas dépasser 200 caractères</span>
+          </div>
+        </div>
+
+        <!-- Category -->
+        <div class="mb-3">
+          <label for="category" class="form-label fw-semibold">
+            Catégorie <span class="text-danger">*</span>
+          </label>
+          <select
+            id="category"
+            class="form-select"
+            formControlName="category"
+            [class.is-invalid]="f['category'].invalid && f['category'].touched"
+          >
+            <option value="">Sélectionnez une catégorie</option>
+            <option *ngFor="let category of categories" [value]="category">
+              {{ category }}
+            </option>
+          </select>
+          <div class="invalid-feedback" [hidden]="!f['category'].invalid || !f['category'].touched">
+            <span>La catégorie est obligatoire</span>
+          </div>
+        </div>
+
+        <!-- Required Level -->
+        <div class="mb-3">
+          <label for="requiredLevel" class="form-label fw-semibold">
+            Niveau Requis <span class="text-danger">*</span>
+          </label>
+          <div class="d-flex align-items-center gap-3">
+            <input
+              type="range"
+              id="requiredLevel"
+              class="form-range flex-grow-1"
+              formControlName="requiredLevel"
+              min="1"
+              max="10"
+              step="1"
+              [class.is-invalid]="f['requiredLevel'].invalid && f['requiredLevel'].touched"
+            />
+            <span class="badge bg-primary fs-5 px-3 py-2 min-w-50 text-center">
+              {{ f['requiredLevel'].value }}
+            </span>
+          </div>
+          <div class="invalid-feedback" [hidden]="!f['requiredLevel'].invalid || !f['requiredLevel'].touched">
+            <span [hidden]="!f['requiredLevel'].errors?.['required']">Le niveau est obligatoire</span>
+            <span [hidden]="!f['requiredLevel'].errors?.['min']">Le niveau doit être au moins 1</span>
+            <span [hidden]="!f['requiredLevel'].errors?.['max']">Le niveau ne peut pas dépasser 10</span>
+          </div>
+          <div class="form-text text-muted">
+            <i class="fas fa-info-circle me-1"></i>
+            Niveau 1 = accès de base, Niveau 10 = accès total
+          </div>
+        </div>
+
+        <!-- Active -->
+        <div class="mb-4">
+          <div class="form-check form-switch">
+            <input
+              type="checkbox"
+              id="active"
+              class="form-check-input"
+              formControlName="active"
+            />
+            <label for="active" class="form-check-label fw-semibold">
+              <span class="badge" [class.bg-success]="f['active'].value" [class.bg-danger]="!f['active'].value">
+                {{ f['active'].value ? 'Actif' : 'Inactif' }}
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="d-flex gap-2">
+          <button
+            type="submit"
+            class="btn btn-primary px-4"
+            [disabled]="isSaving || permissionForm.invalid"
+          >
+            <span [hidden]="!isSaving" class="spinner-border spinner-border-sm me-2"></span>
+            <i class="fas fa-save me-2"></i>
+            {{ isEditMode ? 'Mettre à jour' : 'Créer' }}
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-secondary px-4"
+            (click)="goBack()"
+            [disabled]="isSaving"
+          >
+            Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

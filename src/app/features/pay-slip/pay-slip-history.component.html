@@ -1,0 +1,32 @@
+<div class="container">
+  <h2>📋 Historique des bulletins</h2>
+
+  <div *ngIf="loading" class="loading">⏳ Chargement...</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <table *ngIf="!loading && !error" class="table">
+    <thead>
+      <tr>
+        <th>Employé</th>
+        <th>Matricule</th>
+        <th>Période</th>
+        <th>Salaire net</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let slip of paySlips">
+        <td>{{ slip.employeeFullName }}</td>
+        <td>{{ slip.employeeMatricule }}</td>
+        <td>{{ slip.period }}</td>
+        <td>{{ slip.netSalary | currency:'XOF':'symbol':'1.0-0' }}</td>
+        <td>
+          <!-- ✅ ICI : utilisation de slip.id, PAS slip.period -->
+          <a [routerLink]="['/app/paie/pay-slip-detail', slip.id]" class="btn-detail">
+            Voir
+          </a>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
