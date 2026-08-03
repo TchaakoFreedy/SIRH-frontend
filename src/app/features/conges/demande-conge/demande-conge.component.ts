@@ -5,7 +5,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { CongeService } from '../../../core/services/conge.service';
 import { AuthService } from '../../../services/auth.service';
-import { PermissionService } from '../../../core/services/permission.service'; // 👈 Ajout
+import { PermissionService } from '../../../core/services/permission.service';
 import { Conge, StatutConge, TypeConge } from '../../../core/models/conge.model';
 
 @Component({
@@ -28,31 +28,35 @@ export class DemandeCongeComponent implements OnInit {
   errorMessage: string | null = null;
   successMessage: string | null = null;
   isSubmitting = false;
-  typesConge = Object.values(TypeConge);
+  
+  //  Liste des types disponibles (SANS MALADIE)
+  typesConge = [
+    { value: 'ANNUEL', label: 'Congé annuel' },
+    { value: 'PERMISSION', label: 'Permission (max 3 jours)' },
+    { value: 'ABSENCE', label: 'Signaler une absence' }
+  ];
+  
   today: string = new Date().toISOString().split('T')[0];
   
   matricule: string = '';
-
-  // 👈 Permission
   hasCreatePermission = false;
 
   constructor(
     private congeService: CongeService,
     private authService: AuthService,
-    private permissionService: PermissionService, // 👈 Injection
+    private permissionService: PermissionService,
     public router: Router
   ) {}
 
   ngOnInit(): void {
     this.matricule = this.authService.getCurrentEmployeeId();
-    console.log(' Matricule récupéré:', this.matricule);
+    console.log('📋 Matricule récupéré:', this.matricule);
     
     if (!this.matricule) {
       this.errorMessage = 'Utilisateur non identifié. Veuillez vous reconnecter.';
       return;
     }
 
-    // 👈 Vérification de la permission
     this.hasCreatePermission = this.permissionService.hasPermissionSync('LEAVE_CREATE');
     if (!this.hasCreatePermission) {
       this.errorMessage = 'Vous n\'avez pas la permission de créer une demande de congé.';
@@ -71,7 +75,7 @@ export class DemandeCongeComponent implements OnInit {
     this.congeService.getSoldeByEmployee(this.matricule).subscribe({
       next: (solde) => {
         this.soldeAnnuelRestant = solde;
-        console.log(' Solde chargé:', solde);
+        console.log('📊 Solde chargé:', solde);
       },
       error: (err) => {
         console.error('Erreur chargement solde:', err);
@@ -140,9 +144,9 @@ export class DemandeCongeComponent implements OnInit {
 
   getSuccessMessage(): string {
     const messages: Record<string, string> = {
-      'ANNUEL': 'Demande de congé envoyée avec succès !',
-      'PERMISSION': 'Permission demandée avec succès !',
-      'ABSENCE': 'Absence signalée avec succès !',
+      'ANNUEL': ' Demande de congé envoyée avec succès !',
+      'PERMISSION': ' Permission demandée avec succès !',
+      'ABSENCE': ' Absence signalée avec succès !',
     };
     return messages[this.conge.typeConge] || 'Demande envoyée avec succès !';
   }
@@ -156,7 +160,6 @@ export class DemandeCongeComponent implements OnInit {
       return;
     }
 
-    // 👈 Vérification supplémentaire de permission avant envoi
     if (!this.hasCreatePermission) {
       this.errorMessage = 'Vous n\'avez pas la permission de créer une demande.';
       setTimeout(() => this.errorMessage = null, 5000);
@@ -188,7 +191,7 @@ export class DemandeCongeComponent implements OnInit {
         }, 2000);
       },
       error: (err) => {
-        console.error(' Erreur lors de la création:', err);
+        console.error('❌ Erreur lors de la création:', err);
         this.errorMessage = err.message || 'Erreur lors de la soumission de la demande.';
         this.isSubmitting = false;
         this.successMessage = null;
@@ -203,9 +206,9 @@ export class DemandeCongeComponent implements OnInit {
 
   getTypeIcon(type: string): string {
     const icons: Record<string, string> = {
-      'ANNUEL': '',
-      'PERMISSION': '',
-      'ABSENCE': ''
+      'ANNUEL': '📅',
+      'PERMISSION': '🔑',
+      'ABSENCE': '⚠️'
     };
     return icons[type] || '';
   }

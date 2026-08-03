@@ -3,6 +3,7 @@
 export interface DocumentData {
   employeeName: string;
   employeeMatricule: string;
+  employeeMatriculeCNPS: string;  // ✅ Ajout du matricule CNPS
   employeePoste: string;
   employeeDepartement: string;
   dateEmbauche: string;
@@ -27,9 +28,18 @@ export interface DocumentData {
   stageDateDebut?: string;
   stageDateFin?: string;
   stageService?: string;
-  stageEncadrant?: string;
+  stageSuperviseur?: string;  // ✅ Renommé
   stagiaireQualites?: string;
-  stageDuree?: string;
+  stageDureeMois?: string;    // ✅ Durée en mois uniquement
+  
+  // ✅ Responsable RH
+  responsableRH?: {
+    id: string;
+    nom: string;
+    prenom: string;
+    nomComplet: string;
+    titre: string;
+  };
 }
 
 export interface EmployeeInfo {
@@ -38,6 +48,7 @@ export interface EmployeeInfo {
   prenom: string;
   matriculeInterne: string;
   matricule_interne: string;
+  matricule_CNPS: string;     // ✅ AJOUTÉ
   poste: string;
   posteId: string;
   departement: string;
@@ -47,16 +58,16 @@ export interface EmployeeInfo {
   email: string;
   telephone: string;
   
-  // Propriétés pour l'attestation de stage
+  // ✅ Propriétés pour l'attestation de stage
   stagiaireFormation?: string;
   stageDateDebut?: string;
   stageDateFin?: string;
   stageService?: string;
-  stageEncadrant?: string;
+  stageSuperviseur?: string;   // ✅ Renommé
   stagiaireQualites?: string;
-  stageDuree?: string;
+  stageDureeMois?: string;     // ✅ Durée en mois
   
-  // Propriétés pour le certificat de travail
+  // ✅ Propriétés pour le certificat de travail
   dateNaissance?: string;
   nationalite?: string;
   adresse?: string;
@@ -65,3 +76,13 @@ export interface EmployeeInfo {
 }
 
 export type DocumentType = 'CERTIFICAT' | 'ATTESTATION' | 'ATTESTATION_STAGE';
+
+export interface ResponsableRH {
+  id: string;
+  nom: string;
+  prenom: string;
+  nomComplet: string;
+  titre: string;
+  email: string;
+  telephone: string;
+}

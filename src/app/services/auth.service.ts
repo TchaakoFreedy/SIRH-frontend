@@ -1,3 +1,4 @@
+// src/app/services/auth.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { BehaviorSubject, Observable, tap, catchError, throwError } from 'rxjs';
@@ -15,13 +16,12 @@ export interface AuthUser {
   refreshToken?: string;
   employeeId?: string;
   matriculeInterne?: string;
-  matricule_interne?: string;
   firstName?: string;
   lastName?: string;
   active?: boolean;
   roleId?: string;
-  role?: string;           // Nom du rôle (ex: "RH", "MANAGER")
-  roleLevel?: number;      // Niveau hiérarchique
+  role?: string;
+  roleLevel?: number;
 }
 
 export interface LoginResponse {
@@ -33,7 +33,7 @@ export interface LoginResponse {
   roles?: string[];
   permissions?: string[];
   authorities?: string[];
-  roleName?: string;       // ✅ Champ clé
+  roleName?: string;
   roleLevel?: number;
   message?: string;
 }
@@ -42,6 +42,8 @@ export interface LoginResponse {
 export class AuthService {
 
   private apiUrl = `${environment.apiUrl}/auth`;
+  
+  // ✅ Utiliser 'access_token' comme clé principale (cohérent avec PaySlipService)
   private readonly TOKEN_KEY = 'access_token';
   private readonly REFRESH_TOKEN_KEY = 'refresh_token';
   private readonly USER_KEY = 'currentUser';
@@ -57,9 +59,10 @@ export class AuthService {
     this.currentUserSubject = new BehaviorSubject<AuthUser | null>(initialUser);
     this.currentUser$ = this.currentUserSubject.asObservable();
     this.loadStoredUser();
-
-    // ✅ Écouter les changements de localStorage provenant d'autres onglets
     this.listenToStorageChanges();
+
+    // 🔍 Vérification du token au démarrage
+    this.checkTokenOnStartup();
   }
 
   private getInitialUser(): AuthUser | null {
@@ -78,29 +81,64 @@ export class AuthService {
     return null;
   }
 
+  private checkTokenOnStartup(): void {
+    const token = this.getToken();
+    if (token && !this.isTokenValid()) {
+      console.warn('⚠️ Token expiré au démarrage, tentative de rafraîchissement...');
+      const refreshToken = this.getRefreshToken();
+      if (refreshToken) {
+        this.refreshToken().subscribe({
+          next: () => console.log('✅ Token rafraîchi au démarrage'),
+          error: () => {
+            console.warn('❌ Échec du rafraîchissement, déconnexion');
+            this.logout();
+          }
+        });
+      } else {
+        this.logout();
+      }
+    }
+  }
+
   login(email: string, password: string): Observable<LoginResponse> {
+    console.log(`🔐 Tentative de login pour: ${email}`);
+    
     return this.http.post<LoginResponse>(`${this.apiUrl}/login`, { email, password }).pipe(
       tap({
         next: (response) => {
+          console.log('📥 Réponse login reçue:', response);
           if (response?.accessToken) {
+            console.log('✅ Token reçu:', response.accessToken.substring(0, 20) + '...');
             this.handleAuthResponse(response);
+          } else {
+            console.error('❌ Aucun token dans la réponse');
           }
         },
-        error: (error) => console.error('Login error:', error)
+        error: (error) => {
+          console.error('❌ Erreur login:', error);
+        }
       }),
-      catchError((error) => throwError(() => error))
+      catchError((error) => {
+        console.error('❌ Erreur login catchée:', error);
+        return throwError(() => error);
+      })
     );
   }
 
   private handleAuthResponse(response: LoginResponse): void {
+    console.log('🔑 Stockage du token...');
+    
+    // Stockage principal avec la clé 'access_token'
     localStorage.setItem(this.TOKEN_KEY, response.accessToken);
+    
+    // Stockage du refresh token
     if (response.refreshToken) {
       localStorage.setItem(this.REFRESH_TOKEN_KEY, response.refreshToken);
     }
 
+    // Construction de l'utilisateur
     const backendUser = response.user || {};
 
-    // ✅ Récupération du rôle (priorité à response.roleName)
     const roleName = response.roleName 
                   || backendUser.roleName
                   || backendUser.role 
@@ -143,10 +181,14 @@ export class AuthService {
       roleLevel: roleLevel,
     };
 
+    // Sauvegarde de l'utilisateur
     localStorage.setItem(this.USER_KEY, JSON.stringify(user));
     this.currentUserSubject.next(user);
 
-    console.log('✅ AuthService: Utilisateur connecté avec rôle:', roleName);
+    console.log('✅ Utilisateur connecté avec succès');
+    console.log('   👤 Utilisateur:', user.username);
+    console.log('   🎭 Rôle:', roleName);
+    console.log('   🎯 Permissions:', permissions.length);
   }
 
   private loadStoredUser(): void {
@@ -157,7 +199,9 @@ export class AuthService {
         const user = JSON.parse(userStr);
         if (user.token !== token) { user.token = token; }
         this.currentUserSubject.next(user);
+        console.log('✅ Utilisateur chargé depuis le storage');
       } catch (e) {
+        console.error('❌ Erreur chargement utilisateur:', e);
         this.clearAuthData();
       }
     }
@@ -165,21 +209,29 @@ export class AuthService {
 
   refreshToken(): Observable<LoginResponse> {
     const refreshToken = this.getRefreshToken();
+    console.log('🔄 Tentative de refresh token...');
+    
     if (!refreshToken) {
+      console.warn('❌ Pas de refresh token disponible');
       this.logout();
       return throwError(() => new Error('No refresh token'));
     }
+
     return this.http.post<LoginResponse>(`${this.apiUrl}/refresh-token`, { refreshToken }).pipe(
       tap({
         next: (response) => {
           if (response?.accessToken) {
+            console.log('✅ Token rafraîchi avec succès');
             this.updateToken(response.accessToken);
             if (response.refreshToken) {
               localStorage.setItem(this.REFRESH_TOKEN_KEY, response.refreshToken);
             }
           }
         },
-        error: () => this.logout()
+        error: (error) => {
+          console.error('❌ Erreur refresh token:', error);
+          this.logout();
+        }
       }),
       catchError((error) => {
         this.logout();
@@ -199,13 +251,20 @@ export class AuthService {
   }
 
   logout(): void {
+    console.log('🚪 Déconnexion...');
     const token = this.getToken();
     if (token) {
       this.http.post(`${this.apiUrl}/logout`, {}, {
         headers: new HttpHeaders().set('Authorization', `Bearer ${token}`)
       }).subscribe({
-        next: () => this.clearAuthData(),
-        error: () => this.clearAuthData()
+        next: () => {
+          console.log('✅ Déconnexion réussie');
+          this.clearAuthData();
+        },
+        error: () => {
+          console.warn('⚠️ Erreur lors de la déconnexion, nettoyage forcé');
+          this.clearAuthData();
+        }
       });
     } else {
       this.clearAuthData();
@@ -213,6 +272,7 @@ export class AuthService {
   }
 
   private clearAuthData(): void {
+    console.log('🧹 Nettoyage des données d\'authentification');
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.REFRESH_TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
@@ -220,20 +280,41 @@ export class AuthService {
     this.router.navigate(['/login']);
   }
 
-  // ✅ Méthode pour vérifier si un token est présent et valide
-  hasValidToken(): boolean {
+  isTokenValid(): boolean {
     const token = this.getToken();
     if (!token) return false;
+    
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.exp * 1000 > Date.now() + 10000;
-    } catch {
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        console.warn('⚠️ Token format invalide');
+        return false;
+      }
+      
+      const payload = JSON.parse(atob(parts[1]));
+      const expiryTime = payload.exp * 1000;
+      const now = Date.now();
+      const isValid = expiryTime > now;
+      
+      if (!isValid) {
+        console.warn(`⚠️ Token expiré: ${new Date(expiryTime).toLocaleString()} < ${new Date(now).toLocaleString()}`);
+      }
+      
+      return isValid;
+    } catch (e) {
+      console.error('❌ Token invalide:', e);
       return false;
     }
   }
 
+  hasValidToken(): boolean {
+    return this.isTokenValid();
+  }
+
   isAuthenticated(): boolean {
-    return this.hasValidToken();
+    const hasToken = !!this.getToken();
+    const isValid = this.isTokenValid();
+    return hasToken && isValid;
   }
 
   getToken(): string | null {
@@ -290,21 +371,21 @@ export class AuthService {
     return this.http.post(`${this.apiUrl}/reset-password`, { email, code, newPassword });
   }
 
-  // ✅ Écouteur pour synchroniser la déconnexion entre onglets
   private listenToStorageChanges(): void {
     window.addEventListener('storage', (event) => {
+      console.log(`📦 Storage change: ${event.key}`);
+      
       if (event.key === this.TOKEN_KEY) {
         const newToken = localStorage.getItem(this.TOKEN_KEY);
         if (!newToken) {
-          // Token supprimé dans un autre onglet → déconnexion locale
           console.warn('🔒 Token supprimé dans un autre onglet. Déconnexion...');
           this.clearAuthData();
         } else if (newToken !== this.currentUserSubject.value?.token) {
-          // Token mis à jour dans un autre onglet → recharger l'utilisateur
+          console.log('🔄 Token mis à jour dans un autre onglet. Rechargement...');
           this.loadStoredUser();
         }
       }
-      // Si l'utilisateur a été supprimé
+      
       if (event.key === this.USER_KEY && !localStorage.getItem(this.USER_KEY)) {
         console.warn('🔒 Utilisateur supprimé dans un autre onglet. Déconnexion...');
         this.clearAuthData();

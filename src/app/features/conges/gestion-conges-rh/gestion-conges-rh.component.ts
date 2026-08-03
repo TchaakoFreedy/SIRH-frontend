@@ -1,5 +1,3 @@
-// src/app/features/rh/gestion-conges-rh/gestion-conges-rh.component.ts
-
 import { Component, OnInit, signal, computed, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -35,7 +33,7 @@ export class GestionCongesRhComponent implements OnInit {
   dateFin: string = '';
   
   statutOptions = ['TOUS', 'EN_ATTENTE', 'APPROUVE', 'REJETE', 'ANNULE'];
-  typeOptions = ['TOUS', 'ANNUEL', 'MALADIE', 'PERMISSION', 'ABSENCE'];
+  typeOptions = ['TOUS', 'ANNUEL', 'PERMISSION', 'ABSENCE'];
   
   stats = signal({
     total: 0,
@@ -53,6 +51,7 @@ export class GestionCongesRhComponent implements OnInit {
   canViewAllLeaves = signal(true);
   canApproveLeave = signal(true);
   canRejectLeave = signal(true);
+  canViewTeam = signal(false); //  NOUVEAU SIGNAL POUR LEAVE_VIEW_TEAM
 
   // ============ PAGINATION ============
   currentPage = signal(1);
@@ -77,7 +76,6 @@ export class GestionCongesRhComponent implements OnInit {
   validationAction: 'approve' | 'reject' = 'approve';
 
   constructor() {
-    // Réinitialiser la page quand les filtres changent
     effect(() => {
       this.filteredConges();
       this.currentPage.set(1);
@@ -100,7 +98,6 @@ export class GestionCongesRhComponent implements OnInit {
     console.log('Utilisateur connecté:', user);
     console.log('Rôle:', user?.role);
     
-    //  Si l'utilisateur est RH, SUPER_ADMIN ou TOP_MANAGER, activer toutes les permissions
     const isAdmin = user?.role === 'RH' || 
                     user?.role === 'SUPER_ADMIN' || 
                     user?.role === 'TOP_MANAGER' ||
@@ -116,18 +113,21 @@ export class GestionCongesRhComponent implements OnInit {
       this.canViewAllLeaves.set(true);
       this.canApproveLeave.set(true);
       this.canRejectLeave.set(true);
+      this.canViewTeam.set(false); // Les admins n'ont pas besoin de cette permission car ils ont tout
       return;
     }
 
-    // Pour les autres rôles, charger les permissions normalement
+    // Vérification des permissions spécifiques
     this.canViewAllLeaves.set(this.permissionService.hasPermissionSync('LEAVE_VIEW_ALL'));
     this.canApproveLeave.set(this.permissionService.hasPermissionSync('LEAVE_APPROVE'));
     this.canRejectLeave.set(this.permissionService.hasPermissionSync('LEAVE_REJECT'));
+    this.canViewTeam.set(this.permissionService.hasPermissionSync('LEAVE_VIEW_TEAM'));
 
-    console.log('🔐 Permissions Congés RH chargées:', {
+    console.log(' Permissions Congés RH chargées:', {
       canViewAllLeaves: this.canViewAllLeaves(),
       canApproveLeave: this.canApproveLeave(),
       canRejectLeave: this.canRejectLeave(),
+      canViewTeam: this.canViewTeam(),
     });
   }
 
@@ -156,8 +156,6 @@ export class GestionCongesRhComponent implements OnInit {
       }
     });
   }
-
-  // ... (le reste du code reste identique)
 
   updateStats(): void {
     const now = new Date();
@@ -299,7 +297,6 @@ export class GestionCongesRhComponent implements OnInit {
   // ==========================================
 
   openValidationModal(conge: Conge, action: 'approve' | 'reject'): void {
-    //  Vérifier les permissions
     if (action === 'approve' && !this.canApproveLeave()) {
       this.errorMessage.set('Vous n\'avez pas la permission d\'approuver des congés.');
       setTimeout(() => this.errorMessage.set(''), 3000);
@@ -338,15 +335,14 @@ export class GestionCongesRhComponent implements OnInit {
     }
     
     const id = selectedConge.id;
-    const managerId = this.authService.getCurrentEmployeeId() || 'RH001';
     
     this.loading.set(true);
     this.errorMessage.set('');
     
     if (this.validationAction === 'approve') {
-      this.congeService.approve(id, managerId, this.validationComment).subscribe({
+      this.congeService.approve(id, this.validationComment).subscribe({
         next: () => {
-          this.successMessage.set('Congé approuvé avec succès !');
+          this.successMessage.set('Demande approuvée avec succès !');
           this.closeValidationModal();
           setTimeout(() => this.successMessage.set(''), 3000);
           this.loadData();
@@ -358,9 +354,9 @@ export class GestionCongesRhComponent implements OnInit {
         }
       });
     } else {
-      this.congeService.reject(id, managerId, this.validationComment).subscribe({
+      this.congeService.reject(id, this.validationComment).subscribe({
         next: () => {
-          this.successMessage.set('Congé rejeté avec succès !');
+          this.successMessage.set('Demande rejetée avec succès !');
           this.closeValidationModal();
           setTimeout(() => this.successMessage.set(''), 3000);
           this.loadData();
@@ -436,14 +432,21 @@ export class GestionCongesRhComponent implements OnInit {
   getTypeLabel(type: string): string {
     const labels: Record<string, string> = {
       'ANNUEL': 'Congé annuel',
-      'MALADIE': 'Maladie',
       'PERMISSION': 'Permission',
       'ABSENCE': 'Absence signalée'
     };
     return labels[type] || type;
   }
 
+  //  MÉTHODE MODIFIÉE POUR BLOQUER LES BOUTONS AVEC LEAVE_VIEW_TEAM
   isActionAllowed(conge: Conge): boolean {
-    return conge.statut === StatutConge.EN_ATTENTE && conge.typeConge === TypeConge.ANNUEL;
+    // Si l'utilisateur a uniquement LEAVE_VIEW_TEAM (sans les permissions d'approbation)
+    if (this.canViewTeam() && !this.canApproveLeave() && !this.canRejectLeave()) {
+      return false; // Ne pas montrer les boutons
+    }
+    
+    // Sinon, vérifier les conditions normales
+    return conge.statut === StatutConge.EN_ATTENTE && 
+           (conge.typeConge === TypeConge.ANNUEL || conge.typeConge === TypeConge.PERMISSION);
   }
 }

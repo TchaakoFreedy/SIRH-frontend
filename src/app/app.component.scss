@@ -1,0 +1,60 @@
+// src/app/app.component.scss
+
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+}
+
+// ============================================================
+// OVERLAY
+// ============================================================
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+// ============================================================
+// MAIN CONTENT
+// ============================================================
+.main-content {
+  margin-top: 72px;
+  margin-left: 264px;
+  padding: 24px;
+  transition: all 0.3s ease;
+  flex: 1;
+  min-height: calc(100vh - 72px);
+  background: #f8fafc;
+}
+
+// ============================================================
+// RESPONSIVE
+// ============================================================
+@media (max-width: 1023px) {
+  .main-content {
+    margin-top: 64px;
+    margin-left: 0 !important;
+    padding: 16px;
+    min-height: calc(100vh - 64px);
+  }
+  
+  .main-content.sidebar-open {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: 12px;
+  }
+}

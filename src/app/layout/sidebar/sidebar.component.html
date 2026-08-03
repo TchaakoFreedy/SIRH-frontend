@@ -1,50 +1,35 @@
 <!-- src/app/layout/sidebar/sidebar.component.html -->
-
-<!-- ============================================
-     Bouton hamburger (visible uniquement sur mobile)
-     ============================================ -->
-@if (isMobile() && !mobileOpen()) {
-  <button class="mobile-trigger" (click)="openMobile()" aria-label="Ouvrir le menu">
-    <mat-icon>menu</mat-icon>
-  </button>
-}
-
-<!-- Overlay mobile -->
-@if (isMobile()) {
-  <div
-    class="sidebar-overlay"
-    [class.visible]="mobileOpen()"
-    (click)="closeMobile()"
-  ></div>
-}
-
 <aside
   class="sidebar"
-  [class.collapsed]="collapsed() && !isMobile()"
-  [class.mobile]="isMobile()"
-  [class.mobile-open]="mobileOpen()"
+  [class.collapsed]="collapsed() && !isMobile"
+  [class.mobile]="isMobile"
+  [class.mobile-open]="isOpen"
 >
-
   <!-- ===== En-tête : logo + toggle ===== -->
   <div class="sidebar-logo">
-    <!-- Logo ou titre -->
-    <!-- <span class="logo-text">Mon App</span> -->
+   
 
     <!-- Toggle réduction (desktop uniquement) -->
-    @if (!isMobile()) {
+    @if (!isMobile) {
       <button
         class="toggle-btn"
         (click)="toggleCollapse()"
         [matTooltip]="collapsed() ? 'Agrandir' : 'Réduire'"
         matTooltipPosition="right"
+        type="button"
       >
         <mat-icon>{{ collapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
       </button>
     }
 
-    <!-- Fermeture (mobile uniquement) -->
-    @if (isMobile()) {
-      <button class="toggle-btn" (click)="closeMobile()" aria-label="Fermer le menu">
+    <!-- ✅ Bouton de fermeture (mobile uniquement) -->
+    @if (isMobile) {
+      <button 
+        class="toggle-btn close-btn-mobile" 
+        (click)="closeMobile()" 
+        aria-label="Fermer le menu"
+        type="button"
+      >
         <mat-icon>close</mat-icon>
       </button>
     }
@@ -61,7 +46,6 @@
           (mouseenter)="onGroupEnter(item)"
           (mouseleave)="onGroupLeave()"
         >
-
           <!-- ===== Item sans enfants ===== -->
           @if (!item.children) {
             <a
@@ -69,12 +53,12 @@
               routerLinkActive="active"
               class="nav-link"
               (click)="onLinkClick()"
-              [matTooltip]="collapsed() && !isMobile() ? item.label : ''"
+              [matTooltip]="collapsed() && !isMobile ? item.label : ''"
               matTooltipPosition="right"
             >
               <span class="active-bar"></span>
               <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
-              @if (!collapsed() || isMobile()) {
+              @if (!collapsed() || isMobile) {
                 <span class="nav-label">{{ item.label }}</span>
               }
             </a>
@@ -86,12 +70,13 @@
               class="nav-link nav-group"
               [class.group-active]="isGroupActive(item)"
               (click)="toggleMenu(item)"
-              [matTooltip]="collapsed() && !isMobile() ? item.label : ''"
+              [matTooltip]="collapsed() && !isMobile ? item.label : ''"
               matTooltipPosition="right"
+              type="button"
             >
               <span class="active-bar"></span>
               <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
-              @if (!collapsed() || isMobile()) {
+              @if (!collapsed() || isMobile) {
                 <span class="nav-label">{{ item.label }}</span>
                 <mat-icon class="chevron" [class.rotated]="item.expanded">
                   expand_more
@@ -102,7 +87,7 @@
             <!-- ===== Sous-menu (mode étendu) ===== -->
             <div
               class="sub-menu-wrapper"
-              [class.open]="item.expanded && (!collapsed() || isMobile())"
+              [class.open]="item.expanded && (!collapsed() || isMobile)"
             >
               <ul class="sub-menu">
                 @for (child of item.children; track child.label) {
@@ -123,8 +108,8 @@
               </ul>
             </div>
 
-            <!-- ===== Flyout (mode réduit : sous-menu au survol) ===== -->
-            @if (collapsed() && !isMobile() && flyoutItem === item) {
+            <!-- ===== Flyout (mode réduit) ===== -->
+            @if (collapsed() && !isMobile && flyoutItem === item) {
               <div
                 class="flyout"
                 (mouseenter)="onGroupEnter(item)"
@@ -145,10 +130,24 @@
               </div>
             }
           }
-
         </li>
       }
     </ul>
   </nav>
 
+  <!-- ===== Pied : profil ===== -->
+  <div class="sidebar-footer">
+    <button class="profile-btn" (click)="logout()" type="button">
+      <div class="avatar">
+        {{ userInitials }}
+      </div>
+      @if (!collapsed() || isMobile) {
+        <div class="profile-info">
+          <span class="profile-name">{{ userFullName }}</span>
+          <span class="profile-role">{{ userRole }}</span>
+        </div>
+        <mat-icon class="logout-icon">logout</mat-icon>
+      }
+    </button>
+  </div>
 </aside>

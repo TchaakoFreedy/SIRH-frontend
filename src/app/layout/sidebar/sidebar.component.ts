@@ -1,12 +1,14 @@
+// src/app/layout/sidebar/sidebar.component.ts
+
 import {
   Component,
   signal,
   Output,
   EventEmitter,
-  HostListener,
   OnInit,
   inject,
-  OnDestroy
+  OnDestroy,
+  Input
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, RouterLinkActive } from '@angular/router';
@@ -31,21 +33,49 @@ import { Subject, takeUntil } from 'rxjs';
   styleUrl: './sidebar.component.scss'
 })
 export class SidebarComponent implements OnInit, OnDestroy {
+  // ✅ Inputs
+  @Input() isOpen = false;
+  @Input() isMobile = false;
+  
+  // ✅ Outputs
+  @Output() closeSidebar = new EventEmitter<void>();
   @Output() collapseChange = new EventEmitter<boolean>();
 
-  private authService = inject(AuthService);
+  public authService = inject(AuthService);
   private permissionService = inject(PermissionService);
   private router = inject(Router);
 
   private destroy$ = new Subject<void>();
 
   collapsed = signal(false);
-  isMobile = signal(false);
-  mobileOpen = signal(false);
   flyoutItem: NavItem | null = null;
   private flyoutTimer: ReturnType<typeof setTimeout> | null = null;
 
   visibleNavItems = signal<NavItem[]>([]);
+
+  // Getters pour le template
+  get currentUser() {
+    return this.authService.getCurrentUser();
+  }
+
+  get userInitials(): string {
+    const user = this.currentUser;
+    if (!user) return 'U';
+    const firstName = user.firstName?.[0] || '';
+    const lastName = user.lastName?.[0] || '';
+    return (firstName + lastName).toUpperCase() || 'U';
+  }
+
+  get userFullName(): string {
+    const user = this.currentUser;
+    if (!user) return 'Utilisateur';
+    return `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Utilisateur';
+  }
+
+  get userRole(): string {
+    const user = this.currentUser;
+    return user?.role || 'Rôle';
+  }
 
   // ✅ Tous les éléments du menu avec leurs permissions requises
   private allNavItems: NavItem[] = [
@@ -111,7 +141,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
           label: 'Gestion des demandes',
           icon: 'event_busy',
           route: '/app/conges/gestion-rh',
-          requiredPermission: 'LEAVE_VIEW_ALL'
+          // ✅ CHANGEMENT ICI : Utiliser LEAVE_VIEW_TEAM à la place de LEAVE_VIEW_ALL
+          requiredPermission: 'LEAVE_VIEW_TEAM'  // ← Modifié
+          // requiredPermission: 'LEAVE_VIEW_ALL'  // ← Ancien
         },
         {
           label: 'Historique',
@@ -139,40 +171,31 @@ export class SidebarComponent implements OnInit, OnDestroy {
         },
       ]
     },
-    // ========== MODULE PAIE ==========
-    // Dans le tableau allNavItems, section "Paie"
-{
-  label: 'Paie',
-  icon: 'attach_money',
-  expanded: false,
-  children: [
-    { 
-      label: 'Mes bulletins',
-      icon: 'receipt',
-      route: '/app/paie/mes-bulletins',
-      requiredPermission: 'PAYSLIP_VIEW'
+    {
+      label: 'Paie',
+      icon: 'attach_money',
+      expanded: false,
+      children: [
+        { 
+          label: 'Mes bulletins',
+          icon: 'receipt',
+          route: '/app/paie/mes-bulletins',
+          requiredPermission: 'PAYSLIP_VIEW'
+        },
+        { 
+          label: 'Gestion des bulletins',
+          icon: 'receipt_long',
+          route: '/app/paie/bulletins',
+          requiredPermission: 'PAYSLIP_VIEW_ALL'
+        },
+        { 
+          label: 'Import PDF',
+          icon: 'upload_file',
+          route: '/app/paie/import',
+          requiredPermission: 'PAYSLIP_CREATE'
+        },
+      ]
     },
-    { 
-      label: 'Gestion des bulletins',
-      icon: 'receipt',
-      route: '/app/paie/bulletins',
-      requiredPermission: 'PAYSLIP_VIEW_ALL'
-    },
-    { 
-      label: 'Import PDF',
-      icon: 'upload_file',
-      route: '/app/paie/import',
-      requiredPermission: 'PAYSLIP_CREATE'
-    },
-    { 
-      label: 'Historique',
-      icon: 'history',
-      route: '/app/paie/historique',
-      requiredPermission: 'PAYSLIP_VIEW_ALL'
-    }
-  ]
-},
-    // ========== ADMIN ==========
     {
       label: 'Admin',
       icon: 'admin_panel_settings',
@@ -203,7 +226,6 @@ export class SidebarComponent implements OnInit, OnDestroy {
   constructor() {}
 
   ngOnInit(): void {
-    this.checkScreen();
     this.autoExpandActiveGroup();
     this.filterMenuItems();
 
@@ -262,24 +284,6 @@ export class SidebarComponent implements OnInit, OnDestroy {
     return true;
   }
 
-  @HostListener('window:resize')
-  checkScreen(): void {
-    const width = window.innerWidth;
-    const mobile = width < 1024;
-    this.isMobile.set(mobile);
-
-    if (mobile) {
-      this.collapsed.set(false);
-      this.collapseChange.emit(false);
-    } else {
-      this.mobileOpen.set(false);
-      if (width < 1280 && !this.collapsed()) {
-        this.collapsed.set(true);
-        this.collapseChange.emit(true);
-      }
-    }
-  }
-
   private autoExpandActiveGroup(): void {
     const url = this.router.url;
     this.closeAllGroups();
@@ -311,8 +315,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.flyoutItem = null;
   }
 
-  openMobile(): void { this.mobileOpen.set(true); }
-  closeMobile(): void { this.mobileOpen.set(false); }
+  closeMobile(): void {
+    console.log('📱 Fermeture mobile demandée');
+    this.closeSidebar.emit();
+  }
 
   toggleMenu(item: NavItem): void {
     if (this.collapsed()) {
@@ -336,7 +342,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   onLinkClick(): void {
-    if (this.isMobile()) this.closeMobile();
+    if (this.isMobile) {
+      console.log('📱 Fermeture après clic sur lien');
+      this.closeMobile();
+    }
     this.flyoutItem = null;
   }
 

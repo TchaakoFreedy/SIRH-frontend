@@ -1,222 +1,166 @@
 <!-- src/app/features/pay-slip/my-pay-slips.component.html -->
-<div class="unity-container">
-  
-  <!-- ========== HEADER ========== -->
-  <div class="page-header-glass">
-    <div class="page-title">
-      <div class="title-icon">
-        <span class="material-symbols-outlined">receipt_long</span>
-      </div>
-      <div>
-        <h1>Mes bulletins de paie</h1>
-        <p>Consultez l'historique de vos fiches de paie</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ========== STATS ========== -->
-  <div class="stats-grid">
-    <div class="stat-card blue">
-      <div class="stat-icon"><span class="material-symbols-outlined">receipt</span></div>
-      <div class="stat-info">
-        <p>Total bulletins</p>
-        <h3>{{ paySlips.length }}</h3>
-      </div>
-    </div>
-    <div class="stat-card purple">
-      <div class="stat-icon"><span class="material-symbols-outlined">payments</span></div>
-      <div class="stat-info">
-        <p>Masse salariale nette</p>
-        <h3>{{ totalNetSalary | currency:'XOF':'symbol':'1.0-0' }}</h3>
-      </div>
-    </div>
-    <div class="stat-card orange">
-      <div class="stat-icon"><span class="material-symbols-outlined">calendar_month</span></div>
-      <div class="stat-info">
-        <p>Dernière période</p>
-        <h3>{{ latestPeriod || '-' }}</h3>
-      </div>
-    </div>
-    <div class="stat-card green">
-      <div class="stat-icon"><span class="material-symbols-outlined">image</span></div>
-      <div class="stat-info">
-        <p>Pages totales</p>
-        <h3>{{ totalPagesCount }}</h3>
-      </div>
-    </div>
-  </div>
-
-  <!-- ========== RECHERCHE ========== -->
-  <div class="search-filter-bar" *ngIf="paySlips.length > 0">
-    <div class="search-wrapper">
-      <span class="material-symbols-outlined search-icon">search</span>
-      <input
-        type="text"
-        class="search-input"
-        placeholder=" Rechercher par période ou statut..."
-        [(ngModel)]="searchTerm"
-        (input)="applyFilter()"
-      />
-      <button class="clear-search" *ngIf="searchTerm" (click)="clearSearch()">
-        <span class="material-symbols-outlined">close</span>
-      </button>
-    </div>
-    <div class="filter-results">
-      <span class="result-count">
-        <span class="material-symbols-outlined">receipt</span>
-        {{ filteredSlips.length }} bulletin(s)
-      </span>
-      <button class="btn-reset-filters" *ngIf="searchTerm" (click)="resetFilters()">
-        <span class="material-symbols-outlined">refresh</span> Réinitialiser
+<div class="pay-slip-list-container">
+  <!-- Header -->
+  <div class="page-header">
+    <h1>
+      <span class="material-symbols-outlined">description</span>
+      Mes Bulletins de Paie
+    </h1>
+    <div class="header-actions">
+      <button class="btn btn-primary" routerLink="/app/paie/upload">
+        <span class="material-symbols-outlined">upload</span>
+        Importer
       </button>
     </div>
   </div>
 
-  <!-- ========== TABLEAU ========== -->
-  <div class="table-card">
-    <div class="table-header">
-      <div class="table-title">
-        <span class="material-symbols-outlined">list_alt</span>
-        <h2>Mes fiches de paie</h2>
+  <!-- Stats -->
+  <div class="stats-grid" *ngIf="paySlips.length > 0">
+    <div class="stat-card">
+      <span class="stat-value">{{ paySlips.length }}</span>
+      <span class="stat-label">Total bulletins</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value">{{ totalNetSalary | currency:'XOF':'symbol':'1.0-0' }}</span>
+      <span class="stat-label">Salaire net total</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value">{{ totalPagesCount }}</span>
+      <span class="stat-label">Pages totales</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value">{{ latestPeriod }}</span>
+      <span class="stat-label">Dernière période</span>
+    </div>
+  </div>
+
+  <!-- Loading / Error -->
+  <div *ngIf="loading" class="loading-state">
+    <span class="material-symbols-outlined spin">hourglass_top</span>
+    Chargement...
+  </div>
+  <div *ngIf="error" class="error-state">{{ error }}</div>
+
+  <!-- Empty state -->
+  <div *ngIf="!loading && paySlips.length === 0" class="empty-state">
+    <span class="material-symbols-outlined">receipt_long</span>
+    <h3>Aucun bulletin de paie</h3>
+    <p>Vous n'avez pas encore de bulletin de paie.</p>
+  </div>
+
+  <!-- Table -->
+  <div *ngIf="!loading && paySlips.length > 0" class="table-container">
+    <!-- Search -->
+    <div class="search-bar">
+      <div class="search-input-wrapper">
+        <span class="material-symbols-outlined">search</span>
+        <input 
+          type="text" 
+          [(ngModel)]="searchTerm" 
+          (input)="applyFilter()"
+          placeholder="Rechercher par période, statut..."
+          class="search-input" />
+        <button *ngIf="searchTerm" class="btn-clear" (click)="clearSearch()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
       </div>
-      <div class="table-actions">
-        <span class="table-info">{{ filteredSlips.length }} bulletins</span>
+      <div class="filter-info" *ngIf="filteredSlips.length !== paySlips.length">
+        {{ filteredSlips.length }} sur {{ paySlips.length }}
       </div>
     </div>
 
-    <div class="responsive-wrapper">
-      <table class="up-table">
+    <!-- Table -->
+    <div class="table-responsive">
+      <table class="table">
         <thead>
           <tr>
             <th>Période</th>
-            <th>Salaire net</th>
+            <th>Employé</th>
+            <th>Matricule</th>
+            <th>Salaire Net</th>
             <th>Statut</th>
             <th>Pages</th>
-            <th class="th-center">Actions</th>
+            <th class="text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let slip of paginatedSlips; trackBy: trackById">
             <td>
-              <span class="tag-matricule" style="background: #e0f2fe; color: #0369a1;">
-                {{ slip.period || '-' }}
-              </span>
+              <span class="period-badge">{{ slip.period }}</span>
             </td>
             <td>
-              <div class="name" style="color: #0d9488; font-weight: 800;">
-                {{ (slip.netSalary ?? 0) | currency:'XOF':'symbol':'1.0-0' }}
+              <div class="employee-cell">
+                <span class="employee-avatar">{{ (slip.employeeFullName || '?') | slice:0:1 }}</span>
+                {{ slip.employeeFullName }}
               </div>
+            </td>
+            <td>
+              <span class="matricule">{{ slip.employeeMatricule }}</span>
+            </td>
+            <td>
+              <span class="net-salary">{{ slip.netSalary | currency:'XOF':'symbol':'1.0-0' }}</span>
             </td>
             <td>
               <span class="badge" [class]="getStatusBadgeClass(slip.status)">
                 {{ getStatusLabel(slip.status) }}
               </span>
-              <span *ngIf="hasErrors(slip)" class="badge-error-icon" title="Erreurs détectées">
+              <span *ngIf="hasErrors(slip)" class="error-indicator" title="Erreurs d'import">
                 <span class="material-symbols-outlined">error</span>
               </span>
             </td>
-            <td class="text-center">
-              <span class="page-count">{{ slip.imageIds?.length || 0 }}</span>
+            <td>
+              <span class="page-count">{{ getPageCount(slip) }}</span>
             </td>
             <td>
-              <div class="actions-cell">
-                <button class="action-btn info" (click)="viewDetail(slip.id)" title="Voir les pages">
+              <div class="action-buttons">
+                <button class="btn-icon" (click)="viewDetail(slip.id)" title="Voir">
                   <span class="material-symbols-outlined">visibility</span>
                 </button>
-                <button *ngIf="canDownload" class="action-btn primary" (click)="downloadPdf(slip.id)" title="Télécharger PDF">
-                  <span class="material-symbols-outlined">description</span>
+                <button *ngIf="canDownload" class="btn-icon" (click)="downloadPdf(slip.id)" title="Télécharger PDF">
+                  <span class="material-symbols-outlined">picture_as_pdf</span>
                 </button>
-                <button *ngIf="canDownload && slip.imageIds?.length > 1" class="action-btn success" (click)="downloadZip(slip.id)" title="Télécharger tout en ZIP">
+                <button *ngIf="canDownload && getPageCount(slip) > 1" class="btn-icon" (click)="downloadZip(slip.id)" title="Télécharger ZIP">
                   <span class="material-symbols-outlined">folder_zip</span>
                 </button>
               </div>
-            </td>
-          </tr>
-          <tr *ngIf="filteredSlips.length === 0 && !loading && !error">
-            <td colspan="5">
-              <div class="empty-state">
-                <span class="material-symbols-outlined">receipt_long</span>
-                <p>Aucun bulletin trouvé</p>
-                <p class="empty-hint">
-                  Aucune fiche de paie n'est disponible pour le moment.<br>
-                  <small>Contactez votre service RH si nécessaire.</small>
-                </p>
-              </div>
-            </td>
-          </tr>
-          <tr *ngIf="loading">
-            <td colspan="5">
-              <div class="loading-state">⏳ Chargement en cours...</div>
-            </td>
-          </tr>
-          <tr *ngIf="error">
-            <td colspan="5">
-              <div class="error-state">{{ error }}</div>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- ========== PAGINATION ========== -->
-    <div *ngIf="filteredSlips.length > 0" class="pagination-container">
+    <!-- Pagination -->
+    <div class="pagination-container" *ngIf="filteredSlips.length > itemsPerPage">
       <div class="pagination-info">
-        <span>
-          Affichage de
-          <strong>{{ (currentPage - 1) * itemsPerPage + 1 }}</strong>
-          à
-          <strong>{{ Math.min(currentPage * itemsPerPage, filteredSlips.length) }}</strong>
-          sur
-          <strong>{{ filteredSlips.length }}</strong> bulletins
-        </span>
-        <div class="page-size-selector">
-          <label for="pageSize">Lignes par page :</label>
-          <select id="pageSize" [(ngModel)]="itemsPerPage" (change)="onPageSizeChange()">
-            <option [value]="5">5</option>
-            <option [value]="10">10</option>
-            <option [value]="25">25</option>
-            <option [value]="50">50</option>
-          </select>
-        </div>
+        {{ (currentPage - 1) * itemsPerPage + 1 }} -
+        {{ Math.min(currentPage * itemsPerPage, filteredSlips.length) }}
+        sur {{ filteredSlips.length }}
       </div>
-
       <div class="pagination-controls">
-        <button class="pagination-btn"
-                (click)="previousPage()"
-                [disabled]="currentPage === 1"
-                [class.disabled]="currentPage === 1">
+        <button class="btn-page" (click)="previousPage()" [disabled]="currentPage === 1">
           <span class="material-symbols-outlined">chevron_left</span>
-          <span>Précédent</span>
         </button>
-
-        <div class="page-numbers">
-          <button *ngIf="totalPages > 1"
-                  class="page-number"
-                  [class.active]="currentPage === 1"
-                  (click)="goToPage(1)">
-            1
-          </button>
-          <span *ngIf="currentPage > 3" class="ellipsis">…</span>
-          <button *ngFor="let page of visiblePages"
-                  class="page-number"
-                  [class.active]="currentPage === page"
-                  (click)="goToPage(page)">
-            {{ page }}
-          </button>
-          <span *ngIf="currentPage < totalPages - 2" class="ellipsis">…</span>
-          <button *ngIf="totalPages > 1"
-                  class="page-number"
-                  [class.active]="currentPage === totalPages"
-                  (click)="goToPage(totalPages)">
-            {{ totalPages }}
-          </button>
-        </div>
-
-        <button class="pagination-btn"
-                (click)="nextPage()"
-                [disabled]="currentPage === totalPages"
-                [class.disabled]="currentPage === totalPages">
-          <span>Suivant</span>
+        
+        <button class="btn-page" (click)="goToPage(1)" [class.active]="currentPage === 1">
+          1
+        </button>
+        
+        <span *ngIf="visiblePages.length > 0 && visiblePages[0] > 2" class="pagination-ellipsis">…</span>
+        
+        <button *ngFor="let page of visiblePages" 
+                class="btn-page" 
+                (click)="goToPage(page)"
+                [class.active]="currentPage === page">
+          {{ page }}
+        </button>
+        
+        <span *ngIf="visiblePages.length > 0 && visiblePages[visiblePages.length - 1] < totalPages - 1" class="pagination-ellipsis">…</span>
+        
+        <button *ngIf="totalPages > 1" class="btn-page" (click)="goToPage(totalPages)" [class.active]="currentPage === totalPages">
+          {{ totalPages }}
+        </button>
+        
+        <button class="btn-page" (click)="nextPage()" [disabled]="currentPage === totalPages">
           <span class="material-symbols-outlined">chevron_right</span>
         </button>
       </div>

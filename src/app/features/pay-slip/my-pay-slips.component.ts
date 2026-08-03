@@ -13,7 +13,7 @@ import { PaySlip } from '../../core/models/pay-slip.model';
   standalone: true,
   imports: [CommonModule, RouterModule, CurrencyPipe, FormsModule],
   templateUrl: './my-pay-slips.component.html',
-  styleUrls: ['./pay-slip-list.component.css']
+  styleUrls: ['./my-pay-slips.component.css']
 })
 export class MyPaySlipsComponent implements OnInit, OnDestroy {
   paySlips: PaySlip[] = [];
@@ -91,7 +91,9 @@ export class MyPaySlipsComponent implements OnInit, OnDestroy {
     } else {
       this.filteredSlips = this.paySlips.filter(slip =>
         (slip.period || '').toLowerCase().includes(term) ||
-        (slip.status || '').toLowerCase().includes(term)
+        (slip.status || '').toLowerCase().includes(term) ||
+        (slip.employeeFullName || '').toLowerCase().includes(term) ||
+        (slip.employeeMatricule || '').toLowerCase().includes(term)
       );
     }
     this.currentPage = 1;
@@ -206,6 +208,11 @@ export class MyPaySlipsComponent implements OnInit, OnDestroy {
   }
 
   get totalPagesCount(): number {
-    return this.paySlips.reduce((sum, s) => sum + (s.imageIds?.length || 0), 0);
+    return this.paySlips.reduce((sum, s) => sum + (s.imageUrls?.length || 0), 0);
+  }
+
+  // Helper pour obtenir le nombre de pages d'un bulletin
+  getPageCount(slip: PaySlip): number {
+    return slip.imageUrls?.length || 0;
   }
 }

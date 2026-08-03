@@ -54,6 +54,20 @@ export class EmployeService {
   }
 
   /**
+   * ✅ Récupère les employés d'une entreprise spécifique
+   */
+  getByEntreprise(entrepriseId: string): Observable<Employee[]> {
+    return this.http.get<Employee[]>(`${this.url}/entreprise/${entrepriseId}`);
+  }
+
+  /**
+   * ✅ Récupère les employés de l'entreprise de l'utilisateur connecté
+   */
+  getMyCompanyEmployees(): Observable<Employee[]> {
+    return this.http.get<Employee[]>(`${this.url}/my-company/employees`);
+  }
+
+  /**
    * Crée un nouvel employé (avec fichiers)
    */
   create(data: FormData): Observable<Employee> {

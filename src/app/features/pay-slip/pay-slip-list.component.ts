@@ -116,11 +116,16 @@ export class PaySlipListComponent implements OnInit {
   }
 
   get totalPages(): number {
-    return this.paySlips.reduce((sum, s) => sum + (s.imageIds?.length || 0), 0);
+    return this.paySlips.reduce((sum, s) => sum + (s.imageUrls?.length || 0), 0);
   }
 
   get successCount(): number {
     return this.paySlips.filter(s => s.status === 'SUCCESS' || s.status === 'PARTIAL_SUCCESS').length;
+  }
+
+  // Helper pour obtenir le nombre de pages d'un bulletin
+  getPageCount(slip: PaySlip): number {
+    return slip.imageUrls?.length || 0;
   }
 
   // === Filtre ===
@@ -221,7 +226,6 @@ export class PaySlipListComponent implements OnInit {
   }
 
   viewPages(id: string): void {
-    // Naviguer vers la page de détail ou un modal
     this.router.navigate(['/app/paie/pay-slip-detail', id]);
   }
 

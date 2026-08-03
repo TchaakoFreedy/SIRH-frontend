@@ -17,6 +17,7 @@ import { AuthService } from '../../../services/auth.service';
 import { EntrepriseService } from '../../../core/services/entreprise.service';
 import { Entreprise } from '../../../core/models/entreprise.model';
 import { Departement } from '../../../core/models/departement.model';
+import { catchError, of, switchMap } from 'rxjs';
 
 @Component({
   selector: 'app-employes',
@@ -59,7 +60,22 @@ export class EmployesComponent implements OnInit {
   searchTerm = signal<string>('');
   selectedDepartement = signal<string>('');
 
-  // Computed : employés enrichis avec les noms des postes, rôles, départements
+  // Signaux pour le filtrage par entreprise
+  currentUserRole = signal<string>('');
+  currentUserCompanyId = signal<string>('');
+  currentUserCompanyName = signal<string>('');
+  isRHOrAdmin = signal<boolean>(false);
+  isDirection = signal<boolean>(false);
+  companyFilter = signal<string>('');
+  
+  // Signal pour le chargement
+  isLoading = signal<boolean>(false);
+  loadingError = signal<string | null>(null);
+
+  // Cache des départements par entreprise
+  departementCache = new Map<string, string[]>();
+
+  // Computed : employés enrichis avec les BONS noms de champs
   enrichedEmployees = computed(() => {
     const all = this.employees();
     const postes = this.postes();
@@ -68,17 +84,37 @@ export class EmployesComponent implements OnInit {
 
     return all.map(emp => ({
       ...emp,
+      // ✅ CORRECTION : Utiliser 'nom' et 'prenom' du backend
+      nom: emp.nom || emp.name || '',
+      prenom: emp.prenom || emp.prename || '',
+      // Pour la recherche et l'affichage
+      fullName: `${emp.prenom || emp.prename || ''} ${emp.nom || emp.name || ''}`.trim(),
       posteName: this.getPosteName(emp.posteId, postes),
       roleName: this.getRoleName(emp.roleId || emp.role, roles),
-      departementName: this.getDepartementName(emp.departementId, depts)
+      departementName: this.getDepartementName(emp.departementId, depts),
+      entrepriseId: this.getEntrepriseIdFromDepartement(emp.departementId, depts)
     }));
   });
 
-  // Computed : employés filtrés (recherche et département)
+  // Computed avec filtrage - CORRIGÉ
   filteredEmployees = computed(() => {
-    const enriched = this.enrichedEmployees();
+    let enriched = this.enrichedEmployees();
     const search = this.searchTerm().toLowerCase().trim();
     const deptFilter = this.selectedDepartement();
+    const isDirectionRole = this.isDirection();
+    const companyId = this.companyFilter();
+
+    if (isDirectionRole && companyId) {
+      const deptIds = this.getDepartementIdsByEntreprise(companyId);
+      if (deptIds.length > 0) {
+        enriched = enriched.filter(emp => {
+          const empDeptId = emp.departementId || emp.departementid;
+          return deptIds.includes(empDeptId);
+        });
+      } else {
+        enriched = [];
+      }
+    }
 
     if (!search && !deptFilter) {
       return enriched;
@@ -88,17 +124,20 @@ export class EmployesComponent implements OnInit {
       let match = true;
 
       if (search) {
+        // ✅ CORRECTION : Utiliser les bons noms de champs
         const matricule = (emp.matriculeInterne || '').toLowerCase();
-        const prenom = (emp.prenom || '').toLowerCase();
-        const nom = (emp.nom || '').toLowerCase();
+        const nom = (emp.nom || emp.name || '').toLowerCase();
+        const prenom = (emp.prenom || emp.prename || '').toLowerCase();
+        const fullName = `${prenom} ${nom}`;
         const poste = (emp.posteName || '').toLowerCase();
         const departement = (emp.departementName || '').toLowerCase();
         const telephone = (emp.telephone || '').toLowerCase();
         const email = (emp.user?.email || emp.email || '').toLowerCase();
 
         const searchMatch = matricule.includes(search) ||
-                            prenom.includes(search) ||
                             nom.includes(search) ||
+                            prenom.includes(search) ||
+                            fullName.includes(search) ||
                             poste.includes(search) ||
                             departement.includes(search) ||
                             telephone.includes(search) ||
@@ -133,7 +172,7 @@ export class EmployesComponent implements OnInit {
     return this.filteredEmployees().slice(startIndex, endIndex);
   });
 
-  // Autres signaux (modales, sélections, permissions...)
+  // Autres signaux
   selectedEmployee = signal<any | null>(null);
   activeEmployeeContracts = signal<any[]>([]);
   employeeDocuments = signal<any[]>([]);
@@ -169,17 +208,17 @@ export class EmployesComponent implements OnInit {
   documentType: string = 'CNI';
 
   // Permissions
-  canViewAllEmployees = signal(true);
-  canViewEmployee = signal(true);
-  canCreateEmployee = signal(true);
-  canUpdateEmployee = signal(true);
-  canDeleteEmployee = signal(true);
-  canSuspendEmployee = signal(true);
-  canReactivateEmployee = signal(true);
-  canUploadDocuments = signal(true);
-  canViewDocuments = signal(true);
-  canCreatePayroll = signal(true);
-  canCreateAvenant = signal(true);
+  canViewAllEmployees = signal(false);
+  canViewEmployee = signal(false);
+  canCreateEmployee = signal(false);
+  canUpdateEmployee = signal(false);
+  canDeleteEmployee = signal(false);
+  canSuspendEmployee = signal(false);
+  canReactivateEmployee = signal(false);
+  canUploadDocuments = signal(false);
+  canViewDocuments = signal(false);
+  canCreatePayroll = signal(false);
+  canCreateAvenant = signal(false);
 
   constructor(
     private employeService: EmployeService,
@@ -191,6 +230,9 @@ export class EmployesComponent implements OnInit {
     private entrepriseService: EntrepriseService,
     private fb: FormBuilder
   ) {
+    this.initForms();
+    this.initContratModalForm();
+
     effect(() => {
       this.filteredEmployees();
       this.currentPage.set(1);
@@ -202,75 +244,12 @@ export class EmployesComponent implements OnInit {
 
     const user = this.authService.getCurrentUser();
     console.log('👤 Utilisateur connecté:', user);
-    console.log('🔒 Rôle:', user?.role);
-
-    const isRH = user?.role === 'RH' ||
-                 user?.role === 'SUPER_ADMIN' ||
-                 user?.role === 'TOP_MANAGER' ||
-                 user?.roles?.includes('RH') ||
-                 user?.roles?.includes('SUPER_ADMIN') ||
-                 user?.roles?.includes('TOP_MANAGER') ||
-                 user?.permissions?.includes('*');
-
-    if (isRH) {
-      console.log('✅ RH/Admin détecté - Activation de toutes les permissions');
-      this.canViewAllEmployees.set(true);
-      this.canViewEmployee.set(true);
-      this.canCreateEmployee.set(true);
-      this.canUpdateEmployee.set(true);
-      this.canDeleteEmployee.set(true);
-      this.canSuspendEmployee.set(true);
-      this.canReactivateEmployee.set(true);
-      this.canUploadDocuments.set(true);
-      this.canViewDocuments.set(true);
-      this.canCreatePayroll.set(true);
-      this.canCreateAvenant.set(true);
-    } else {
-      this.loadPermissions();
-    }
-
-    this.initForms();
-    this.loadEntreprises();
-    this.loadEmployees();
-    this.loadContrats();
-    this.loadRoles();
-    this.loadPostes();
-    this.loadDepartements();
-
-    this.initContratModalForm();
+    
+    this.initializeUserRole(user);
+    
+    this.loadInitialData();
+    this.loadEmployeesBasedOnRole();
   }
-
-  // ==========================================
-  // 🔐 PERMISSIONS
-  // ==========================================
-
-  private loadPermissions(): void {
-    console.log('🔐 Chargement des permissions...');
-
-    this.canViewAllEmployees.set(this.permissionService.hasPermissionSync('EMPLOYEE_VIEW_ALL'));
-    this.canViewEmployee.set(this.permissionService.hasPermissionSync('EMPLOYEE_VIEW'));
-    this.canCreateEmployee.set(this.permissionService.hasPermissionSync('EMPLOYEE_CREATE'));
-    this.canUpdateEmployee.set(this.permissionService.hasPermissionSync('EMPLOYEE_UPDATE'));
-    this.canDeleteEmployee.set(this.permissionService.hasPermissionSync('EMPLOYEE_DELETE'));
-    this.canSuspendEmployee.set(this.permissionService.hasPermissionSync('EMPLOYEE_SUSPEND'));
-    this.canReactivateEmployee.set(this.permissionService.hasPermissionSync('EMPLOYEE_REACTIVATE'));
-    this.canUploadDocuments.set(this.permissionService.hasPermissionSync('DOC_UPLOAD'));
-    this.canViewDocuments.set(this.permissionService.hasPermissionSync('DOC_VIEW_ALL'));
-    this.canCreatePayroll.set(this.permissionService.hasPermissionSync('PAYSLIP_CREATE'));
-    this.canCreateAvenant.set(this.permissionService.hasPermissionSync('CONTRACT_CREATE'));
-
-    console.log('🔐 Permissions chargées:', {
-      canViewAllEmployees: this.canViewAllEmployees(),
-      canCreateEmployee: this.canCreateEmployee(),
-      canUpdateEmployee: this.canUpdateEmployee(),
-      canSuspendEmployee: this.canSuspendEmployee(),
-      canReactivateEmployee: this.canReactivateEmployee(),
-    });
-  }
-
-  // ==========================================
-  // 📄 FORMULAIRES
-  // ==========================================
 
   initForms(): void {
     this.employeeForm = this.fb.group({
@@ -278,6 +257,7 @@ export class EmployesComponent implements OnInit {
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
       roleId: ['', Validators.required],
+      // ✅ CORRECTION : Utiliser 'nom' et 'prenom' comme dans le backend
       nom: ['', Validators.required],
       prenom: ['', Validators.required],
       matriculeInterne: ['', Validators.required],
@@ -313,8 +293,6 @@ export class EmployesComponent implements OnInit {
       annee: [new Date().getFullYear(), Validators.required],
       montantNet: ['', Validators.required]
     });
-
-    this.initContratModalForm();
   }
 
   initContratModalForm(): void {
@@ -327,38 +305,278 @@ export class EmployesComponent implements OnInit {
     });
   }
 
-  // ==========================================
-  // 📦 CHARGEMENT DES DONNÉES
-  // ==========================================
+  private initializeUserRole(user: any): void {
+    const role = user?.role || '';
+    const roles = user?.roles || [];
+    
+    this.currentUserRole.set(role);
 
-  loadEmployees(): void {
-    console.log('🔄 Chargement des employés...');
-    this.employeService.getAll().subscribe({
+    const isRH = role === 'RH' ||
+                 role === 'SUPER_ADMIN' ||
+                 role === 'TOP_MANAGER' ||
+                 roles.includes('RH') ||
+                 roles.includes('SUPER_ADMIN') ||
+                 roles.includes('TOP_MANAGER') ||
+                 user?.permissions?.includes('*') === true;
+
+    const isDirectionRole = role === 'DIRECTION' || 
+                           roles.includes('DIRECTION') ||
+                           role === 'DIRECTION_GENERALE' ||
+                           roles.includes('DIRECTION_GENERALE') ||
+                           role === 'DIRECTOR' ||
+                           roles.includes('DIRECTOR');
+
+    this.isRHOrAdmin.set(isRH);
+    this.isDirection.set(isDirectionRole);
+
+    const userCompanyId = user?.entrepriseId || 
+                         user?.companyId || 
+                         user?.entreprise?.id || 
+                         user?.entreprise?.id;
+
+    if (userCompanyId) {
+      this.currentUserCompanyId.set(userCompanyId);
+      this.companyFilter.set(userCompanyId);
+    }
+
+    if (isRH) {
+      this.setFullPermissions(true);
+    } else {
+      this.loadPermissions();
+    }
+  }
+
+  private loadInitialData(): void {
+    this.loadEntreprises();
+    this.loadPostes();
+    this.loadDepartements();
+    this.loadContrats();
+    this.loadRolesWithFallback();
+  }
+
+  private loadRolesWithFallback(): void {
+    this.roleService.getAll().pipe(
+      catchError((error) => {
+        console.warn('⚠️ Erreur chargement des rôles, utilisation des rôles par défaut');
+        return of([
+          { id: '1', name: 'RH / Admin' },
+          { id: '2', name: 'Collaborateur' },
+          { id: '3', name: 'Manager' },
+          { id: '4', name: 'Direction' },
+          { id: '5', name: 'Super Admin' }
+        ]);
+      })
+    ).subscribe({
       next: (data: any[]) => {
-        console.log('✅ Employés chargés:', data.length);
-        const mapped = data.map(emp => ({
-          ...emp,
-          id: emp.id || emp._id
-        }));
-        this.employees.set(mapped);
-      },
-      error: (err: any) => {
-        console.error('❌ Erreur chargement employés:', err);
-        this.employees.set([]);
+        console.log('✅ Rôles chargés:', data.length);
+        this.roles.set(data);
       }
     });
+  }
+
+  private loadEmployeesBasedOnRole(): void {
+    const user = this.authService.getCurrentUser();
+    const isDirectionRole = this.isDirection();
+    const existingCompanyId = this.currentUserCompanyId();
+
+    this.isLoading.set(true);
+    this.loadingError.set(null);
+
+    if (this.isRHOrAdmin()) {
+      this.loadAllEmployees();
+      return;
+    }
+
+    if (isDirectionRole) {
+      if (existingCompanyId) {
+        this.loadEmployeesByCompanyId(existingCompanyId);
+        return;
+      }
+
+      const userId = user?.id || user?.id;
+      const userEmail = user?.email || user?.username;
+      
+      if (userId) {
+        this.entrepriseService.getMyEntreprise(userId).pipe(
+          catchError(error => {
+            if (userEmail) {
+              return this.findCompanyByUserEmail(userEmail);
+            }
+            return of(null);
+          })
+        ).subscribe({
+          next: (entreprise) => {
+            if (entreprise && entreprise.id) {
+              this.handleCompanyFound(entreprise);
+            } else {
+              this.loadAllEmployees();
+            }
+          },
+          error: () => this.loadAllEmployees()
+        });
+        return;
+      }
+      
+      if (userEmail) {
+        this.findCompanyByUserEmail(userEmail).subscribe({
+          next: (entreprise) => {
+            if (entreprise && entreprise.id) {
+              this.handleCompanyFound(entreprise);
+            } else {
+              this.loadAllEmployees();
+            }
+          },
+          error: () => this.loadAllEmployees()
+        });
+        return;
+      }
+    }
+
+    this.loadAllEmployees();
+  }
+
+  private handleCompanyFound(entreprise: any): void {
+    const companyId = entreprise.id || entreprise.id;
+    if (companyId) {
+      this.currentUserCompanyId.set(companyId);
+      this.companyFilter.set(companyId);
+      this.currentUserCompanyName.set(entreprise.name || entreprise.nom || '');
+      this.loadEmployeesByCompanyId(companyId);
+    } else {
+      this.loadAllEmployees();
+    }
+  }
+
+  private findCompanyByUserEmail(email?: string) {
+    if (!email) return of(null);
+    return this.entrepriseService.getAll().pipe(
+      switchMap(enterprises => {
+        const company = enterprises.find(e => {
+          return e.email === email || 
+                 (e as any).contactEmail === email ||
+                 (e as any).managerEmail === email;
+        });
+        return of(company || null);
+      }),
+      catchError(() => of(null))
+    );
+  }
+
+  private getDepartementIdsByEntreprise(entrepriseId: string): string[] {
+    if (this.departementCache.has(entrepriseId)) {
+      return this.departementCache.get(entrepriseId) || [];
+    }
+
+    const depts = this.departements().filter(d => 
+      d.entrepriseId === entrepriseId || 
+      (d as any).entrepriseid === entrepriseId
+    );
+
+    const deptIds = depts.map(d => d.id || (d as any).id).filter(id => id);
+    this.departementCache.set(entrepriseId, deptIds);
+    return deptIds;
+  }
+
+  private getEntrepriseIdFromDepartement(departementId: string, deptsList: Departement[] = this.departements()): string | null {
+    if (!departementId) return null;
+    const dept = deptsList.find(d => d.id === departementId || (d as any).id === departementId);
+    return dept ? (dept.entrepriseId || (dept as any).entrepriseid || null) : null;
+  }
+
+  private loadEmployeesByCompanyId(companyId: string): void {
+    this.departementService.getByEntreprise(companyId).pipe(
+      catchError(() => of([]))
+    ).subscribe({
+      next: (departements: Departement[]) => {
+        if (departements.length === 0) {
+          this.employees.set([]);
+          this.isLoading.set(false);
+          return;
+        }
+
+        const deptIds = departements.map(d => d.id || (d as any).id).filter(id => id);
+        this.departementCache.set(companyId, deptIds);
+
+        this.employeService.getAll().pipe(
+          catchError(() => of([]))
+        ).subscribe({
+          next: (employees: any[]) => {
+            const filtered = employees.filter(emp => {
+              const empDeptId = emp.departementId || emp.departementid;
+              return deptIds.includes(empDeptId);
+            });
+            
+            const mapped = filtered.map(emp => ({
+              ...emp,
+              id: emp.id || emp.id,
+              departementId: emp.departementId || emp.departementid,
+              entrepriseId: companyId
+            }));
+            
+            this.employees.set(mapped);
+            this.isLoading.set(false);
+          },
+          error: () => this.loadAllEmployees()
+        });
+      },
+      error: () => this.loadAllEmployees()
+    });
+  }
+
+  private loadAllEmployees(): void {
+    this.employeService.getAll().subscribe({
+      next: (data: any[]) => {
+        const mapped = data.map(emp => ({
+          ...emp,
+          id: emp.id || emp.id,
+          departementId: emp.departementId || emp.departementid
+        }));
+        this.employees.set(mapped);
+        this.isLoading.set(false);
+        this.loadingError.set(null);
+      },
+      error: (err: any) => {
+        this.employees.set([]);
+        this.loadingError.set('Erreur lors du chargement des employés');
+        this.isLoading.set(false);
+      }
+    });
+  }
+
+  private setFullPermissions(hasAccess: boolean): void {
+    this.canViewAllEmployees.set(hasAccess);
+    this.canViewEmployee.set(hasAccess);
+    this.canCreateEmployee.set(hasAccess);
+    this.canUpdateEmployee.set(hasAccess);
+    this.canDeleteEmployee.set(hasAccess);
+    this.canSuspendEmployee.set(hasAccess);
+    this.canReactivateEmployee.set(hasAccess);
+    this.canUploadDocuments.set(hasAccess);
+    this.canViewDocuments.set(hasAccess);
+    this.canCreatePayroll.set(hasAccess);
+    this.canCreateAvenant.set(hasAccess);
+  }
+
+  private loadPermissions(): void {
+    this.canViewAllEmployees.set(!!this.permissionService.hasPermissionSync('EMPLOYEE_VIEW_ALL'));
+    this.canViewEmployee.set(!!this.permissionService.hasPermissionSync('EMPLOYEE_VIEW'));
+    this.canCreateEmployee.set(!!this.permissionService.hasPermissionSync('EMPLOYEE_CREATE'));
+    this.canUpdateEmployee.set(!!this.permissionService.hasPermissionSync('EMPLOYEE_UPDATE'));
+    this.canDeleteEmployee.set(!!this.permissionService.hasPermissionSync('EMPLOYEE_DELETE'));
+    this.canSuspendEmployee.set(!!this.permissionService.hasPermissionSync('EMPLOYEE_SUSPEND'));
+    this.canReactivateEmployee.set(!!this.permissionService.hasPermissionSync('EMPLOYEE_REACTIVATE'));
+    this.canUploadDocuments.set(!!this.permissionService.hasPermissionSync('DOC_UPLOAD'));
+    this.canViewDocuments.set(!!this.permissionService.hasPermissionSync('DOC_VIEW_ALL'));
+    this.canCreatePayroll.set(!!this.permissionService.hasPermissionSync('PAYSLIP_CREATE'));
+    this.canCreateAvenant.set(!!this.permissionService.hasPermissionSync('CONTRACT_CREATE'));
   }
 
   loadEntreprises(): void {
     this.entrepriseService.getAll().subscribe({
       next: (data: Entreprise[]) => {
-        console.log('✅ Entreprises chargées:', data.length);
         this.entreprises.set(data);
       },
-      error: (err: any) => {
-        console.error('❌ Erreur chargement entreprises:', err);
-        this.entreprises.set([]);
-      }
+      error: () => this.entreprises.set([])
     });
   }
 
@@ -366,55 +584,27 @@ export class EmployesComponent implements OnInit {
     this.departementService.getAll().subscribe({
       next: (data: Departement[]) => {
         this.departements.set(data || []);
-        console.log('✅ Départements chargés (recherche):', data.length);
+        this.departementCache.clear();
       },
-      error: (err: any) => {
-        console.error('Erreur chargement départements:', err);
-        this.departements.set([]);
-      }
+      error: () => this.departements.set([])
     });
   }
 
   loadContrats(): void {
     this.contratService.getAll().subscribe({
       next: (data: any[]) => this.contrats.set(data || []),
-      error: (err: any) => {
-        console.error('Erreur chargement contrats:', err);
-        this.contrats.set([]);
-      }
-    });
-  }
-
-  loadRoles(): void {
-    this.roleService.getAll().subscribe({
-      next: (data: any[]) => this.roles.set(data || []),
-      error: (err: any) => {
-        console.error('Erreur chargement rôles:', err);
-        this.roles.set([
-          { id: '1', name: 'RH / Admin' },
-          { id: '2', name: 'Collaborateur' },
-          { id: '3', name: 'Manager' }
-        ]);
-      }
+      error: () => this.contrats.set([])
     });
   }
 
   loadPostes(): void {
     this.postesService.getAll().subscribe({
       next: (data: Poste[]) => {
-        console.log('✅ Postes chargés:', data.length);
         this.postes.set(data);
       },
-      error: (err: any) => {
-        console.error('❌ Erreur chargement postes:', err);
-        this.postes.set([]);
-      }
+      error: () => this.postes.set([])
     });
   }
-
-  // ==========================================
-  // 🔍 RECHERCHE ET FILTRES (réactifs)
-  // ==========================================
 
   onSearchInput(event: Event): void {
     const input = event.target as HTMLInputElement;
@@ -440,12 +630,8 @@ export class EmployesComponent implements OnInit {
   }
 
   applyFilters(): void {
-    // Rien à faire ici car les filtres sont réactifs.
+    // Les filtres sont réactifs
   }
-
-  // ==========================================
-  // 📌 GESTION DES SELECTS DANS LE FORMULAIRE
-  // ==========================================
 
   onEntrepriseChange(event: Event): void {
     const select = event.target as HTMLSelectElement;
@@ -468,16 +654,12 @@ export class EmployesComponent implements OnInit {
     }
     this.departementService.getByEntreprise(entrepriseId).subscribe({
       next: (data: Departement[]) => {
-        console.log(`✅ Départements chargés pour entreprise ${entrepriseId}:`, data.length);
         this.filteredDepartements.set(data);
         this.employeeForm.patchValue({ departementId: '' });
         this.filteredPostes.set([]);
         this.employeeForm.patchValue({ posteId: '' });
       },
-      error: (err: any) => {
-        console.error('❌ Erreur chargement départements:', err);
-        this.filteredDepartements.set([]);
-      }
+      error: () => this.filteredDepartements.set([])
     });
   }
 
@@ -488,20 +670,12 @@ export class EmployesComponent implements OnInit {
     }
     this.postesService.getByDepartement(departementId).subscribe({
       next: (data: Poste[]) => {
-        console.log(`✅ Postes chargés pour département ${departementId}:`, data.length);
         this.filteredPostes.set(data);
         this.employeeForm.patchValue({ posteId: '' });
       },
-      error: (err: any) => {
-        console.error('❌ Erreur chargement postes:', err);
-        this.filteredPostes.set([]);
-      }
+      error: () => this.filteredPostes.set([])
     });
   }
-
-  // ==========================================
-  // 🛠 HELPERS (utilisés par les computeds)
-  // ==========================================
 
   getPosteName(posteId: string, postesList: Poste[] = this.postes()): string {
     if (!posteId) return 'Non défini';
@@ -511,7 +685,7 @@ export class EmployesComponent implements OnInit {
 
   getRoleName(roleId: string, rolesList: any[] = this.roles()): string {
     if (!roleId) return 'Non défini';
-    const role = rolesList.find(r => r.id === roleId || r._id === roleId);
+    const role = rolesList.find(r => r.id === roleId || r.id === roleId);
     return role ? (role.name || role.nom || 'Rôle') : 'Non défini';
   }
 
@@ -525,10 +699,6 @@ export class EmployesComponent implements OnInit {
     return this.contratScanFiles.length + this.cniFiles.length +
            this.diplomeFiles.length + this.photoFiles.length + this.certificatFiles.length;
   }
-
-  // ==========================================
-  // 📄 MÉTHODES DE GESTION DES DOCUMENTS
-  // ==========================================
 
   private getToken(): string | null {
     let token = localStorage.getItem(this.TOKEN_KEY);
@@ -664,19 +834,11 @@ export class EmployesComponent implements OnInit {
     if (!employeeId) return;
     this.documentService.getByEmployee(employeeId).subscribe({
       next: (d: any[]) => {
-        console.log('📄 Documents rafraîchis:', d);
         this.employeeDocuments.set(d);
       },
-      error: (err: any) => {
-        console.error('Erreur rafraîchissement documents:', err);
-        this.employeeDocuments.set([]);
-      }
+      error: () => this.employeeDocuments.set([])
     });
   }
-
-  // ==========================================
-  // 🧭 WIZARD NAVIGATION
-  // ==========================================
 
   nextStep(): void {
     if (this.currentStep() === 1) {
@@ -700,6 +862,7 @@ export class EmployesComponent implements OnInit {
   }
 
   getStep1Fields(): string[] {
+    // ✅ CORRECTION : Utiliser 'nom' et 'prenom'
     const fields = ['nom', 'prenom', 'matriculeInterne', 'sexe', 'date_naissance', 'telephone', 'addresse', 'date_embauche', 'posteId', 'departementId', 'entrepriseId'];
     if (!this.isEditMode()) fields.push('email', 'password', 'roleId');
     return fields;
@@ -712,10 +875,6 @@ export class EmployesComponent implements OnInit {
   markTouched(group: FormGroup, fields: string[]): void {
     fields.forEach(f => group.get(f)?.markAsTouched());
   }
-
-  // ==========================================
-  // 🪟 MODALES ET ACTIONS
-  // ==========================================
 
   openEmployeeModal(emp?: any): void {
     if (emp && !this.canUpdateEmployee()) {
@@ -739,7 +898,13 @@ export class EmployesComponent implements OnInit {
       this.employeeForm.get('email')?.clearValidators();
       this.employeeForm.get('roleId')?.clearValidators();
 
-      const patchData = { ...emp };
+      // ✅ CORRECTION : Utiliser 'nom' et 'prenom'
+      const patchData = { 
+        ...emp,
+        nom: emp.nom || emp.name || '',
+        prenom: emp.prenom || emp.prename || ''
+      };
+      
       if (patchData.poste && !patchData.posteId) {
         const foundPoste = this.postes().find((p: Poste) =>
           p.code === patchData.poste || p.libelle === patchData.poste
@@ -752,7 +917,7 @@ export class EmployesComponent implements OnInit {
       }
       this.employeeForm.patchValue(patchData);
 
-      const deptId = emp.departementId;
+      const deptId = emp.departementId || emp.departementid;
       if (deptId) {
         this.departementService.getById(deptId).subscribe({
           next: (dept: Departement) => {
@@ -766,9 +931,7 @@ export class EmployesComponent implements OnInit {
               }, 300);
             }
           },
-          error: (err) => {
-            console.error('Erreur chargement du département pour édition:', err);
-          }
+          error: () => {}
         });
       }
     } else {
@@ -780,6 +943,13 @@ export class EmployesComponent implements OnInit {
       this.employeeForm.get('roleId')?.setValidators([Validators.required]);
       this.filteredDepartements.set([]);
       this.filteredPostes.set([]);
+      
+      if (this.isDirection() && this.currentUserCompanyId()) {
+        this.employeeForm.patchValue({ 
+          entrepriseId: this.currentUserCompanyId() 
+        });
+        this.loadDepartementsByEntreprise(this.currentUserCompanyId());
+      }
     }
 
     Object.keys(this.employeeForm.controls).forEach(k =>
@@ -805,10 +975,6 @@ export class EmployesComponent implements OnInit {
     this.bulletinFiles = [];
   }
 
-  // ==========================================
-  // 📁 FICHIERS
-  // ==========================================
-
   onContratScanChange(event: any): void {
     this.contratScanFiles = Array.from(event.target.files || []);
   }
@@ -832,10 +998,6 @@ export class EmployesComponent implements OnInit {
       case 'certificat': this.certificatFiles.splice(index, 1); break;
     }
   }
-
-  // ==========================================
-  // 📄 GESTION DU MODAL CONTRAT
-  // ==========================================
 
   openContratModal(): void {
     this.contratFormModal.reset({
@@ -895,10 +1057,6 @@ export class EmployesComponent implements OnInit {
     });
   }
 
-  // ==========================================
-  // 📅 DATE PICKER
-  // ==========================================
-
   openDatePicker(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (input && input.showPicker) {
@@ -906,30 +1064,15 @@ export class EmployesComponent implements OnInit {
     }
   }
 
-  // ==========================================
-  // ✏️ RENOMMER LES FICHIERS AVEC PRÉFIXE
-  // ==========================================
-
-  /**
-   * Renomme les fichiers en leur ajoutant un préfixe (ex: 'CNI') devant le nom original.
-   * Exemple: "photo.jpg" -> "CNI_photo.jpg"
-   */
   private renameFilesWithPrefix(files: File[], prefix: string): File[] {
-    return files.map((file, index) => {
-      // Extraire l'extension
+    return files.map((file) => {
       const lastDotIndex = file.name.lastIndexOf('.');
       const ext = lastDotIndex !== -1 ? file.name.substring(lastDotIndex) : '';
-      // Nom de base sans extension
       const baseName = lastDotIndex !== -1 ? file.name.substring(0, lastDotIndex) : file.name;
-      // Nouveau nom avec préfixe
       const newName = `${prefix}_${baseName}${ext}`;
       return new File([file], newName, { type: file.type });
     });
   }
-
-  // ==========================================
-  // 📤 SOUMISSION EMPLOYÉ
-  // ==========================================
 
   submitEmployee(): void {
     if (this.isEditMode()) {
@@ -951,6 +1094,7 @@ export class EmployesComponent implements OnInit {
     const rawContrat = this.contractForm.value;
     const { entrepriseId, ...employeePayload } = rawEmp;
 
+    // ✅ CORRECTION : Utiliser 'nom' et 'prenom'
     const payload = {
       email: employeePayload.email,
       password: employeePayload.password,
@@ -975,6 +1119,8 @@ export class EmployesComponent implements OnInit {
       photoUrls: []
     };
 
+    console.log('📤 Payload envoyé:', JSON.stringify(payload, null, 2));
+
     const totalFiles = this.contratScanFiles.length + this.cniFiles.length +
                        this.diplomeFiles.length + this.photoFiles.length +
                        this.certificatFiles.length;
@@ -986,14 +1132,12 @@ export class EmployesComponent implements OnInit {
     const formData = new FormData();
     formData.append('request', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
 
-    // Renommer les fichiers avec des préfixes explicites
     const cniRenamed = this.renameFilesWithPrefix(this.cniFiles, 'CNI');
     const contratRenamed = this.renameFilesWithPrefix(this.contratScanFiles, 'CONTRAT');
     const diplomeRenamed = this.renameFilesWithPrefix(this.diplomeFiles, 'DIPLOME');
     const photoRenamed = this.renameFilesWithPrefix(this.photoFiles, 'PHOTO');
     const certificatRenamed = this.renameFilesWithPrefix(this.certificatFiles, 'CERTIFICAT');
 
-    // Ajouter les fichiers renommés
     cniRenamed.forEach(file => formData.append('cniFiles', file));
     contratRenamed.forEach(file => formData.append('contratFiles', file));
     diplomeRenamed.forEach(file => formData.append('diplomeFiles', file));
@@ -1002,13 +1146,16 @@ export class EmployesComponent implements OnInit {
 
     this.employeService.create(formData).subscribe({
       next: () => {
-        this.loadEmployees();
+        this.loadEmployeesBasedOnRole();
         this.loadContrats();
         this.closeEmployeeModal();
         alert('✅ Employé créé avec succès !');
       },
       error: (err: any) => {
-        console.error('Erreur création employé :', err);
+        console.error('❌ Erreur création employé :', err);
+        if (err.error && typeof err.error === 'object') {
+          console.error('📋 Détails de l\'erreur:', JSON.stringify(err.error, null, 2));
+        }
         alert('❌ Erreur lors de la création : ' + (err.error?.message || err.message));
       }
     });
@@ -1021,7 +1168,9 @@ export class EmployesComponent implements OnInit {
     }
 
     const raw = this.employeeForm.value;
-    const { entrepriseId, ...updateData } = raw;
+    const { entrepriseId, id, email, password, roleId, matriculeInterne, ...updateData } = raw;
+    
+    // ✅ CORRECTION : Utiliser 'nom' et 'prenom'
     const payload = {
       nom: updateData.nom,
       prenom: updateData.prenom,
@@ -1034,19 +1183,21 @@ export class EmployesComponent implements OnInit {
       posteId: updateData.posteId,
       departementId: updateData.departementId
     };
+    
+    console.log('📤 Update payload:', JSON.stringify(payload, null, 2));
+    
     this.employeService.update(raw.id, payload).subscribe({
       next: () => {
-        this.loadEmployees();
+        this.loadEmployeesBasedOnRole();
         this.closeEmployeeModal();
         alert('✅ Employé mis à jour avec succès !');
       },
-      error: (err: any) => console.error('Erreur mise à jour:', err)
+      error: (err: any) => {
+        console.error('❌ Erreur mise à jour:', err);
+        alert('❌ Erreur lors de la mise à jour : ' + (err.error?.message || err.message));
+      }
     });
   }
-
-  // ==========================================
-  // ⚡ ACTIONS EMPLOYÉS
-  // ==========================================
 
   suspendEmployee(id: string): void {
     if (!this.canSuspendEmployee()) {
@@ -1059,7 +1210,7 @@ export class EmployesComponent implements OnInit {
     }
     if (!confirm('Suspendre ce collaborateur ?')) return;
     this.employeService.suspendre(id).subscribe({
-      next: () => this.loadEmployees(),
+      next: () => this.loadEmployeesBasedOnRole(),
       error: (err: any) => console.error('Erreur suspension:', err)
     });
   }
@@ -1074,7 +1225,7 @@ export class EmployesComponent implements OnInit {
       return;
     }
     this.employeService.reactiver(id).subscribe({
-      next: () => this.loadEmployees(),
+      next: () => this.loadEmployeesBasedOnRole(),
       error: (err: any) => console.error('Erreur réactivation:', err)
     });
   }
@@ -1097,13 +1248,9 @@ export class EmployesComponent implements OnInit {
         });
         this.documentService.getByEmployee(id).subscribe({
           next: (d: any[]) => {
-            console.log('📄 Documents chargés:', d);
             this.employeeDocuments.set(d);
           },
-          error: (err: any) => {
-            console.error('Erreur chargement documents:', err);
-            this.employeeDocuments.set([]);
-          }
+          error: () => this.employeeDocuments.set([])
         });
         this.showDetailModal.set(true);
       },
@@ -1115,10 +1262,6 @@ export class EmployesComponent implements OnInit {
     this.showDetailModal.set(false);
     this.selectedEmployee.set(null);
   }
-
-  // ==========================================
-  // 📄 AVENANT
-  // ==========================================
 
   openAvenantModal(empId?: string): void {
     if (!this.canCreateAvenant()) {
@@ -1148,10 +1291,6 @@ export class EmployesComponent implements OnInit {
       error: (err: any) => console.error('Erreur création avenant:', err)
     });
   }
-
-  // ==========================================
-  // 📄 DOCUMENTS POST-CRÉATION
-  // ==========================================
 
   openDocModal(empId: string): void {
     if (!this.canUploadDocuments()) {
@@ -1192,8 +1331,6 @@ export class EmployesComponent implements OnInit {
     formData.append('name', `Document ${this.documentType}`);
     this.docFiles.forEach(f => formData.append('files', f));
 
-    formData.append('_t', new Date().getTime().toString());
-
     this.documentService.uploadPiecesEmploye(empId, formData).subscribe({
       next: () => {
         this.closeDocModal();
@@ -1201,7 +1338,7 @@ export class EmployesComponent implements OnInit {
         if (this.showDetailModal()) {
           this.viewEmployeeDetails(empId);
         }
-        this.loadEmployees();
+        this.loadEmployeesBasedOnRole();
       },
       error: (err: any) => {
         console.error('Erreur upload documents:', err);
@@ -1209,10 +1346,6 @@ export class EmployesComponent implements OnInit {
       }
     });
   }
-
-  // ==========================================
-  // 📊 BULLETIN DE PAIE
-  // ==========================================
 
   openBulletinModal(empId: string): void {
     if (!this.canCreatePayroll()) {
@@ -1260,10 +1393,6 @@ export class EmployesComponent implements OnInit {
     });
   }
 
-  // ==========================================
-  // 📌 PAGINATION
-  // ==========================================
-
   goToPage(page: number): void {
     if (page >= 1 && page <= this.totalPages()) {
       this.currentPage.set(page);
@@ -1296,5 +1425,26 @@ export class EmployesComponent implements OnInit {
       pages.push(i);
     }
     return pages;
+  }
+
+  canViewEmployeeDetails(employee: any): boolean {
+    if (this.isRHOrAdmin()) return true;
+    if (this.isDirection()) {
+      const empDeptId = employee.departementId || employee.departementid;
+      const companyDeptIds = this.getDepartementIdsByEntreprise(this.currentUserCompanyId());
+      return companyDeptIds.includes(empDeptId);
+    }
+    return false;
+  }
+
+  getTotalVisibleEmployees(): number {
+    return this.filteredEmployees().length;
+  }
+
+  getUserCompanyInfo(): string {
+    if (this.currentUserCompanyName()) {
+      return this.currentUserCompanyName();
+    }
+    return this.currentUserCompanyId() || 'Aucune entreprise associée';
   }
 }

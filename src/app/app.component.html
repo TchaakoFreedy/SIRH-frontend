@@ -1,0 +1,27 @@
+<!-- src/app/app.component.html -->
+<div class="app-container">
+  <app-header (toggleSidebarEvent)="toggleSidebar()"></app-header>
+
+  <!-- SIDEBAR - Toujours présente, contrôlée par les classes CSS -->
+  <app-sidebar 
+    [isOpen]="sidebarOpen()"
+    [isMobile]="isMobile()"
+    (closeSidebar)="closeSidebar()"
+    (collapseChange)="onCollapseChange($event)"
+  ></app-sidebar>
+
+  <!-- OVERLAY -->
+  @if (isMobile() && sidebarOpen()) {
+    <div 
+      class="sidebar-overlay" 
+      (click)="closeSidebar()"
+    ></div>
+  }
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content" [class.sidebar-open]="sidebarOpen() && isMobile()">
+    <router-outlet></router-outlet>
+  </main>
+
+  <app-toast></app-toast>
+</div>

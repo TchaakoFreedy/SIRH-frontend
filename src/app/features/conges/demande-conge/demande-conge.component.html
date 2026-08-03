@@ -1,165 +1,138 @@
 <!-- src/app/features/rh/conges/demande-conge/demande-conge.component.html -->
 <div class="page">
   <div class="form-card">
+    <!-- Header -->
     <div class="form-header">
       <div class="header-top">
-        <span class="eyebrow">
-          <i class="fas fa-calendar-alt"></i> Gestion des congés
-        </span>
+        <span class="eyebrow"><i class="fas fa-calendar-plus"></i> Nouvelle demande</span>
         <button class="btn-back" (click)="goToConges()">
           <i class="fas fa-arrow-left"></i> Retour
         </button>
       </div>
-      <h2>
-        <i class="fas fa-plus-circle"></i> 
-        {{ conge.typeConge ? 'Demande de ' + getTypeLabel(conge.typeConge) : 'Nouvelle demande' }}
-      </h2>
-      <p>Complétez le formulaire ci-dessous pour soumettre votre demande.</p>
-
-      <!-- Badge solde pour les congés annuels -->
-      <div class="solde-badge" *ngIf="soldeAnnuelRestant !== undefined && conge.typeConge === 'ANNUEL'">
-        <i class="fas fa-umbrella-beach solde-icon"></i>
-        <span class="solde-text">
-          Solde congés annuels : <strong>{{ soldeAnnuelRestant }} jour(s)</strong>
-        </span>
-      </div>
+      <h2><i class="fas fa-paper-plane"></i> Faire une demande</h2>
+      <p>Remplissez le formulaire ci-dessous pour effectuer votre demande de congé</p>
       
-      <!-- Badge d'information pour les autres types -->
-      <div class="info-badge" *ngIf="conge.typeConge !== 'ANNUEL' && conge.typeConge">
-        <i class="fas fa-info-circle"></i>
-        <span>
-          Les <strong>{{ getTypeLabel(conge.typeConge) }}</strong> ne consomment pas vos jours de congé annuel.
-          <span *ngIf="conge.typeConge === 'PERMISSION'">(Maximum 3 jours)</span>
-          <span *ngIf="conge.typeConge === 'ABSENCE'">(Signalement uniquement)</span>
+      <!-- Solde -->
+      <div class="solde-badge" *ngIf="matricule">
+        <i class="fas fa-coins solde-icon"></i>
+        <span class="solde-text">
+          Solde disponible : <strong>{{ soldeAnnuelRestant }}</strong> jour(s)
         </span>
       </div>
     </div>
 
-    <!-- Messages de notification -->
-    <div *ngIf="successMessage" class="alert alert-success">
-      <i class="fas fa-check-circle alert-icon"></i>
-      {{ successMessage }}
-    </div>
-
+    <!-- Messages -->
     <div *ngIf="errorMessage" class="alert alert-error">
       <i class="fas fa-exclamation-circle alert-icon"></i>
       {{ errorMessage }}
     </div>
 
-    <!-- 👈 Si l'utilisateur n'a pas la permission, on affiche un message -->
-    <div *ngIf="!hasCreatePermission" class="alert alert-warning">
-      <i class="fas fa-lock alert-icon"></i>
-      Vous n'avez pas la permission de créer une demande de congé.
+    <div *ngIf="successMessage" class="alert alert-success">
+      <i class="fas fa-check-circle alert-icon"></i>
+      {{ successMessage }}
     </div>
 
-    <form (ngSubmit)="save()" #form="ngForm" novalidate *ngIf="hasCreatePermission">
-      <!-- Type de demande -->
-      <div class="field">
-        <label for="typeConge">
-          <i class="fas fa-tag"></i> Type de demande <span class="required">*</span>
-        </label>
-        <select 
-          id="typeConge" 
-          name="typeConge" 
-          [(ngModel)]="conge.typeConge" 
-          required
-          [class.invalid]="form.submitted && !conge.typeConge">
-          <option value="" disabled>Choisir un type de demande</option>
-          <option *ngFor="let type of typesConge" [value]="type">
-            {{ getTypeIcon(type) }} {{ getTypeLabel(type) }}
-          </option>
-        </select>
-        <small class="field-hint">
-          <i class="fas fa-info-circle"></i> 
-          <span *ngIf="conge.typeConge === 'ANNUEL'">Les congés annuels sont soumis à validation et consomment votre solde</span>
-          <span *ngIf="conge.typeConge === 'PERMISSION'">Les permissions sont automatiquement validées (max 3 jours)</span>
-          <span *ngIf="conge.typeConge === 'ABSENCE'">Les absences sont un simple signalement, sans validation</span>
-          <span *ngIf="!conge.typeConge">Sélectionnez le type de demande souhaité</span>
-        </small>
-      </div>
+    <!-- Formulaire -->
+    <form (ngSubmit)="save()" #form="ngForm">
+      <div class="form-grid">
+        <!-- Type de congé - ✅ Liste corrigée sans MALADIE -->
+        <div class="field">
+          <label for="typeConge">
+            <i class="fas fa-tag"></i> Type de demande <span class="required">*</span>
+          </label>
+          <select 
+            id="typeConge" 
+            [(ngModel)]="conge.typeConge" 
+            name="typeConge"
+            (change)="calculerNbJours()"
+            required
+          >
+            <option *ngFor="let type of typesConge" [value]="type.value">
+              {{ type.label }}
+            </option>
+          </select>
+          <span class="field-hint" *ngIf="conge.typeConge === 'PERMISSION'">
+            <i class="fas fa-info-circle"></i> La permission est limitée à <strong>3 jours</strong> maximum
+          </span>
+          <span class="field-hint" *ngIf="conge.typeConge === 'ANNUEL'">
+            <i class="fas fa-info-circle"></i> Solde disponible : <strong>{{ soldeAnnuelRestant }}</strong> jours
+          </span>
+        </div>
 
-      <!-- Dates -->
-      <div class="row">
+        <!-- Date début -->
         <div class="field">
           <label for="jourDebut">
             <i class="fas fa-calendar-day"></i> Date de début <span class="required">*</span>
           </label>
           <input 
-            id="jourDebut" 
             type="date" 
-            name="jourDebut" 
+            id="jourDebut" 
             [(ngModel)]="conge.jourDebut" 
-            (change)="calculerNbJours()" 
+            name="jourDebut"
+            [min]="today"
+            (change)="calculerNbJours()"
             required
-            [class.invalid]="form.submitted && !conge.jourDebut"
-            [min]="today" 
           />
         </div>
 
+        <!-- Date fin -->
         <div class="field">
           <label for="jourFin">
             <i class="fas fa-calendar-day"></i> Date de fin <span class="required">*</span>
           </label>
           <input 
-            id="jourFin" 
             type="date" 
-            name="jourFin" 
+            id="jourFin" 
             [(ngModel)]="conge.jourFin" 
-            (change)="calculerNbJours()" 
-            [min]="conge.jourDebut || today" 
+            name="jourFin"
+            [min]="conge.jourDebut || today"
+            (change)="calculerNbJours()"
             required
-            [class.invalid]="form.submitted && !conge.jourFin"
           />
+        </div>
+
+        <!-- Nombre de jours (auto-calculé) -->
+        <div class="field">
+          <label for="nbJour">
+            <i class="fas fa-clock"></i> Nombre de jours
+          </label>
+          <div class="input-with-info">
+            <input 
+              type="number" 
+              id="nbJour" 
+              [(ngModel)]="conge.nbJour" 
+              name="nbJour"
+              readonly
+              class="readonly"
+            />
+            <span class="input-info">
+              <i class="fas fa-calculator"></i> {{ conge.nbJour }} j
+            </span>
+          </div>
+          <span class="field-hint">
+            <i class="fas fa-info-circle"></i> Calculé automatiquement
+          </span>
+        </div>
+
+        <!-- Motif / Commentaire -->
+        <div class="field full-width">
+          <label for="commentaire">
+            <i class="fas fa-comment"></i> Motif / Commentaire
+          </label>
+          <textarea 
+            id="commentaire" 
+            [(ngModel)]="conge.commentaireManager" 
+            name="commentaireManager"
+            placeholder="Précisez le motif de votre demande (optionnel)..."
+            rows="3"
+          ></textarea>
         </div>
       </div>
 
-      <!-- Nombre de jours (auto-calculé) -->
-      <div class="field">
-        <label for="nbJour">
-          <i class="fas fa-hashtag"></i> Nombre de jours
-        </label>
-        <div class="input-with-info">
-          <input 
-            id="nbJour" 
-            type="number" 
-            name="nbJour" 
-            [(ngModel)]="conge.nbJour" 
-            readonly 
-            class="readonly"
-          />
-          <span class="input-info"><i class="far fa-clock"></i> jours</span>
-        </div>
-        <small class="field-hint">
-          <i class="fas fa-calculator"></i> 
-          Le nombre de jours est calculé automatiquement
-          <span *ngIf="conge.typeConge === 'ANNUEL' && conge.nbJour > 0">
-            (Solde restant après cette demande : <strong>{{ soldeAnnuelRestant - conge.nbJour }}</strong> jours)
-          </span>
-          <span *ngIf="conge.typeConge === 'PERMISSION' && conge.nbJour > 3" class="text-warning">
-            ⚠️ La permission ne peut pas dépasser 3 jours
-          </span>
-        </small>
-      </div>
-
-      <!-- Motif -->
-      <div class="field">
-        <label for="motif">
-          <i class="fas fa-comment"></i> Motif
-          <span *ngIf="conge.typeConge === 'ABSENCE'" class="required">*</span>
-        </label>
-        <textarea 
-          id="motif" 
-          name="motif" 
-          [(ngModel)]="conge.commentaireManager" 
-          rows="3"
-          placeholder="Décrivez brièvement le motif de votre demande..."
-          [required]="conge.typeConge === 'ABSENCE'"
-        ></textarea>
-        <small class="field-hint">
-          <i class="fas fa-info-circle"></i> 
-          <span *ngIf="conge.typeConge === 'ABSENCE'">Le motif est obligatoire pour signaler une absence</span>
-          <span *ngIf="conge.typeConge !== 'ABSENCE'">Le motif est optionnel mais recommandé</span>
-        </small>
+      <!-- Validation -->
+      <div *ngIf="!isFormValid() && conge.jourDebut && conge.jourFin" class="alert alert-error">
+        <i class="fas fa-exclamation-triangle alert-icon"></i>
+        {{ getValidationMessage() }}
       </div>
 
       <!-- Actions -->
@@ -167,16 +140,21 @@
         <button 
           type="button" 
           class="btn-secondary" 
-          (click)="goToConges()">
+          (click)="goToConges()"
+        >
           <i class="fas fa-times"></i> Annuler
         </button>
         <button 
           type="submit" 
           class="btn-primary" 
-          [disabled]="!form.valid || !isFormValid() || isSubmitting || !hasCreatePermission">
-          <span *ngIf="isSubmitting" class="spinner"></span>
-          <i *ngIf="!isSubmitting" class="fas fa-paper-plane"></i>
-          {{ isSubmitting ? 'Envoi en cours...' : getSubmitButtonLabel() }}
+          [disabled]="!isFormValid() || isSubmitting || !hasCreatePermission"
+        >
+          <span *ngIf="!isSubmitting">
+            <i class="fas fa-paper-plane"></i> {{ getSubmitButtonLabel() }}
+          </span>
+          <span *ngIf="isSubmitting">
+            <i class="fas fa-spinner fa-spin"></i> Envoi en cours...
+          </span>
         </button>
       </div>
     </form>

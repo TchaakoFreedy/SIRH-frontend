@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { Conge, StatutConge, TypeConge } from '../models/conge.model';
@@ -36,11 +36,46 @@ export class CongeService {
   }
 
   /**
-   * Récupère tous les congés (RH uniquement)
+   * ✅ Récupère tous les congés selon le rôle de l'utilisateur
+   * - RH/Admin : voit tous les congés
+   * - Manager : voit uniquement les congés de son département
    */
   getAll(): Observable<Conge[]> {
+    console.log('📥 Récupération des congés selon le rôle...');
     return this.http.get<Conge[]>(this.apiUrl, { headers: this.getHeaders() })
       .pipe(catchError(this.handleError));
+  }
+
+  /**
+   * ✅ NOUVEAU : Récupère les congés du département du manager avec filtres
+   * @param statut - Filtrer par statut (EN_ATTENTE, APPROUVE, REJETE, ANNULE, TOUS)
+   * @param type - Filtrer par type (ANNUEL, PERMISSION, ABSENCE, TOUS)
+   */
+  getCongesByDepartement(statut?: string, type?: string): Observable<Conge[]> {
+    console.log('📥 Récupération des congés du département...');
+    
+    let params = new HttpParams();
+    if (statut && statut !== 'TOUS') {
+      params = params.set('statut', statut);
+    }
+    if (type && type !== 'TOUS') {
+      params = params.set('type', type);
+    }
+    
+    return this.http.get<Conge[]>(`${this.apiUrl}/departement`, { 
+      headers: this.getHeaders(),
+      params: params
+    }).pipe(catchError(this.handleError));
+  }
+
+  /**
+   * ✅ NOUVEAU : Récupère les membres de l'équipe du manager
+   */
+  getTeamMembers(): Observable<any[]> {
+    console.log('📥 Récupération des membres de l\'équipe...');
+    return this.http.get<any[]>(`${this.apiUrl}/team/members`, { 
+      headers: this.getHeaders()
+    }).pipe(catchError(this.handleError));
   }
 
   /**
@@ -122,6 +157,8 @@ export class CongeService {
     };
     
     console.log('📤 Demande permission avec ID MongoDB:', employeeId);
+    console.log('🔔 La permission sera en attente de validation manager');
+    
     return this.http.post<Conge>(`${this.apiUrl}/permission`, request, { headers: this.getHeaders() })
       .pipe(catchError(this.handleError));
   }
@@ -144,8 +181,14 @@ export class CongeService {
 
   /**
    * Approuve un congé (RH/Manager)
+   * ✅ Le managerId est automatiquement pris du token JWT
    */
-  approve(id: string, managerId: string, commentaire: string): Observable<Conge> {
+  approve(id: string, commentaire: string): Observable<Conge> {
+    const managerId = this.currentEmployeeId;
+    if (!managerId) {
+      return throwError(() => new Error('Utilisateur non identifié. Veuillez vous reconnecter.'));
+    }
+    
     const request = { managerId, commentaire };
     return this.http.patch<Conge>(`${this.apiUrl}/${id}/approve`, request, { headers: this.getHeaders() })
       .pipe(catchError(this.handleError));
@@ -153,8 +196,14 @@ export class CongeService {
 
   /**
    * Rejette un congé (RH/Manager)
+   * ✅ Le managerId est automatiquement pris du token JWT
    */
-  reject(id: string, managerId: string, commentaire: string): Observable<Conge> {
+  reject(id: string, commentaire: string): Observable<Conge> {
+    const managerId = this.currentEmployeeId;
+    if (!managerId) {
+      return throwError(() => new Error('Utilisateur non identifié. Veuillez vous reconnecter.'));
+    }
+    
     const request = { managerId, commentaire };
     return this.http.patch<Conge>(`${this.apiUrl}/${id}/reject`, request, { headers: this.getHeaders() })
       .pipe(catchError(this.handleError));
@@ -211,8 +260,10 @@ export class CongeService {
     let errorMessage = 'Une erreur est survenue lors de la communication avec le serveur.';
     
     if (error.error instanceof ErrorEvent) {
+      // Erreur côté client
       errorMessage = error.error.message;
     } else {
+      // Erreur côté serveur
       if (error.status === 0) {
         errorMessage = 'Impossible de se connecter au serveur. Veuillez vérifier votre connexion.';
       } else if (error.error?.message) {

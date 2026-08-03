@@ -14,18 +14,14 @@
       </div>
     </div>
     <div class="btn-group">
-    
-      <!-- ✅ Contrat - Permission CONTRACT_CREATE -->
       @if (canCreateAvenant() || canUpdateEmployee()) {
         <button class="btn btn-secondary" (click)="openContratModal()">
           <span class="material-symbols-outlined">contract</span> Contrat
         </button>
       }
-
-      <!-- ✅ Recruter - Permission EMPLOYEE_CREATE -->
       @if (canCreateEmployee()) {
         <button class="btn btn-primary" (click)="openEmployeeModal()">
-          <span class="material-symbols-outlined">person_add</span> Recruter
+          <span class="material-symbols-outlined">person_add</span> Nouveau
         </button>
       }
     </div>
@@ -133,14 +129,15 @@
               <td>
                 <div class="user-cell">
                   <div>
+                    <!-- ✅ CORRECTION : Utiliser 'prenom' et 'nom' -->
                     <div class="name">{{ emp.prenom }} {{ emp.nom }}</div>
                     <div class="meta">{{ emp.sexe === 'M' ? 'Masculin' : 'Féminin' }}</div>
                   </div>
                 </div>
               </td>
               <td>
-                <div class="name">{{ emp.poste || getPosteName(emp.posteId) }}</div>
-                <div class="meta">{{ getDepartementName(emp.departementId) }}</div>
+                <div class="name">{{ emp.posteName }}</div>
+                <div class="meta">{{ emp.departementName }}</div>
               </td>
               <td>
                 <div class="name" style="font-size:13px;">{{ emp.user?.email || emp.email || '—' }}</div>
@@ -153,35 +150,26 @@
               </td>
               <td>
                 <div class="actions-cell">
-                  <!--  Dossier - Permission EMPLOYEE_VIEW ou EMPLOYEE_VIEW_ALL -->
                   @if (canViewAllEmployees() || canViewEmployee()) {
                     <button (click)="viewEmployeeDetails(emp.id)" class="action-btn info" title="Dossier">
                       <span class="material-symbols-outlined">folder_shared</span>
                     </button>
                   }
-                  
-                  <!-- ✅ Modifier - Permission EMPLOYEE_UPDATE -->
                   @if (canUpdateEmployee()) {
                     <button (click)="openEmployeeModal(emp)" class="action-btn warning" title="Modifier">
                       <span class="material-symbols-outlined">edit</span>
                     </button>
                   }
-                  
-                  <!-- ✅ Document - Permission DOC_UPLOAD -->
                   @if (canUploadDocuments()) {
                     <button (click)="openDocModal(emp.id)" class="action-btn primary" title="Document">
                       <span class="material-symbols-outlined">cloud_upload</span>
                     </button>
                   }
-                  
-                  <!-- ✅ Suspendre - Permission EMPLOYEE_SUSPEND -->
                   @if (emp.statut === 'ACTIF' && canSuspendEmployee()) {
                     <button (click)="suspendEmployee(emp.id)" class="action-btn danger" title="Suspendre">
                       <span class="material-symbols-outlined">person_off</span>
                     </button>
                   }
-                  
-                  <!-- ✅ Réactiver - Permission EMPLOYEE_REACTIVATE -->
                   @if (emp.statut !== 'ACTIF' && canReactivateEmployee()) {
                     <button (click)="reactivateEmployee(emp.id)" class="action-btn success" title="Réactiver">
                       <span class="material-symbols-outlined">how_to_reg</span>
@@ -285,7 +273,7 @@
 <!-- ============ MODALE WIZARD ================ -->
 <!-- ============================================ -->
 @if (showEmployeeModal()) {
-  <div class="modal-overlay">
+  <div class="modal-overlay" (click)="$event.target === $event.currentTarget && closeEmployeeModal()">
     <div class="modal-glass max-lg">
       
       <!-- Header -->
@@ -323,7 +311,7 @@
       <div class="modal-body-scroll">
         
         <!-- ÉTAPE 1 : EMPLOYÉ -->
-        @if (currentStep() === 1 || isEditMode()) {
+        @if ((currentStep() === 1 || isEditMode()) && employeeForm) {
           <form [formGroup]="employeeForm">
             
             @if (!isEditMode()) {
@@ -364,12 +352,20 @@
               <div class="block-title"><span class="material-symbols-outlined">contact_page</span> État Civil</div>
               <div class="form-grid grid-4">
                 <div class="form-group span-2">
+                  <!-- ✅ CORRECTION : formControlName="nom" -->
                   <label>Nom *</label>
                   <input type="text" formControlName="nom"/>
+                  @if (employeeForm.get('nom')?.touched && employeeForm.get('nom')?.invalid) {
+                    <small class="error-text">Nom requis</small>
+                  }
                 </div>
                 <div class="form-group span-2">
+                  <!-- ✅ CORRECTION : formControlName="prenom" -->
                   <label>Prénom *</label>
                   <input type="text" formControlName="prenom"/>
+                  @if (employeeForm.get('prenom')?.touched && employeeForm.get('prenom')?.invalid) {
+                    <small class="error-text">Prénom requis</small>
+                  }
                 </div>
                 <div class="form-group">
                   <label>Sexe *</label>
@@ -414,7 +410,6 @@
                   <input type="date" formControlName="date_embauche"/>
                 </div>
 
-                <!-- 👇 Entreprise (avec name) -->
                 <div class="form-group">
                   <label>Entreprise *</label>
                   <div class="select-wrapper">
@@ -431,7 +426,6 @@
                   }
                 </div>
 
-                <!-- 👇 Département filtré (avec name) -->
                 <div class="form-group">
                   <label>Département *</label>
                   <div class="select-wrapper">
@@ -448,7 +442,6 @@
                   }
                 </div>
 
-                <!-- 👇 Poste filtré -->
                 <div class="form-group">
                   <label>Poste occupé *</label>
                   <div class="select-wrapper">
@@ -464,15 +457,13 @@
                     <small class="error-text">Veuillez sélectionner un poste</small>
                   }
                 </div>
-
-                
               </div>
             </div>
           </form>
         }
 
         <!-- ÉTAPE 2 : CONTRAT + SCANS -->
-        @if (currentStep() === 2 && !isEditMode()) {
+        @if (currentStep() === 2 && !isEditMode() && contractForm) {
           <form [formGroup]="contractForm">
             <div class="form-block">
               <div class="block-title"><span class="material-symbols-outlined">contract</span> Contrat Initial</div>
@@ -500,13 +491,13 @@
                   </div>
                 </div>
                 <div class="form-group">
-  <label>Date de début *</label>
-  <input type="date" formControlName="dateDebut" min="1900-01-01" (click)="openDatePicker($event)" />
-</div>
+                  <label>Date de début *</label>
+                  <input type="date" formControlName="dateDebut" min="1900-01-01" (click)="openDatePicker($event)" />
+                </div>
                 <div class="form-group">
-  <label>Date de fin (si CDD/Stage)</label>
-  <input type="date" formControlName="dateFin" min="1900-01-01" (click)="openDatePicker($event)" />
-</div>
+                  <label>Date de fin (si CDD/Stage)</label>
+                  <input type="date" formControlName="dateFin" min="1900-01-01" (click)="openDatePicker($event)" />
+                </div>
               </div>
             </div>
 
@@ -548,7 +539,6 @@
             <p class="hint">Ces documents seront rattachés au dossier du collaborateur. Cliquez sur chaque zone pour ouvrir vos dossiers.</p>
 
             <div class="docs-grid">
-              <!-- CNI -->
               <div class="doc-box">
                 <div class="doc-box-header">
                   <span class="material-symbols-outlined">badge</span>
@@ -571,7 +561,6 @@
                 }
               </div>
 
-              <!-- Diplôme -->
               <div class="doc-box">
                 <div class="doc-box-header">
                   <span class="material-symbols-outlined">school</span>
@@ -594,7 +583,6 @@
                 }
               </div>
 
-              <!-- Photo -->
               <div class="doc-box">
                 <div class="doc-box-header">
                   <span class="material-symbols-outlined">photo_camera</span>
@@ -617,7 +605,6 @@
                 }
               </div>
 
-              <!-- Certificats -->
               <div class="doc-box">
                 <div class="doc-box-header">
                   <span class="material-symbols-outlined">medical_services</span>
@@ -665,7 +652,6 @@
               Continuer <span class="material-symbols-outlined">arrow_forward</span>
             </button>
           } @else {
-            <!-- ✅ Création - Permission EMPLOYEE_CREATE -->
             <button class="btn btn-success" 
                     (click)="submitEmployee()"
                     [disabled]="!canCreateEmployee()">
@@ -673,7 +659,6 @@
             </button>
           }
         } @else {
-          <!-- ✅ Modification - Permission EMPLOYEE_UPDATE -->
           <button class="btn btn-primary" 
                   (click)="submitEmployee()"
                   [disabled]="!canUpdateEmployee()">
@@ -722,20 +707,19 @@
   </div>
 }
 
-
-
 <!-- ============================================ -->
 <!-- ============ MODALE DÉTAILS ================ -->
 <!-- ============================================ -->
 @if (showDetailModal() && selectedEmployee()) {
-  <div class="modal-overlay">
+  <div class="modal-overlay" (click)="$event.target === $event.currentTarget && closeDetailModal()">
     <div class="modal-glass max-lg">
       <div class="modal-top-header">
         <div class="modal-title-group">
           <div class="avatar big">{{ selectedEmployee().prenom?.[0] }}{{ selectedEmployee().nom?.[0] }}</div>
           <div>
+            <!-- ✅ CORRECTION : Utiliser 'prenom' et 'nom' -->
             <h3>{{ selectedEmployee().prenom }} {{ selectedEmployee().nom }}</h3>
-            <p class="sub">{{ selectedEmployee().poste || getPosteName(selectedEmployee().posteId) }} — {{ getDepartementName(selectedEmployee().departementId) }}</p>
+            <p class="sub">{{ getPosteName(selectedEmployee().posteId) }} — {{ getDepartementName(selectedEmployee().departementId) }}</p>
           </div>
         </div>
         <button (click)="closeDetailModal()" class="close-btn"><span class="material-symbols-outlined">close</span></button>
@@ -788,12 +772,6 @@
                   <div class="doc-mini-meta">{{ doc.typeDocument }} • {{ doc.dateUpload || doc.createdAt }}</div>
                 </div>
                 <div class="doc-mini-actions">
-                  <!-- ✅ Voir document - Permission DOC_VIEW_ALL -->
-                  <!-- @if (canViewDocuments()) {
-                    <button class="btn-icon" title="Voir" (click)="$event.stopPropagation(); viewDocument(doc.id)">
-                      <span class="material-symbols-outlined">visibility</span>
-                    </button>
-                  } -->
                   <button class="btn-icon" title="Télécharger" (click)="$event.stopPropagation(); downloadDocument(doc.id, doc.name)">
                     <span class="material-symbols-outlined">download</span>
                   </button>
@@ -807,7 +785,6 @@
       </div>
 
       <div class="modal-footer-bar">
-        <!-- ✅ Document - Permission DOC_UPLOAD -->
         @if (canUploadDocuments()) {
           <button (click)="openDocModal(selectedEmployee().id)" class="btn btn-secondary">
             <span class="material-symbols-outlined">cloud_upload</span> Document
@@ -823,7 +800,7 @@
 <!-- ============ MODALE DOCUMENTS ============== -->
 <!-- ============================================ -->
 @if (showDocModal()) {
-  <div class="modal-overlay">
+  <div class="modal-overlay" (click)="$event.target === $event.currentTarget && closeDocModal()">
     <div class="modal-glass max-md">
       <div class="modal-top-header">
         <div class="modal-title-group">
@@ -835,12 +812,13 @@
       <div class="modal-body-scroll">
         <div class="form-group">
           <label>Type de document</label>
-          <div class="select-wrapper">
+          <div class="select-wrapper" style="margin-bottom: 20px;">
             <select (change)="onDocumentTypeChange($event)">
               <option value="CNI">CNI</option>
               <option value="DIPLOME">Diplôme</option>
               <option value="CONTRAT_SIGNE">Contrat signé</option>
               <option value="CERTIFICAT">Certificat</option>
+              <option value="BULLETIN_PAIE">Bulletin de paie</option>
               <option value="AUTRE">Autre</option>
             </select>
             <span class="material-symbols-outlined select-arrow">expand_more</span>
@@ -864,7 +842,6 @@
       </div>
       <div class="modal-footer-bar">
         <button class="btn btn-ghost" (click)="closeDocModal()">Annuler</button>
-        <!-- ✅ Upload documents - Permission DOC_UPLOAD -->
         <button class="btn btn-primary" 
                 [disabled]="docFiles.length === 0 || !canUploadDocuments()" 
                 (click)="submitEmployeeDocuments()">
@@ -874,6 +851,7 @@
     </div>
   </div>
 }
+
 <!-- ============================================ -->
 <!-- ============ MODALE CONTRAT ================ -->
 <!-- ============================================ -->
@@ -906,6 +884,7 @@
               <div class="select-wrapper">
                 <select formControlName="employeeId">
                   <option value="" disabled selected>-- Sélectionner un employé --</option>
+                  <!-- ✅ CORRECTION : Utiliser 'prenom' et 'nom' -->
                   @for (emp of employees(); track emp.id) {
                     <option [value]="emp.id">{{ emp.prenom }} {{ emp.nom }} ({{ emp.matriculeInterne }})</option>
                   }

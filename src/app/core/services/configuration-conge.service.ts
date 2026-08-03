@@ -49,7 +49,23 @@ export class ConfigurationCongeService {
     return this.http.get<ConfigurationConge>(`${this.apiUrl}/employee/${employeeId}`, { headers: this.getHeaders() });
   }
 
-  // Mettre à jour une configuration
+  /**
+   * ✅ Récupère ou crée une configuration individuelle pour un employé
+   * Utilise le nouvel endpoint /employee/{employeeId}/individual
+   */
+  getOrCreateIndividual(employeeId: string): Observable<ConfigurationConge> {
+    return this.http.get<ConfigurationConge>(`${this.apiUrl}/employee/${employeeId}/individual`, { headers: this.getHeaders() });
+  }
+
+  /**
+   * ✅ Met à jour une configuration individuelle
+   * Utilise le nouvel endpoint /individual/{id}
+   */
+  updateIndividual(id: string, config: ConfigurationConge): Observable<ConfigurationConge> {
+    return this.http.put<ConfigurationConge>(`${this.apiUrl}/individual/${id}`, config, { headers: this.getHeaders() });
+  }
+
+  // Mettre à jour une configuration (générique)
   update(id: string, config: ConfigurationConge): Observable<ConfigurationConge> {
     return this.http.put<ConfigurationConge>(`${this.apiUrl}/${id}`, config, { headers: this.getHeaders() });
   }

@@ -2,212 +2,204 @@
 
 <!-- Toaster container -->
 <div class="toaster-container">
-  <div *ngFor="let notif of notifications" 
-       class="toast toast-{{ notif.type }}"
-       (click)="notificationService.remove(notif.id)">
-    <span class="material-symbols-outlined">
-      {{ notif.type === 'success' ? 'check_circle' : 
-         notif.type === 'error' ? 'error' : 
-         notif.type === 'warning' ? 'warning' : 'info' }}
-    </span>
-    <span>{{ notif.message }}</span>
-    <button class="toast-close">&times;</button>
-  </div>
+  @for (notif of notifications; track notif.id) {
+    <div class="toast toast-{{ notif.type }}" (click)="removeToast(notif.id)">
+      <span class="material-symbols-outlined">
+        {{ notif.type === 'success' ? 'check_circle' : 
+           notif.type === 'error' ? 'error' : 
+           notif.type === 'warning' ? 'warning' : 'info' }}
+      </span>
+      <span>{{ notif.message }}</span>
+      <button class="toast-close">&times;</button>
+    </div>
+  }
 </div>
 
 <div class="unity-container">
-  <!-- ==================== HEADER ==================== -->
+  <!-- HEADER -->
   <div class="page-header-glass">
     <div class="page-title">
       <div class="title-icon">
         <span class="material-symbols-outlined">event_note</span>
       </div>
       <div>
-        <h1>Configuration des congés annuels</h1>
-        <p>Définissez les paramètres de calcul du solde de congé</p>
+        <h1>Configuration des congés</h1>
+        <p>Paramètres de calcul du solde de congé</p>
       </div>
     </div>
   </div>
 
-  <!-- ==================== PERMISSION ==================== -->
-  <div *ngIf="!canManage" class="alert alert-warning">
-    <span class="material-symbols-outlined">lock</span>
-    Vous n'avez pas les droits nécessaires.
-  </div>
-
-  <!-- ==================== CONTENU ==================== -->
-  <div *ngIf="canManage">
-    <!-- Carte : Configuration Globale -->
-    <div class="config-card full-width">
-      <div class="card-header">
-        <div class="card-title">
-          <span class="material-symbols-outlined">public</span>
-          <h2>Configuration globale</h2>
-        </div>
-        <span class="badge badge-global">Par défaut</span>
-      </div>
-      <p class="card-subtitle">Paramètres par défaut pour tous les employés</p>
-      <form (ngSubmit)="saveGlobalConfig()" #globalForm="ngForm">
-        <div class="form-grid grid-4">
-          <div class="form-group">
-            <label>Jours de base *</label>
-            <input type="number" [(ngModel)]="globalConfig.joursDeBase" name="globalJoursDeBase" min="0" required>
-          </div>
-
-          <div class="form-group" *ngIf="globalConfig.bonusEnfantActif">
-            <label>Jours par enfant</label>
-            <input type="number" [(ngModel)]="globalConfig.joursParEnfant" name="globalJoursParEnfant" min="0">
-          </div>
-          <div class="form-group" *ngIf="globalConfig.bonusEnfantActif">
-            <label>Âge max enfant</label>
-            <input type="number" [(ngModel)]="globalConfig.ageMaxEnfant" name="globalAgeMaxEnfant" min="0">
-          </div>
-        </div>
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary" [disabled]="globalForm.invalid || globalConfigLoading">
-            <span class="material-symbols-outlined">save</span>
-            {{ globalConfig.id ? 'Mettre à jour' : 'Créer' }}
-          </button>
-        </div>
-      </form>
+  <!-- PERMISSION -->
+  @if (!canManage) {
+    <div class="alert alert-warning">
+      <span class="material-symbols-outlined">lock</span>
+      Vous n'avez pas les droits nécessaires.
     </div>
+  }
 
-    <!-- Carte : Configuration Individuelle -->
-    <div class="config-card full-width">
-      <div class="card-header">
-        <div class="card-title">
-          <span class="material-symbols-outlined">person</span>
-          <h2>Configuration individuelle</h2>
+  <!-- CONTENU -->
+  @if (canManage) {
+    <div class="config-grid">
+      
+      <!-- Carte : Configuration Globale -->
+      <div class="config-card">
+        <div class="card-header" (click)="toggleGlobalForm()">
+          <div class="card-title">
+            <span class="material-symbols-outlined">public</span>
+            <h2>Globale</h2>
+          </div>
+          <span class="badge badge-global">Par défaut</span>
+          <span class="toggle-icon" [class.open]="showGlobalForm">
+            <span class="material-symbols-outlined">{{ showGlobalForm ? 'expand_less' : 'expand_more' }}</span>
+          </span>
         </div>
-        <span class="badge badge-individual">Personnalisée</span>
+        
+        @if (showGlobalForm) {
+          <div class="card-body">
+            <p class="card-subtitle">Paramètres par défaut pour tous les employés</p>
+            <form (ngSubmit)="saveGlobalConfig()" #globalForm="ngForm">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Jours de base *</label>
+                  <input type="number" [(ngModel)]="globalConfig.joursDeBase" name="globalJoursDeBase" min="0" required>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" [disabled]="globalForm.invalid || globalConfigLoading">
+                  <span class="material-symbols-outlined">save</span>
+                  {{ globalConfig.id ? 'Mettre à jour' : 'Créer' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        }
       </div>
-      <p class="card-subtitle">Sélectionnez un employé pour personnaliser ses jours de congé</p>
 
-      <div class="form-group">
-        <label>Employé</label>
-        <div class="autocomplete-wrapper" (blur)="closeDropdown()">
-          <input
-            type="text"
-            [(ngModel)]="individualSearchTerm"
-            (input)="onIndividualSearchChange()"
-            (focus)="onIndividualSearchChange()"
-            placeholder="Rechercher par nom, prénom ou matricule..."
-            class="autocomplete-input"
-            [class.has-value]="individualConfig.employeeId"
-            autocomplete="off"
-          />
-          <button
-            type="button"
-            *ngIf="individualConfig.employeeId"
-            class="clear-btn"
-            (click)="clearIndividualSelection()"
-            title="Effacer la sélection"
-          >
-            <span class="material-symbols-outlined">close</span>
-          </button>
-          <div class="autocomplete-dropdown" *ngIf="showDropdown && filteredIndividualEmployees.length > 0">
-            <div
-              *ngFor="let emp of filteredIndividualEmployees"
-              class="autocomplete-item"
-              (mousedown)="selectIndividualEmployee(emp)"
-            >
-              <span class="emp-name">{{ emp.prenom }} {{ emp.nom }}</span>
-              <span class="emp-matricule">{{ emp.matriculeInterne || emp.matricule_interne }}</span>
+      <!-- Carte : Configuration Individuelle -->
+      <div class="config-card">
+        <div class="card-header" (click)="toggleIndividualForm()">
+          <div class="card-title">
+            <span class="material-symbols-outlined">person</span>
+            <h2>Individuelle</h2>
+          </div>
+          <span class="badge badge-individual">Personnalisée</span>
+          <span class="toggle-icon" [class.open]="showIndividualForm">
+            <span class="material-symbols-outlined">{{ showIndividualForm ? 'expand_less' : 'expand_more' }}</span>
+          </span>
+        </div>
+        
+        @if (showIndividualForm) {
+          <div class="card-body">
+            <p class="card-subtitle">Personnalisez les congés d'un employé</p>
+            
+            <!-- Sélection employé -->
+            <div class="form-group">
+              <label>Employé</label>
+              <div class="select-wrapper">
+                <select [(ngModel)]="selectedEmployeeId" (change)="onEmployeeSelect()" class="form-select">
+                  <option value="">-- Sélectionner un employé --</option>
+                  @for (emp of employees; track emp.id) {
+                    <option [value]="emp.id">
+                      {{ emp.prenom }} {{ emp.nom }} ({{ emp.matriculeInterne || emp.matricule_interne }})
+                    </option>
+                  }
+                </select>
+                <span class="material-symbols-outlined select-arrow">expand_more</span>
+              </div>
             </div>
-          </div>
-          <div
-            class="autocomplete-dropdown empty"
-            *ngIf="showDropdown && filteredIndividualEmployees.length === 0 && individualSearchTerm && !employeesLoading"
-          >
-            <span>Aucun employé trouvé</span>
-          </div>
-          <small *ngIf="employeesLoading" class="loading-text">Chargement des employés...</small>
-          <small *ngIf="individualConfig.employeeId" class="selected-info">
-            <span class="material-symbols-outlined" style="color:#10b981;font-size:18px;">check_circle</span>
-            Employé : {{ getEmployeeName(individualConfig.employeeId) }}
-          </small>
-        </div>
-      </div>
 
-      <div *ngIf="individualConfig.employeeId" class="individual-form">
-        <div class="form-grid grid-4">
-          <div class="form-group">
-            <label>Jours de base</label>
-            <input type="number" [(ngModel)]="individualConfig.joursDeBase" min="0" required>
+            <!-- Formulaire individuel -->
+            @if (individualConfig.employeeId) {
+              <div class="individual-form">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Jours de base *</label>
+                    <input type="number" [(ngModel)]="individualConfig.joursDeBase" min="0" required>
+                  </div>
+                </div>
+                <div class="individual-actions">
+                  <button class="btn btn-primary" (click)="saveIndividualConfig()" [disabled]="individualConfigLoading">
+                    <span class="material-symbols-outlined">save</span>
+                    {{ isNewIndividual ? 'Créer' : 'Mettre à jour' }}
+                  </button>
+                  @if (individualConfigLoading) {
+                    <span class="loading-text">Chargement...</span>
+                  }
+                </div>
+                <div class="individual-info">
+                  @if (isNewIndividual) {
+                    <small class="text-info">Nouvelle configuration (sera créée)</small>
+                  }
+                  @if (!isNewIndividual && individualConfig.id) {
+                    <small class="text-muted">ID: {{ individualConfig.id }}</small>
+                  }
+                </div>
+              </div>
+            }
+            
+            @if (!individualConfig.employeeId && selectedEmployeeId) {
+              <div class="empty-state-small">
+                <span class="material-symbols-outlined">hourglass_top</span>
+                <p>Chargement de la configuration...</p>
+              </div>
+            }
+            @if (!selectedEmployeeId) {
+              <div class="empty-state-small">
+                <span class="material-symbols-outlined">person_off</span>
+                <p>Sélectionnez un employé</p>
+              </div>
+            }
           </div>
-          <div class="form-group checkbox-group">
-            <label>
-              <input type="checkbox" [(ngModel)]="individualConfig.bonusEnfantActif">
-              Bonus enfant actif
-            </label>
-          </div>
-          <div class="form-group" *ngIf="individualConfig.bonusEnfantActif">
-            <label>Jours par enfant</label>
-            <input type="number" [(ngModel)]="individualConfig.joursParEnfant" min="0">
-          </div>
-          <div class="form-group" *ngIf="individualConfig.bonusEnfantActif">
-            <label>Âge max enfant</label>
-            <input type="number" [(ngModel)]="individualConfig.ageMaxEnfant" min="0">
-          </div>
-        </div>
-        <div class="individual-actions">
-          <button class="btn btn-primary" (click)="saveIndividualConfig()" [disabled]="individualConfigLoading">
-            <span class="material-symbols-outlined">save</span>
-            {{ isNewIndividual ? 'Créer' : 'Mettre à jour' }}
-          </button>
-          <span *ngIf="individualConfigLoading" class="loading-text">Chargement...</span>
-        </div>
-        <div class="individual-info">
-          <small *ngIf="isNewIndividual">Nouvelle configuration individuelle (sera créée)</small>
-          <small *ngIf="!isNewIndividual && individualConfig.id">ID: {{ individualConfig.id }}</small>
-        </div>
-      </div>
-      <div *ngIf="!individualConfig.employeeId" class="empty-state-small">
-        <span class="material-symbols-outlined">person_off</span>
-        <p>Aucun employé sélectionné</p>
+        }
       </div>
     </div>
 
-    <!-- Carte : Liste des configurations -->
-    <div class="config-card full-width">
-      <div class="card-header">
-        <div class="card-title">
-          <span class="material-symbols-outlined">list_alt</span>
-          <h2>Toutes les configurations</h2>
-        </div>
+    <!-- Liste des configurations -->
+    <div class="config-list-card">
+      <div class="list-header">
+        <span class="material-symbols-outlined">list_alt</span>
+        <h3>Toutes les configurations</h3>
         <span class="badge badge-info">{{ configurations.length }}</span>
       </div>
-      <div *ngIf="isLoading" class="loading-state">
-        <div class="spinner"></div>
-        <p>Chargement des configurations...</p>
-      </div>
-      <div *ngIf="!isLoading && configurations.length === 0" class="empty-state">
-        <span class="material-symbols-outlined">inbox</span>
-        <p>Aucune configuration.</p>
-      </div>
-      <div class="config-list">
-        <div *ngFor="let config of configurations" class="config-item">
-          <div class="config-info">
-            <span class="config-name">{{ config.nom || 'Configuration' }}</span>
-            <span class="config-badge" [class.global]="config.type === 'GLOBALE'"
-                                       [class.individual]="config.type === 'INDIVIDUELLE'">
-              {{ getTypeLabel(config.type) }}
-            </span>
-            <span class="config-detail">Base: {{ config.joursDeBase }}j</span>
-            <span class="config-detail" *ngIf="config.bonusEnfantActif">
-              Bonus: +{{ config.joursParEnfant }}j/enfant (≤ {{ config.ageMaxEnfant }} ans)
-            </span>
-            <span class="config-detail" *ngIf="config.type === 'INDIVIDUELLE' && config.employeeId">
-              Employé: {{ getEmployeeName(config.employeeId) }}
-            </span>
-          </div>
-          <div class="config-actions">
-            <button *ngIf="config.id" class="action-btn delete" (click)="deleteConfig(config.id!)" title="Supprimer">
-              <span class="material-symbols-outlined">delete</span>
-            </button>
-          </div>
+      
+      @if (isLoading) {
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>Chargement...</p>
         </div>
+      }
+      
+      @if (!isLoading && configurations.length === 0) {
+        <div class="empty-state">
+          <span class="material-symbols-outlined">inbox</span>
+          <p>Aucune configuration</p>
+        </div>
+      }
+      
+      <div class="config-list">
+        @for (config of configurations; track config.id) {
+          <div class="config-item">
+            <div class="config-info">
+              <span class="config-name">{{ config.nom || 'Configuration' }}</span>
+              <span class="config-badge" [class.global]="config.type === 'GLOBALE'"
+                                         [class.individual]="config.type === 'INDIVIDUELLE'">
+                {{ getTypeLabel(config.type) }}
+              </span>
+              <span class="config-detail">Base: {{ config.joursDeBase }}j</span>
+              @if (config.type === 'INDIVIDUELLE' && config.employeeId) {
+                <span class="config-detail">{{ getEmployeeName(config.employeeId) }}</span>
+              }
+            </div>
+            <div class="config-actions">
+              @if (config.id) {
+                <button class="action-btn delete" (click)="deleteConfig(config.id!)" title="Supprimer">
+                  <span class="material-symbols-outlined">delete</span>
+                </button>
+              }
+            </div>
+          </div>
+        }
       </div>
     </div>
-  </div>
+  }
 </div>

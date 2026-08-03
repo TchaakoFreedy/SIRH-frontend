@@ -15,9 +15,9 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(
       withInterceptors([
-        noRetryInterceptor,  // 👈 Add this FIRST - prevents browser retries
-        authInterceptor,     // 👈 Add the JWT token
-        errorInterceptor     // 👈 Handle errors last
+        authInterceptor,     // 👈 1. On injecte le token JWT en premier
+        noRetryInterceptor,  // 👈 2. Ensuite on gère les options anti-retry
+        errorInterceptor     // 👈 3. Et enfin les erreurs en dernier
       ])
     ),
     provideAnimations(),

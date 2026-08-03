@@ -5,7 +5,6 @@
   <div class="header-section">
     <div class="header-content">
       <div class="header-left">
-        <!-- ✅ Logo de l'entreprise -->
         <div class="company-logo">
           <img 
             [src]="entrepriseLogo() || '/logo.png'" 
@@ -75,6 +74,25 @@
     </div>
   }
 
+  <!-- ✅ Champ texte pour le nom du Responsable RH -->
+  <div class="form-card">
+    <div class="form-group">
+      <label for="responsableRHNom">
+        <i class="fas fa-user-tie"></i> Responsable RH signataire
+      </label>
+      <input 
+        id="responsableRHNom"
+        type="text" 
+        [(ngModel)]="responsableRHNom"
+        placeholder="Entrez le nom du responsable RH"
+        class="form-control"
+      />
+      <small class="form-help">
+        Saisissez le nom du responsable RH qui signera le document
+      </small>
+    </div>
+  </div>
+
   <!-- Sélection du type de document -->
   <div class="document-type-selector">
     <div class="type-option" 
@@ -95,10 +113,20 @@
         <small>Attestation de situation professionnelle</small>
       </div>
     </div>
+    <div class="type-option" 
+         [class.active]="documentType === 'CERTIFICAT'"
+         (click)="selectDocumentType('CERTIFICAT')">
+      <i class="fas fa-certificate"></i>
+      <div class="type-content">
+        <span class="type-title">Certificat de travail</span>
+        <small>Certificat de fin de contrat</small>
+      </div>
+    </div>
   </div>
 
   <!-- Formulaire de génération -->
   <div class="form-card">
+    <!-- Motif -->
     <div class="form-group">
       <label for="motif">
         <i class="fas fa-comment"></i> Motif de la demande <span class="optional">(optionnel)</span>
@@ -112,6 +140,107 @@
       />
     </div>
 
+    <!-- Champs pour l'attestation de stage -->
+    @if (documentType === 'ATTESTATION_STAGE') {
+      <div class="form-row">
+        <div class="form-group half">
+          <label for="stagiaireFormation">
+            <i class="fas fa-graduation-cap"></i> Formation / Spécialisation
+          </label>
+          <input 
+            id="stagiaireFormation"
+            type="text" 
+            [(ngModel)]="stagiaireFormation"
+            placeholder="Ex: Master en Informatique"
+            class="form-control"
+          />
+        </div>
+        <div class="form-group half">
+          <label for="stageService">
+            <i class="fas fa-building"></i>Département
+          </label>
+          <input 
+            id="stageService"
+            type="text" 
+            [(ngModel)]="stageService"
+            [placeholder]="'Service ' + (departementNom() || '...')"
+            class="form-control"
+          />
+        </div>
+      </div>
+
+      <div class="form-row">
+       
+        <div class="form-group half">
+          <label for="stageDateFin">
+            <i class="fas fa-calendar-minus"></i> Date de fin du stage
+          </label>
+          <input 
+            id="stageDateFin"
+            type="date" 
+            [(ngModel)]="stageDateFin"
+            class="form-control"
+          />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group half">
+          <label for="stageSuperviseur">
+            <i class="fas fa-user-tie"></i> Superviseur
+          </label>
+          <input 
+            id="stageSuperviseur"
+            type="text" 
+            [(ngModel)]="stageSuperviseur"
+            placeholder="Nom du responsable encadrant"
+            class="form-control"
+          />
+        </div>
+      
+      </div>
+
+      <div class="form-row">
+       
+        <div class="form-group half">
+          <label>
+            <i class="fas fa-calculator"></i> Durée estimée : 
+            <strong>{{ calculateStageDuree() }} mois</strong>
+          </label>
+        </div>
+      </div>
+    }
+
+    <!-- Champs pour le certificat de travail / attestation -->
+    @if (documentType === 'CERTIFICAT' || documentType === 'ATTESTATION') {
+      <div class="form-group">
+        <label for="cinNumber">
+          <i class="fas fa-id-card"></i> CNI N°
+        </label>
+        <input 
+          id="cinNumber"
+          type="text" 
+          [(ngModel)]="cinNumber"
+          placeholder="Entrez le numéro de la CNI"
+          class="form-control"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="dateFinContrat">
+          <i class="fas fa-calendar-check"></i> Date de fin de contrat
+        </label>
+        <input 
+          id="dateFinContrat"
+          type="date" 
+          [(ngModel)]="dateFinContrat"
+          class="form-control"
+        />
+        <small class="form-help">Si non renseigné, la date par défaut sera "ce jour"</small>
+      </div>
+    }
+
+    <!-- Actions -->
     <div class="actions">
       <button class="btn btn-preview" (click)="previewDocument()" [disabled]="loading() || !selectedEmployee">
         <i class="fas fa-eye"></i> Prévisualiser
@@ -139,8 +268,10 @@
   <div class="instructions-card">
     <h4><i class="fas fa-info-circle"></i> Comment utiliser ce service</h4>
     <ol>
-      <li><strong>Sélectionnez le type de document</strong> : Attestation de stage ou Attestation de travail</li>
+      <li><strong>Sélectionnez le type de document</strong> : Attestation de stage, Attestation de travail ou Certificat de travail</li>
+      <li><strong>Saisissez le nom du responsable RH</strong> qui signera le document</li>
       <li><strong>Indiquez un motif</strong> (optionnel) pour contextualiser votre demande</li>
+      <li><strong>Remplissez les champs spécifiques</strong> au type de document sélectionné</li>
       <li><strong>Prévisualisez</strong> le document pour vérifier l'exactitude des informations</li>
       <li><strong>Générez et téléchargez</strong> le PDF officiel</li>
       <li><strong>Imprimez</strong> le document et <strong>faites-le signer</strong> par votre supérieur hiérarchique</li>
@@ -153,7 +284,6 @@
       <div class="modal-preview" (click)="$event.stopPropagation()">
         <div class="modal-header">
           <div class="modal-header-left">
-            <!-- ✅ Logo dans le modal -->
             <div class="modal-logo">
               <img 
                 [src]="entrepriseLogo() || '/logo.png'" 
@@ -172,8 +302,8 @@
 
         <div class="modal-body">
           <div class="preview-content">
+            <!-- En-tête du document -->
             <div class="preview-header">
-              <!-- ✅ Logo et informations de l'entreprise -->
               <div class="preview-company">
                 <div class="preview-logo">
                   <img 
@@ -194,80 +324,123 @@
               <div class="preview-separator"></div>
             </div>
 
+            <!-- Titre du document -->
             <div class="preview-title">
               <h2>{{ getDocumentTitle(documentType) }}</h2>
               <span class="preview-number">N° {{ previewData?.numeroDocument || 'N/A' }}</span>
             </div>
 
+            <!-- Corps du document -->
             <div class="preview-body">
-             @if (documentType === 'ATTESTATION_STAGE') {
-  <!-- Attestation de stage -->
-  <p>
-    La société <strong>{{ previewData?.raisonSociale || entrepriseName() }}</strong>, 
-    dont le siège social est situé à {{ previewData?.adresseSociete || entrepriseAddress() }},
-    atteste par la présente que :
-  </p>
-
-  <p style="margin-left: 20px; font-size: 1.1em; line-height: 1.8;">
-    <strong>{{ previewData?.employeeName || (selectedEmployee?.prenom + ' ' + selectedEmployee?.nom) }}</strong>,
-    {{ previewData?.stagiaireFormation || 'étudiant(e)' }},
-    a effectué un stage au sein de notre structure du 
-    <strong>{{ previewData?.dateEmbauche || '...' }}</strong> au 
-    <strong>{{ previewData?.stageDateFin || '...' }}</strong>,
-    soit une durée totale de <strong>{{ previewData?.stageDuree || '...' }}</strong>.
-  </p>
-
-  <p>
-    Durant cette période, 
-    <strong>{{ previewData?.employeeName || (selectedEmployee?.prenom + ' ' + selectedEmployee?.nom) }}</strong>
-    a été intégré(e) au sein du service 
-    <strong>{{ previewData?.stageService || previewData?.employeeDepartement || '...' }}</strong>
-    où il/elle a été encadré(e) par <strong>{{ previewData?.stageEncadrant || 'le responsable du service' }}</strong>.
-  </p>
-
-  <p>
-    {{ previewData?.employeeName || (selectedEmployee?.prenom + ' ' + selectedEmployee?.nom) }} 
-    a fait preuve de {{ previewData?.stagiaireQualites || 'sérieux, rigueur et autonomie' }} 
-    tout au long de son stage. Il/Elle a su s'intégrer parfaitement dans l'équipe et 
-    a contribué activement aux projets qui lui ont été confiés.
-  </p>
-
-  <p>
-    La présente attestation est délivrée à l'intéressé(e) pour servir et valoir ce que de droit.
-  </p>
-}
-
-              @if (documentType === 'ATTESTATION') {
-                <!-- Attestation de travail -->
-               <p>
-                        La société <strong>{{ previewData?.raisonSociale || entrepriseName() }}</strong>, 
-    dont le siège social est situé à {{ previewData?.adresseSociete || entrepriseAddress() }},
-    atteste par la présente que :
-  </p>
+              @if (documentType === 'ATTESTATION_STAGE') {
+                <!-- Attestation de stage -->
+                <p>
+                  Je soussignée <strong>{{ previewData?.responsableRH?.nomComplet || responsableRHNom || '_______________________' }}</strong>, 
+                  agissant en qualité de <strong>RESPONSABLE DES RESSOURCES HUMAINES</strong> d'<strong>{{ previewData?.raisonSociale || entrepriseName() }}</strong>, 
+                  certifie par la présente que :
+                </p>
 
                 <p style="margin-left: 20px; font-size: 1.1em; line-height: 1.8;">
-                  <strong>{{ previewData?.employeeName || (selectedEmployee?.prenom + ' ' + selectedEmployee?.nom) }}</strong>
-                  (Matricule : {{ previewData?.employeeMatricule || selectedEmployee?.matriculeInterne }}),
-                  est employé(e) au sein de notre société en qualité de 
-                  <strong>{{ previewData?.employeePoste || posteNom() }}</strong>,
-                  au sein du département 
-                  <strong>{{ previewData?.employeeDepartement || departementNom() }}</strong>.
+                  <strong>{{ previewData?.employeeName || 'Nom du stagiaire' }}</strong>,
+                  {{ previewData?.stagiaireFormation || 'étudiant(e)' }},
+                  a effectué un stage de <strong>{{ previewData?.stageDureeMois || '...' }} mois</strong> 
+                  au sein de notre entreprise <strong>{{ previewData?.raisonSociale || entrepriseName() }}</strong>.
+                </p>
+
+                <p style="margin-left: 20px;">
+                  Date : Du <strong>{{ previewData?.stageDateDebut || '...' }}</strong> au 
+                  <strong>{{ previewData?.stageDateFin || '...' }}</strong>. 
+                  En qualité de stagiaire académique au sein du département 
+                  <strong>{{ previewData?.stageService || previewData?.employeeDepartement || '...' }}</strong>, 
+                  spécialisation <strong>{{ previewData?.stagiaireFormation || '...' }}</strong> 
+                  sous la supervision de <strong>{{ previewData?.stageSuperviseur || 'le responsable du service' }}</strong>.
                 </p>
 
                 <p>
-                  Date d'embauche : <strong>{{ previewData?.dateEmbauche || '...' }}</strong>.
-                  Le/La présent(e) employé(e) est actuellement en poste et remplit ses fonctions avec assiduité.
+                  {{ previewData?.employeeName || 'Le/La stagiaire' }} 
+                  a fait preuve de {{ previewData?.stagiaireQualites || 'sérieux, rigueur et autonomie' }} 
+                  tout au long de son stage.
                 </p>
+
+                <p>
+                  Cette attestation est délivrée à l'intéressé(e) pour servir et valoir ce que de droit.
+                </p>
+              }
+
+              @if (documentType === 'ATTESTATION') {
+                <!-- Attestation de travail -->
+                <p>
+                  Je soussignée <strong>{{ previewData?.responsableRH?.nomComplet || responsableRHNom || '_______________________' }}</strong> 
+                  agissant en qualité de <strong>RESPONSABLE DES RESSOURCES HUMAINES</strong> de la société dénommée 
+                  <strong>{{ previewData?.raisonSociale || entrepriseName() }}</strong> dont le siège se trouve à 
+                  <strong>{{ previewData?.adresseSociete || entrepriseAddress() }}</strong>,
+                </p>
+
+                <p style="margin-left: 20px;">
+                  Atteste par la présente que le nommé <strong>{{ previewData?.employeeName || '...' }}</strong>, 
+                  né(e) le <strong>{{ previewData?.employeeDateNaissance || '...' }}</strong>
+                </p>
+
+                <p style="margin-left: 20px;">
+                  CNI N° : <strong>{{ previewData?.employeeCIN || cinNumber || '.............' }}</strong>
+                </p>
+
+                <p style="margin-left: 20px;">
+                  Matricule CNPS : <strong>{{ previewData?.employeeMatriculeCNPS || selectedEmployee?.matricule_CNPS || '.............' }}</strong>
+                </p>
+
+                <p style="margin-left: 20px;">
+                  Est employé au sein de cette entreprise en tant que <strong>{{ previewData?.employeePoste || '...' }}</strong> 
+                  du <strong>{{ previewData?.dateEmbauche || '...' }}</strong> jusqu'à date.
+                </p>
+
+                @if (previewData?.motif) {
+                  <p style="margin-left: 20px;">
+                    <strong>Motif de la demande :</strong> {{ previewData?.motif }}
+                  </p>
+                }
 
                 <p>
                   La présente attestation est délivrée à l'intéressé(e) pour servir et valoir ce que de droit.
                 </p>
               }
 
-              <!-- Motif (optionnel) -->
-              @if (previewData?.motif || motif) {
+              @if (documentType === 'CERTIFICAT') {
+                <!-- Certificat de travail -->
                 <p>
-                  <strong>Motif de la demande :</strong> {{ previewData?.motif || motif }}
+                  Je soussignée <strong>{{ previewData?.responsableRH?.nomComplet || responsableRHNom || '_______________________' }}</strong> 
+                  agissant en qualité de <strong>RESPONSABLE DES RESSOURCES HUMAINES</strong> de la société dénommée 
+                  <strong>{{ previewData?.raisonSociale || entrepriseName() }}</strong> dont le siège se trouve à 
+                  <strong>{{ previewData?.adresseSociete || entrepriseAddress() }}</strong>,
+                </p>
+
+                <p style="margin-left: 20px;">
+                  Certifie par la présente que le nommé <strong>{{ previewData?.employeeName || '...' }}</strong>, 
+                  né(e) le <strong>{{ previewData?.employeeDateNaissance || '...' }}</strong>
+                </p>
+
+                <p style="margin-left: 20px;">
+                  CNI N° : <strong>{{ previewData?.employeeCIN || cinNumber || '.............' }}</strong>
+                </p>
+
+                <p style="margin-left: 20px;">
+                  Matricule CNPS : <strong>{{ previewData?.employeeMatriculeCNPS || selectedEmployee?.matricule_CNPS || '.............' }}</strong>
+                </p>
+
+                <p style="margin-left: 20px;">
+                  A été employé au sein de cette entreprise en tant que <strong>{{ previewData?.employeePoste || '...' }}</strong> 
+                  du <strong>{{ previewData?.dateEmbauche || '...' }}</strong> au 
+                  <strong>{{ previewData?.dateFin || 'ce jour' }}</strong>.
+                </p>
+
+                @if (previewData?.motif) {
+                  <p style="margin-left: 20px;">
+                    <strong>Motif de la demande :</strong> {{ previewData?.motif }}
+                  </p>
+                }
+
+                <p>
+                  Le présent certificat est délivré à l'intéressé(e) pour servir et valoir ce que de droit.
                 </p>
               }
 
@@ -277,14 +450,22 @@
               </p>
             </div>
 
-            <div class="preview-signatures" style="display: flex; justify-content: space-between; margin-top: 50px;">
+            <!-- Signatures -->
+            <div class="preview-signatures">
               <div class="signature-left">
                 <p><strong>La Direction des Ressources Humaines</strong></p>
-                <p style="margin-top: 60px;"><em>Signature et Cachet</em></p>
+                <p style="margin-top: 10px;">
+                  <strong>{{ previewData?.responsableRH?.nomComplet || responsableRHNom || '_______________________' }}</strong><br>
+                  RESPONSABLE DES RESSOURCES HUMAINES
+                </p>
+                <p style="margin-top: 50px;"><em>Signature et Cachet</em></p>
               </div>
               <div class="signature-right">
                 <p><strong>L'intéressé(e)</strong></p>
-                <p style="margin-top: 60px;"><em>(Signature précédée de la mention "Lu et approuvé")</em></p>
+                <p style="margin-top: 10px;">
+                  <strong>{{ previewData?.employeeName || 'Nom du bénéficiaire' }}</strong>
+                </p>
+                <p style="margin-top: 50px;"><em>(Signature précédée de la mention "Lu et approuvé")</em></p>
               </div>
             </div>
           </div>

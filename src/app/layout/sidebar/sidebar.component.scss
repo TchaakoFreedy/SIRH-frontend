@@ -1,82 +1,43 @@
 // ============================================================
-//  Variables
+//  Variables - Couleurs entreprise
 // ============================================================
-$turquoise:        #1DD3C0;
-$turquoise-dark:   #17b5a4;
-$turquoise-soft:   rgba(29, 211, 192, 0.12);
-$sidebar-bg:       #04473d;
-$sidebar-bg-deep:  #032e28;
-$white:            #ffffff;
-$sidebar-width:     264px;
+$primary-color: #019393;        // Couleur principale
+$primary-dark: #017a7a;         // Version plus foncée
+$primary-light: rgba(1, 147, 147, 0.12); // Version transparente
+$primary-gradient: #019393;
+
+$red-color: #7f0505;            // Rouge entreprise
+$red-dark: #660404;             // Rouge foncé
+
+$fade-gray: #EAF0F0;            // Gris clair
+$gray-color: #4A6867;           // Gris moyen
+
+$white: #ffffff;
+$sidebar-width: 264px;
 $sidebar-collapsed: 72px;
-$header-height:     64px;
+$header-height: 64px;
+$header-height-mobile: 56px;
 
-// Décalage des sous-menus par rapport aux grands menus
 $submenu-indent: 26px;
-
 $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-// ============================================================
-//  Bouton hamburger (mobile)
-// ============================================================
-.mobile-trigger {
-  position: fixed;
-  top: 12px;
-  left: 12px;
-  z-index: 120;
-  width: 42px;
-  height: 42px;
-  border: none;
-  border-radius: 12px;
-  background: $sidebar-bg;
-  color: $turquoise;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-  transition: $transition;
-
-  &:hover { transform: scale(1.05); }
-}
-
-// ============================================================
-//  Overlay (mobile)
-// ============================================================
-.sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 99;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(2px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-
-  &.visible {
-    opacity: 1;
-    pointer-events: auto;
-  }
-}
 
 // ============================================================
 //  Sidebar
 // ============================================================
 .sidebar {
   width: $sidebar-width;
-  background: linear-gradient(180deg, $sidebar-bg 0%, #053f37 55%, $sidebar-bg-deep 100%);
+  background: linear-gradient(180deg, $primary-color 0%, #017a7a 55%, #016060 100%);
   display: flex;
   flex-direction: column;
   position: fixed;
   left: 0;
   top: $header-height;
   bottom: 0;
-  z-index: 100;
+  z-index: 95;
   transition: $transition;
-  overflow: visible; // nécessaire pour le flyout
+  overflow: visible;
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
 
-  // ----- Mode réduit (desktop) -----
   &.collapsed {
     width: $sidebar-collapsed;
 
@@ -87,15 +48,15 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       padding-right: 0;
     }
     .sub-menu-wrapper { display: none; }
-    .nav-section-title { display: none; }
   }
 
-  // ----- Mode mobile : drawer plein écran en hauteur -----
   &.mobile {
     top: 0;
     width: min(300px, 84vw);
     transform: translateX(-100%);
     box-shadow: none;
+    border-radius: 0;
+    padding-top: $header-height-mobile;
 
     &.mobile-open {
       transform: translateX(0);
@@ -115,6 +76,11 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   padding: 14px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.10);
   min-height: 64px;
+  
+  @media (max-width: 1023px) {
+    min-height: 56px;
+    padding: 12px 16px;
+  }
 }
 
 .logo-block {
@@ -128,15 +94,15 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: $turquoise;
-  color: $sidebar-bg;
+  background: $white;
+  color: $primary-color;
   font-weight: 800;
   font-size: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 0 16px rgba(29, 211, 192, 0.4);
+  box-shadow: 0 0 16px rgba(1, 147, 147, 0.4);
 }
 
 .logo-text {
@@ -153,7 +119,7 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .logo-subtitle {
-  color: rgba(29, 211, 192, 0.8);
+  color: rgba(255, 255, 255, 0.8);
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
@@ -182,6 +148,36 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
+.close-btn-mobile {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: $white !important;
+  width: 36px;
+  height: 36px;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+  z-index: 10 !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  
+  mat-icon {
+    color: $white !important;
+    font-size: 24px !important;
+    width: 24px !important;
+    height: 24px !important;
+  }
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    transform: rotate(90deg);
+  }
+  
+  &:active {
+    transform: scale(0.9) rotate(90deg);
+  }
+}
+
 // ============================================================
 //  Navigation
 // ============================================================
@@ -206,22 +202,11 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-.nav-section-title {
-  margin: 0 0 8px;
-  padding: 0 12px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1.6px;
-  color: rgba(255, 255, 255, 0.35);
-}
-
 .nav-item {
   position: relative;
   margin-bottom: 3px;
 }
 
-// ----- Lien de premier niveau -----
 .nav-link {
   position: relative;
   display: flex;
@@ -249,35 +234,31 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     width: 3px;
     height: 24px;
     border-radius: 0 4px 4px 0;
-    background: $turquoise;
-    box-shadow: 0 0 8px rgba(29, 211, 192, 0.8);
+    background: $white;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
     transition: transform 0.25s ease;
   }
 
   &:hover {
     background: rgba(255, 255, 255, 0.07);
     color: $white;
-
-    .nav-icon { color: $turquoise; }
+    .nav-icon { color: $white; }
   }
 
   &.active,
   &.group-active {
-    color: $turquoise;
-
-    .nav-icon { color: $turquoise; }
+    color: $white;
+    .nav-icon { color: $white; }
   }
 
   &.active {
-    background: $turquoise-soft;
-    box-shadow: inset 0 0 0 1px rgba(29, 211, 192, 0.25);
-
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
     .active-bar { transform: translateY(-50%) scaleY(1); }
   }
 }
 
 .nav-icon {
-  
   font-size: 21px;
   width: 21px;
   height: 21px;
@@ -303,17 +284,14 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &.rotated {
     transform: rotate(180deg);
-    color: $turquoise;
+    color: $white;
   }
 }
 
-// ============================================================
-//  Sous-menus — DÉCALAGE clair + ligne guide + connecteurs
-// ============================================================
 .sub-menu-wrapper {
   margin-left: 20px;
   display: grid;
-  grid-template-rows: 0fr;         // animation d'expansion fluide
+  grid-template-rows: 0fr;
   opacity: 0;
   transition: grid-template-rows 0.3s ease, opacity 0.3s ease;
 
@@ -329,11 +307,7 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   list-style: none;
   margin: 4px 0 6px;
   padding: 0 0 0 16px;
-
-  // >>> LE DÉCALAGE : les sous-menus sont poussés à droite
   margin-left: $submenu-indent;
-
-  // Ligne guide verticale
   border-left: 1px solid rgba(255, 255, 255, 0.12);
 }
 
@@ -351,7 +325,6 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   transition: $transition;
   margin: 2px 0;
 
-  // Connecteur horizontal reliant la ligne guide au lien
   .connector {
     position: absolute;
     left: -16px;
@@ -367,26 +340,24 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: $turquoise;
-    box-shadow: 0 0 6px rgba(29, 211, 192, 0.9);
+    background: $white;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
   }
 
   &:hover {
     background: rgba(255, 255, 255, 0.06);
     color: $white;
     transform: translateX(2px);
-
-    .sub-icon { color: $turquoise; }
+    .sub-icon { color: $white; }
   }
 
   &.active {
-    background: $turquoise-soft;
-    color: $turquoise;
+    background: rgba(255, 255, 255, 0.12);
+    color: $white;
     font-weight: 600;
-
-    .sub-icon    { color: $turquoise; }
-    .active-dot  { display: block; }
-    .connector   { background: rgba(29, 211, 192, 0.5); }
+    .sub-icon { color: $white; }
+    .active-dot { display: block; }
+    .connector { background: rgba(255, 255, 255, 0.5); }
   }
 }
 
@@ -405,9 +376,6 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-overflow: ellipsis;
 }
 
-// ============================================================
-//  Flyout — sous-menu au survol en mode réduit
-// ============================================================
 .flyout {
   position: absolute;
   left: calc(100% + 8px);
@@ -416,7 +384,7 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 200px;
   padding: 8px;
   border-radius: 14px;
-  background: $sidebar-bg;
+  background: $primary-color;
   border: 1px solid rgba(255, 255, 255, 0.10);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
   animation: flyout-in 0.18s ease;
@@ -424,7 +392,7 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
 @keyframes flyout-in {
   from { opacity: 0; transform: translateX(-6px); }
-  to   { opacity: 1; transform: translateX(0); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 .flyout-title {
@@ -434,7 +402,7 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: $turquoise;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .flyout-link {
@@ -449,13 +417,13 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   transition: $transition;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.1);
     color: $white;
   }
 
   &.active {
-    background: $turquoise-soft;
-    color: $turquoise;
+    background: rgba(255, 255, 255, 0.15);
+    color: $white;
     font-weight: 600;
   }
 }
@@ -488,15 +456,15 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, $turquoise, #0e8f80);
-  color: $white;
+  background: linear-gradient(135deg, $white, $fade-gray);
+  color: $primary-color;
   font-size: 12px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 0 0 2px rgba(29, 211, 192, 0.3);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
 }
 
 .profile-info {
@@ -533,18 +501,41 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 // ============================================================
 //  Responsive
 // ============================================================
-
-// Tablette / mobile : la sidebar devient un drawer (géré en TS via isMobile)
 @media (max-width: 1023px) {
   .sidebar {
-    top: 0;               // le drawer couvre toute la hauteur
+    top: 0;
+    padding-top: 56px;
+  }
+  
+  .sidebar-logo {
+    min-height: 56px;
+    padding: 12px 16px;
   }
 }
 
-// Petits écrans : liens un peu plus compacts
 @media (max-width: 480px) {
-  .sidebar.mobile { width: 86vw; }
+  .sidebar.mobile { 
+    width: 86vw;
+    padding-top: 56px;
+  }
 
-  .nav-link  { padding: 12px; font-size: 14px; }  // zones tactiles plus grandes
-  .sub-link  { padding: 10px 12px; font-size: 13px; }
+  .nav-link { 
+    padding: 14px 12px; 
+    font-size: 14px; 
+  }
+  .sub-link { 
+    padding: 12px 12px; 
+    font-size: 13px; 
+  }
+  
+  .close-btn-mobile {
+    width: 40px !important;
+    height: 40px !important;
+    
+    mat-icon {
+      font-size: 26px !important;
+      width: 26px !important;
+      height: 26px !important;
+    }
+  }
 }

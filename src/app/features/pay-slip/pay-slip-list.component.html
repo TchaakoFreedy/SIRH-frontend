@@ -35,7 +35,7 @@
       <div class="stat-icon"><span class="material-symbols-outlined">payments</span></div>
       <div class="stat-info">
         <p>Masse salariale nette</p>
-        <h3>{{ totalNetSalary | currency:'XOF':'symbol':'1.0-0' }}</h3>
+        <h3>{{ totalNetSalary }}</h3>
       </div>
     </div>
     <div class="stat-card orange">
@@ -137,7 +137,8 @@
               </span>
             </td>
             <td class="text-center">
-              <span class="page-count">{{ slip.imageIds?.length || 0 }}</span>
+              <!-- ✅ CORRECTION: Utiliser imageUrls au lieu de imageIds -->
+              <span class="page-count">{{ getPageCount(slip) }}</span>
             </td>
             <td>
               <div class="actions-cell">
@@ -147,7 +148,8 @@
                 <button *ngIf="canDownload" class="action-btn primary" (click)="downloadPdf(slip.id)" title="Télécharger PDF">
                   <span class="material-symbols-outlined">description</span>
                 </button>
-                <button *ngIf="canDownload && slip.imageIds?.length > 0" class="action-btn success" (click)="downloadZip(slip.id)" title="Télécharger ZIP">
+                <!-- ✅ CORRECTION: Utiliser imageUrls au lieu de imageIds -->
+                <button *ngIf="canDownload && getPageCount(slip) > 0" class="action-btn success" (click)="downloadZip(slip.id)" title="Télécharger ZIP">
                   <span class="material-symbols-outlined">folder_zip</span>
                 </button>
                 <button *ngIf="canEdit" class="action-btn warning" (click)="edit(slip.id)" title="Modifier">

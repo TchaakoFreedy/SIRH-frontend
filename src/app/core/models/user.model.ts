@@ -9,8 +9,9 @@ export interface User {
   roleId?: string;
   permissions: string[];
   employeeId?: string | null;
-  matriculeInterne?: string | null; // ⭐ AJOUTÉ
-  matricule_interne?: string | null; // ⭐ AJOUTÉ
+  entrepriseId?: string | null; // ⭐ AJOUTÉ - ID de l'entreprise
+  matriculeInterne?: string | null;
+  matricule_interne?: string | null;
   lastLogin?: string | null;
   loginAttempts?: number;
   locked?: boolean;
@@ -21,16 +22,7 @@ export interface User {
   updatedBy?: string;
 }
 
-export interface CreateUserRequest {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-  roleId: string;
-  employeeId?: string | null;
-}
-
-// src/app/core/models/employee.model.ts
+// Employee model - Ajouter entrepriseId
 export interface Employee {
   id?: string;
   nom: string;
@@ -44,45 +36,12 @@ export interface Employee {
   photoUrl?: string;
   documents?: Document[];
   userId?: string;
-  matriculeInterne?: string; // ⭐ AJOUTÉ
-  matricule_interne?: string; // ⭐ AJOUTÉ
+  matriculeInterne?: string;
+  matricule_interne?: string;
+  entrepriseId?: string; // ⭐ AJOUTÉ
+  departementId?: string;
   createdAt?: string;
   createdBy?: string;
   updatedAt?: string;
   updatedBy?: string;
-}
-
-export interface Document {
-  id?: string;
-  type: string;
-  nom: string;
-  url: string;
-  uploadedAt?: string;
-}
-
-// src/app/core/models/contrat.model.ts
-export interface Contrat {
-  id?: string;
-  employeeId: string;
-  typeContrat: 'CDI' | 'CDD' | 'INTERIM' | 'STAGE' | 'FREELANCE';
-  dateDebut: string;
-  dateFin: string;
-  statut: 'ACTIF' | 'EXPIRE' | 'ARCHIVE' | 'SUSPENDU';
-  imageUrls?: string[];
-  createdAt?: string;
-  createdBy?: string;
-  updatedAt?: string;
-  updatedBy?: string;
-  employeeNom?: string;
-  employeePrenom?: string;
-  employeePoste?: string;
-}
-
-export interface CreateContratRequest {
-  employeeId: string;
-  typeContrat: string;
-  dateDebut: string;
-  dateFin: string;
-  statut?: string;
-  imageUrls?: string[];
 }

@@ -103,6 +103,14 @@ export const routes: Routes = [
         canActivate: [PermissionGuard],
         data: { permission: 'EMPLOYEE_VIEW_ALL' }
       },
+        {
+        path: 'rh/documents',
+        loadComponent: () =>
+          import('./features/rh/documents/documents.component')
+            .then(m => m.DocumentsComponent),
+        canActivate: [PermissionGuard],
+        data: { permission: 'DOC_VIEW' }
+      },
       {
         path: 'rh/conges',
         loadComponent: () =>
@@ -113,7 +121,9 @@ export const routes: Routes = [
         path: 'rh/conges/demande',
         loadComponent: () =>
           import('./features/conges/demande-conge/demande-conge.component')
-            .then(m => m.DemandeCongeComponent)
+            .then(m => m.DemandeCongeComponent),
+            canActivate: [PermissionGuard],
+        data: { permission: 'LEAVE_VIEW_OWN' }
       },
       {
         path: 'rh/conges/historique-conges',
