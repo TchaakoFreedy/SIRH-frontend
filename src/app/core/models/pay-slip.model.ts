@@ -13,8 +13,8 @@ export interface PaySlip {
   deductions: number;
   pdfFileUrl?: string;
   uploadedFileName?: string;
-  imageUrls: string[];  // UNIQUE liste des URLs
-  imageIds?: string[];  // Pour compatibilité
+  imageUrls: string[];
+  imageIds?: string[];
   status?: PaySlipStatus;
   importErrors?: string[];
   createdAt: string;
@@ -33,15 +33,12 @@ export type PaySlipStatus =
   | 'INVALID_DOCUMENT';
 
 export interface PaySlipUploadResponse {
-  // Statistiques principales
   totalEmployeesProcessed?: number;
   successCount?: number;
   failureCount?: number;
   errors: string[];
   message?: string;
   status?: string;
-  
-  // Détails de l'upload - TOUTES les propriétés utilisées dans le template
   id?: string;
   fileId?: string;
   totalPages?: number;

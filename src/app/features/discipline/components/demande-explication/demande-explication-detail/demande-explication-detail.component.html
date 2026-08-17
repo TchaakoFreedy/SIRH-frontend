@@ -1,0 +1,99 @@
+<div class="detail-container">
+  <div class="header">
+    <button mat-icon-button (click)="goBack()">
+      <i class="bi bi-arrow-left"></i>
+    </button>
+    <h2>Détail de la demande</h2>
+    <span class="numero">{{ demande.numero }}</span>
+  </div>
+
+  <div class="loading-spinner" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <div *ngIf="!isLoading && demande">
+    <mat-card class="detail-card">
+      <mat-card-header>
+        <mat-card-title>{{ demande.objet }}</mat-card-title>
+        <mat-card-subtitle>
+          <span class="badge" [class]="'badge-' + getStatutColor(demande.statut)">
+            {{ getStatutLabel(demande.statut) }}
+          </span>
+        </mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="info-grid">
+          <div class="info-item">
+            <label>Numéro</label>
+            <span>{{ demande.numero }}</span>
+          </div>
+          <div class="info-item">
+            <label>Employé concerné</label>
+            <span>{{ demande.employeConcerneNom }}</span>
+          </div>
+          <div class="info-item">
+            <label>Auteur</label>
+            <span>{{ demande.auteurNom }}</span>
+          </div>
+          <div class="info-item">
+            <label>Date de création</label>
+            <span>{{ demande.dateCreation | date:'dd/MM/yyyy HH:mm' }}</span>
+          </div>
+          <div class="info-item">
+            <label>Date limite de réponse</label>
+            <span>{{ demande.dateLimiteReponse | date:'dd/MM/yyyy' }}</span>
+          </div>
+          <div class="info-item">
+            <label>Motif</label>
+            <span>{{ demande.motif }}</span>
+          </div>
+        </div>
+
+        <div class="description-section">
+          <h4>Description</h4>
+          <p>{{ demande.description }}</p>
+        </div>
+
+        <div class="reponse-section" *ngIf="demande.reponse">
+          <h4>Réponse</h4>
+          <div class="reponse-content">
+            <p>{{ demande.reponse.contenu }}</p>
+            <div class="pieces-jointes" *ngIf="demande.reponse.piecesJointes?.length">
+              <label>Pièces jointes :</label>
+              <div *ngFor="let piece of demande.reponse.piecesJointes">
+                <a [href]="piece" target="_blank">{{ piece }}</a>
+              </div>
+            </div>
+            <small>Répondu le {{ demande.reponse.dateReponse | date:'dd/MM/yyyy HH:mm' }}</small>
+          </div>
+        </div>
+
+        <div class="historique-section" *ngIf="demande.historique?.length">
+          <h4>Historique</h4>
+          <div class="historique-list">
+            <div *ngFor="let h of demande.historique" class="historique-item">
+              <span class="action">{{ h.action }}</span>
+              <span class="user">{{ h.utilisateurNom }}</span>
+              <span class="date">{{ h.date | date:'dd/MM/yyyy HH:mm' }}</span>
+              <span class="comment" *ngIf="h.commentaire">{{ h.commentaire }}</span>
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+      <mat-card-actions>
+        <button mat-raised-button color="primary" (click)="goToReply()" *ngIf="canReply()">
+          <i class="bi bi-reply"></i> Répondre
+        </button>
+        <button mat-raised-button color="success" (click)="validateResponse()" *ngIf="canValidate()">
+          <i class="bi bi-check-circle"></i> Valider
+        </button>
+        <button mat-raised-button color="warn" (click)="rejectResponse()" *ngIf="canReject()">
+          <i class="bi bi-x-circle"></i> Rejeter
+        </button>
+        <button mat-raised-button color="warn" (click)="cancelDemande()" *ngIf="!canReply()">
+          <i class="bi bi-ban"></i> Annuler
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+</div>

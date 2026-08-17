@@ -1,4 +1,4 @@
-import { Component, signal, computed, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, signal, computed, OnInit, OnDestroy, inject, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { MatBadgeModule } from '@angular/material/badge';
@@ -12,6 +12,7 @@ import { HttpClient } from '@angular/common/http';
 import { AuthService, AuthUser } from '../../services/auth.service';
 import { UserService, User } from '../../core/services/user.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { NotificationWebSocketService } from '../../core/services/notification-websocket.service';
 import { AppNotification } from '../../core/models/notification.model';
 
 interface DisplayUser {
@@ -39,27 +40,28 @@ interface DisplayUser {
   styleUrls: ['./header.component.scss']
 })
 export class HeaderComponent implements OnInit, OnDestroy {
-  
+
+  // ===== INPUTS / OUTPUTS pour le bouton hamburger =====
+  @Input() showMenuButton = false;
+  @Output() menuToggle = new EventEmitter<void>();
+
   private router = inject(Router);
   private http = inject(HttpClient);
   private authService = inject(AuthService);
   private userService = inject(UserService);
   private notificationService = inject(NotificationService);
-  
-  // ===== États =====
+  private webSocketService = inject(NotificationWebSocketService);
+
   searchQuery = signal<string>('');
   showNotifications = signal<boolean>(false);
   isLoading = signal<boolean>(false);
   isLoadingNotif = signal<boolean>(false);
-  
-  // ===== Données Utilisateur =====
+
   userProfile = signal<User | null>(null);
   private subscriptions = new Subscription();
-  
-  // ===== Notifications =====
+
   private notificationsSignal = signal<AppNotification[]>([]);
-  
-  // ===== Computed =====
+
   unreadCount = computed(() => {
     return this.notificationsSignal().filter(n => !n.read).length;
   });
@@ -71,20 +73,20 @@ export class HeaderComponent implements OnInit, OnDestroy {
   currentUser = computed<DisplayUser>(() => {
     const user = this.userProfile();
     const authUser = this.authService.getCurrentUser();
-    
+
     if (!user && !authUser) {
       return {
         nom: 'Utilisateur',
         email: 'utilisateur@sirh.com',
         role: 'EMPLOYE',
-        roleLabel: 'Employé',
+        roleLabel: 'Employe',
         initiales: 'UT'
       };
     }
-    
+
     let roleName = 'EMPLOYE';
-    let roleLabel = 'Employé';
-    
+    let roleLabel = 'Employe';
+
     if (user?.role?.name) {
       roleName = user.role.name;
       roleLabel = this.formatRoleLabel(roleName);
@@ -101,11 +103,11 @@ export class HeaderComponent implements OnInit, OnDestroy {
       roleName = authUser.roleId;
       roleLabel = this.formatRoleLabel(roleName);
     }
-    
+
     let fullName = '';
     let email = '';
     let initiales = 'UT';
-    
+
     if (user) {
       const firstName = user.firstName || '';
       const lastName = user.lastName || '';
@@ -117,7 +119,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
       email = authUser.email || '';
       initiales = this.generateInitials(fullName);
     }
-    
+
     return {
       nom: fullName,
       email: email,
@@ -128,21 +130,48 @@ export class HeaderComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    console.log('HeaderComponent initialisé');
     this.trackCurrentUser();
-    
-    // ✅ Charger les non lues au démarrage
     this.loadNotifications();
 
-    // Écouter les changements du compteur sans recharger la liste
+    setTimeout(() => {
+      console.log('Attempting WebSocket connection from HeaderComponent');
+      this.webSocketService.connect();
+    }, 500);
+
     this.subscriptions.add(
-      this.notificationService.unreadCount$.subscribe(() => {
-        // Le compteur est mis à jour automatiquement ; on ne recharge pas la liste
+      this.webSocketService.notification$.subscribe((newNotification: AppNotification) => {
+        const currentUserId = this.authService.getCurrentUser()?.id;
+        if (currentUserId && newNotification.recipientId === currentUserId) {
+          console.log('Notification received via WebSocket:', newNotification);
+          this.notificationsSignal.update(list => [newNotification, ...list]);
+          this.notificationService.refreshUnreadCount();
+        } else {
+          console.warn('Notification ignored (recipient mismatch):', newNotification.recipientId);
+        }
       })
     );
+
+    this.subscriptions.add(
+      this.notificationService.refreshNotifications$.subscribe(() => {
+        this.loadNotifications();
+        this.notificationService.refreshUnreadCount();
+      })
+    );
+
+    this.notificationService.startPolling(30000);
   }
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+    this.webSocketService.disconnect();
+    this.notificationService.stopPolling();
+  }
+
+  // ===== Méthode appelée par le bouton hamburger =====
+  onMenuToggle(): void {
+    console.log('Menu toggle clicked');
+    this.menuToggle.emit();
   }
 
   private trackCurrentUser(): void {
@@ -198,16 +227,14 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.subscriptions.add(authSub);
   }
 
-  // ✅ Charger uniquement les notifications non lues pour le dropdown
   loadNotifications(): void {
     if (this.isLoadingNotif()) return;
     this.isLoadingNotif.set(true);
-    
+
     this.notificationService.getUnreadNotifications(0, 50).subscribe({
       next: (response) => {
         this.notificationsSignal.set(response.content);
         this.isLoadingNotif.set(false);
-        // Ne pas appeler refreshUnreadCount ici pour éviter la boucle
       },
       error: () => {
         this.isLoadingNotif.set(false);
@@ -220,12 +247,12 @@ export class HeaderComponent implements OnInit, OnDestroy {
       'SUPER_ADMIN': 'Administrateur',
       'RH': 'Ressources Humaines',
       'MANAGER': 'Manager',
-      'EMPLOYE': 'Employé',
-      'EMPLOY': 'Employé',
+      'EMPLOYE': 'Employe',
+      'EMPLOY': 'Employe',
       'DIRECTION': 'Direction',
       'TOP_MANAGER': 'Top Management'
     };
-    return roleMap[roleName] || roleName || 'Employé';
+    return roleMap[roleName] || roleName || 'Employe';
   }
 
   private generateInitials(name: string): string {
@@ -276,7 +303,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   toggleNotifications(): void {
     this.showNotifications.update(val => !val);
     if (this.showNotifications()) {
-      this.loadNotifications(); // Recharge les non lues à l'ouverture
+      this.loadNotifications();
       this.notificationService.refreshUnreadCount();
     }
   }
@@ -285,7 +312,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
     if (!notif.read) {
       this.notificationService.markAsRead(notif.id).subscribe({
         next: () => {
-          // Retirer la notification de la liste (puisqu'elle n'est plus non lue)
           this.notificationsSignal.update(notifs =>
             notifs.filter(n => n.id !== notif.id)
           );
@@ -294,7 +320,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
         error: (error) => console.error('Erreur marquage lu:', error)
       });
     }
-    
+
     if (notif.actionUrl) {
       this.router.navigate([notif.actionUrl]);
     }
@@ -303,7 +329,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
   markAllAsRead(): void {
     this.notificationService.markAllAsRead().subscribe({
       next: () => {
-        // Vider la liste (toutes les notifications sont lues)
         this.notificationsSignal.set([]);
         this.notificationService.refreshUnreadCount();
         this.closeDropdowns();
@@ -341,7 +366,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
 
-    if (minutes < 1) return "À l'instant";
+    if (minutes < 1) return "A l'instant";
     if (minutes < 60) return `Il y a ${minutes} min`;
     if (hours < 24) return `Il y a ${hours} h`;
     if (days < 30) return `Il y a ${days} j`;

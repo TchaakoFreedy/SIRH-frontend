@@ -1,0 +1,715 @@
+<div class="unity-container">
+  
+  <!-- Toast Notification -->
+  <div *ngIf="showSuccessToast()" class="modern-toast" [class.error-toast]="isErrorToast()">
+    <span class="toast-text">{{ successMessage() }}</span>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div *ngIf="isLoading()" class="loading-overlay">
+    <div class="loader-box">
+      <div class="spinner"></div>
+      <span>Traitement en cours...</span>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">description</span>
+      </div>
+      <div>
+        <h1>Gestion des Contrats</h1>
+        <p>Gérez les contrats des employés, suivez les échéances et renouvellements</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button *ngIf="canCreate()" class="btn btn-primary" (click)="openModal()">
+        <span class="material-symbols-outlined">add</span> Nouveau contrat
+      </button>
+      <button class="btn btn-secondary" (click)="contratService.checkExpiring().subscribe()">
+        <span class="material-symbols-outlined">refresh</span> Vérifier expirations
+      </button>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-icon"><span class="material-symbols-outlined">description</span></div>
+      <div class="stat-info">
+        <p>Total contrats</p>
+        <h3>{{ stats().total }}</h3>
+      </div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon"><span class="material-symbols-outlined">check_circle</span></div>
+      <div class="stat-info">
+        <p>Actifs</p>
+        <h3>{{ stats().actifs }}</h3>
+      </div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-icon"><span class="material-symbols-outlined">warning</span></div>
+      <div class="stat-info">
+        <p>Expirant (14j)</p>
+        <h3>{{ stats().expirant }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECHERCHE & FILTRES -->
+  <div class="search-filter-bar">
+    <div class="search-wrapper">
+      <span class="material-symbols-outlined search-icon">search</span>
+      <input 
+        type="text" 
+        class="search-input" 
+        [(ngModel)]="searchTerm" 
+        (input)="applyFilters()"
+        placeholder="Rechercher par employé, type, ID..."
+        autocomplete="off"
+      />
+      <button class="clear-search" *ngIf="searchTerm" (click)="clearSearch()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="filter-wrapper">
+      <span class="material-symbols-outlined filter-icon">filter_list</span>
+      <select class="filter-select" [(ngModel)]="selectedStatut" (change)="applyFilters()">
+        <option value="">Tous les statuts</option>
+        <option *ngFor="let statut of statutOptions" [value]="statut">{{ getStatutLibelle(statut) }}</option>
+      </select>
+      <span class="material-symbols-outlined select-arrow">expand_more</span>
+      <button class="clear-filter" *ngIf="selectedStatut" (click)="selectedStatut=''; applyFilters()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="filter-wrapper">
+      <span class="material-symbols-outlined filter-icon">category</span>
+      <select class="filter-select" [(ngModel)]="selectedType" (change)="applyFilters()">
+        <option value="">Tous les types</option>
+        <option *ngFor="let type of typeOptions" [value]="type">{{ getTypeLibelle(type) }}</option>
+      </select>
+      <span class="material-symbols-outlined select-arrow">expand_more</span>
+      <button class="clear-filter" *ngIf="selectedType" (click)="selectedType=''; applyFilters()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="filter-results">
+      <span class="result-count">
+        <span class="material-symbols-outlined">description</span>
+        {{ filteredContrats().length }} contrat(s)
+      </span>
+      <button class="btn-reset-filters" *ngIf="searchTerm || selectedStatut || selectedType" (click)="resetFilters()">
+        <span class="material-symbols-outlined">refresh</span>
+        Réinitialiser
+      </button>
+    </div>
+  </div>
+
+  <!-- TABLEAU -->
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">
+        <span class="material-symbols-outlined">assignment</span>
+        <h2>Liste des contrats</h2>
+      </div>
+      <span class="table-info">{{ filteredContrats().length }} résultat(s)</span>
+    </div>
+
+    <div class="responsive-wrapper">
+      <table class="up-table">
+        <thead>
+          <tr>
+            <th>Employé</th>
+            <th>Type</th>
+            <th>Début</th>
+            <th>Fin</th>
+            <th>Statut</th>
+            <th class="th-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="paginatedContrats.length === 0">
+            <td colspan="6">
+              <div class="empty-state">
+                <span class="material-symbols-outlined">description</span>
+                <p>Aucun contrat trouvé</p>
+                <p class="empty-hint">Créez un contrat en utilisant le bouton ci-dessus.</p>
+              </div>
+            </td>
+          </tr>
+
+          <tr *ngFor="let contrat of paginatedContrats">
+            <td>
+              <div class="user-cell">
+                <div class="avatar small" style="background:#2563eb; color:white;">
+                  {{ contrat.employeeInitials || '?' }}
+                </div>
+                <div>
+                  <div class="name">{{ contrat.employeeName }}</div>
+                </div>
+              </div>
+            </td>
+            <td><span style="font-weight:600;">{{ getTypeLibelle(contrat.typeContrat) }}</span></td>
+            <td>{{ contrat.dateDebut | date:'dd/MM/yyyy' }}</td>
+            <td>{{ contrat.dateFin ? (contrat.dateFin | date:'dd/MM/yyyy') : 'Sans fin' }}</td>
+            <td>
+              <span class="status-pill" [class.active]="isActive(contrat.statut)" [class.suspended]="!isActive(contrat.statut)">
+                {{ getStatutLibelle(contrat.statut) }}
+              </span>
+            </td>
+            <td>
+              <div class="actions-cell">
+                <!-- NOUVEAU : Bouton Détails -->
+                <button *ngIf="canView()" class="action-btn info" matTooltip="Voir détails" (click)="openDetail(contrat)">
+                  <span class="material-symbols-outlined">visibility</span>
+                </button>
+                <button *ngIf="canUpdate()" class="action-btn warning" matTooltip="Modifier" (click)="openModal(contrat)">
+                  <span class="material-symbols-outlined">edit</span>
+                </button>
+                <button *ngIf="isActive(contrat.statut) && canUpdate()" class="action-btn success" matTooltip="Renouveler" (click)="renouveler(contrat)">
+                  <span class="material-symbols-outlined">autorenew</span>
+                </button>
+                <button *ngIf="isActive(contrat.statut) && canDelete()" class="action-btn danger" matTooltip="Résilier" (click)="resilier(contrat)">
+                  <span class="material-symbols-outlined">cancel</span>
+                </button>
+                <button *ngIf="!isArchived(contrat.statut) && canDelete()" class="action-btn secondary" matTooltip="Archiver" (click)="archiver(contrat)">
+                  <span class="material-symbols-outlined">archive</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PAGINATION -->
+    <div class="pagination-container" *ngIf="filteredContrats().length > 0">
+      <div class="pagination-info">
+        <span>
+          Affichage de 
+          <strong>{{ (currentPage - 1) * pageSize + 1 }}</strong> 
+          à 
+          <strong>{{ Math.min(currentPage * pageSize, filteredContrats().length) }}</strong> 
+          sur 
+          <strong>{{ filteredContrats().length }}</strong> 
+          contrats
+        </span>
+        <div class="page-size-selector">
+          <label for="pageSizeContrat">Lignes par page :</label>
+          <select id="pageSizeContrat" [(ngModel)]="pageSize" (change)="onPageSizeChange()">
+            <option [value]="5">5</option>
+            <option [value]="10">10</option>
+            <option [value]="25">25</option>
+            <option [value]="50">50</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pagination-controls">
+        <button class="pagination-btn" (click)="previousPage()" [disabled]="currentPage === 1" [class.disabled]="currentPage === 1">
+          <span class="material-symbols-outlined">chevron_left</span>
+          <span>Précédent</span>
+        </button>
+
+        <div class="page-numbers">
+          <button *ngIf="totalPages > 1" class="page-number" [class.active]="currentPage === 1" (click)="goToPage(1)">1</button>
+          <span *ngIf="currentPage > 3" class="ellipsis">…</span>
+          <button *ngFor="let page of getPageNumbers()" class="page-number" [class.active]="currentPage === page" (click)="goToPage(page)">{{ page }}</button>
+          <span *ngIf="currentPage < totalPages - 2" class="ellipsis">…</span>
+          <button *ngIf="totalPages > 1" class="page-number" [class.active]="currentPage === totalPages" (click)="goToPage(totalPages)">{{ totalPages }}</button>
+        </div>
+
+        <button class="pagination-btn" (click)="nextPage()" [disabled]="currentPage === totalPages" [class.disabled]="currentPage === totalPages">
+          <span>Suivant</span>
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALE DE CRÉATION / MODIFICATION -->
+<div class="modal-overlay" *ngIf="showModal()">
+  <div class="modal-glass max-md">
+    <div class="modal-top-header">
+      <div class="modal-title-group">
+        <div class="modal-icon" [class.badge-edit]="editMode()">
+          <span class="material-symbols-outlined">{{ editMode() ? 'edit_note' : 'add_circle' }}</span>
+        </div>
+        <div>
+          <h3>{{ editMode() ? 'Modifier le contrat' : 'Nouveau contrat' }}</h3>
+          <p>{{ editMode() ? 'Mettez à jour les informations du contrat.' : 'Renseignez les détails du nouveau contrat.' }}</p>
+        </div>
+      </div>
+      <button class="close-btn" (click)="closeModal()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="modal-body-scroll">
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <!-- Section : Employé -->
+        <div class="form-block">
+          <div class="block-title"><span class="material-symbols-outlined">person</span> Employé</div>
+          <div class="form-grid grid-2">
+            <div class="form-group span-2">
+              <label>Employé <span class="required">*</span></label>
+              <div class="select-wrapper">
+                <select formControlName="employeeId" class="form-control" [class.is-invalid]="form.get('employeeId')?.invalid && form.get('employeeId')?.touched">
+                  <option value="">Sélectionnez un employé</option>
+                  <option *ngFor="let emp of employees()" [value]="emp.id">{{ emp.prenom }} {{ emp.nom }}</option>
+                </select>
+                <span class="material-symbols-outlined select-arrow">expand_more</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section : Type et dates -->
+        <div class="form-block">
+          <div class="block-title"><span class="material-symbols-outlined">assignment</span> Type et dates</div>
+          <div class="form-grid grid-2">
+            <div class="form-group">
+              <label>Type de contrat <span class="required">*</span></label>
+              <div class="select-wrapper">
+                <select formControlName="typeContrat" class="form-control" [class.is-invalid]="form.get('typeContrat')?.invalid && form.get('typeContrat')?.touched">
+                  <option *ngFor="let type of typeOptions" [value]="type">{{ getTypeLibelle(type) }}</option>
+                </select>
+                <span class="material-symbols-outlined select-arrow">expand_more</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Statut</label>
+              <div class="select-wrapper">
+                <select formControlName="statut" class="form-control">
+                  <option *ngFor="let s of statutOptions" [value]="s">{{ getStatutLibelle(s) }}</option>
+                </select>
+                <span class="material-symbols-outlined select-arrow">expand_more</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Date de début <span class="required">*</span></label>
+              <input type="date" formControlName="dateDebut" class="form-control" [class.is-invalid]="form.get('dateDebut')?.invalid && form.get('dateDebut')?.touched">
+            </div>
+            <div class="form-group">
+              <label>Date de fin <span *ngIf="form.get('typeContrat')?.value && contractHasEndDate(form.get('typeContrat')?.value)" class="required">*</span></label>
+              <input type="date" formControlName="dateFin" class="form-control"
+                     [min]="form.get('statut')?.value === 'ACTIF' ? today : null"
+                     [class.is-invalid]="form.get('dateFin')?.invalid && form.get('dateFin')?.touched">
+              <div *ngIf="form.get('dateFin')?.invalid && form.get('dateFin')?.touched" class="invalid-feedback">
+                <span *ngIf="form.get('dateFin')?.errors?.['dateFinPassed']">
+                  La date de fin doit être postérieure à aujourd'hui pour un contrat actif.
+                </span>
+                <span *ngIf="form.get('dateFin')?.errors?.['required']">
+                  La date de fin est obligatoire pour ce type de contrat.
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section : Période d'essai -->
+        <div class="form-block" *ngIf="form.get('typeContrat')?.value && contractRequiresTrialPeriod(form.get('typeContrat')?.value)">
+          <div class="block-title"><span class="material-symbols-outlined">timer</span> Période d'essai</div>
+          <div class="form-grid grid-2">
+            <div class="form-group">
+              <label>Durée d'essai (mois)</label>
+              <input type="number" min="1" max="12" formControlName="dureeEssaiMois" class="form-control" placeholder="Ex: 3">
+            </div>
+            <div class="form-group">
+              <label>Date de fin d'essai</label>
+              <input type="date" formControlName="dateFinEssai" class="form-control">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section : Salaires -->
+        <div class="form-block">
+          <div class="block-title"><span class="material-symbols-outlined">payments</span> Rémunération</div>
+          <div class="form-grid grid-2">
+            <div class="form-group">
+              <label>Salaire brut</label>
+              <input type="number" step="0.01" formControlName="salaireBrut" class="form-control" placeholder="Ex: 2000000">
+            </div>
+            <div class="form-group">
+              <label>Salaire net</label>
+              <input type="number" step="0.01" formControlName="salaireNet" class="form-control" placeholder="Ex: 1500000">
+            </div>
+            <div class="form-group">
+              <label>Taux horaire</label>
+              <input type="number" step="0.01" formControlName="tauxHoraire" class="form-control" placeholder="Ex: 15000">
+            </div>
+            <div class="form-group">
+              <label>Heures/semaine</label>
+              <input type="number" formControlName="nombreHeuresSemaine" class="form-control" placeholder="Ex: 35">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section : Spécifique CDD -->
+        <div class="form-block" *ngIf="form.get('typeContrat')?.value === 'CDD'">
+          <div class="block-title"><span class="material-symbols-outlined">info</span> Informations CDD</div>
+          <div class="form-grid grid-2">
+            <div class="form-group span-2">
+              <label>Motif de recours <span class="required">*</span></label>
+              <input type="text" formControlName="motifRecours" class="form-control" placeholder="Ex: Remplacement d'un salarié absent">
+            </div>
+            <div class="form-group">
+              <label>Durée (mois)</label>
+              <input type="number" formControlName="dureeMois" class="form-control" placeholder="Ex: 12">
+            </div>
+            <div class="form-group">
+              <label>Renouvelable</label>
+              <div class="select-wrapper">
+                <select formControlName="estRenouvelable" class="form-control">
+                  <option [value]="true">Oui</option>
+                  <option [value]="false">Non</option>
+                </select>
+                <span class="material-symbols-outlined select-arrow">expand_more</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Renouvellement max</label>
+              <input type="number" formControlName="renouvellementMax" class="form-control" placeholder="Ex: 2">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section : Spécifique Stage -->
+        <div class="form-block" *ngIf="form.get('typeContrat')?.value === 'STAGE_ACADEMIQUE' || form.get('typeContrat')?.value === 'STAGE_PROFESSIONNEL'">
+          <div class="block-title"><span class="material-symbols-outlined">school</span> Informations Stage</div>
+          <div class="form-grid grid-2">
+            <div class="form-group span-2">
+              <label>Établissement <span class="required">*</span></label>
+              <input type="text" formControlName="etablissement" class="form-control" placeholder="Ex: Université de Yaoundé I">
+            </div>
+            <div class="form-group">
+              <label>Tuteur <span class="required">*</span></label>
+              <input type="text" formControlName="tuteurNom" class="form-control" placeholder="Nom du tuteur">
+            </div>
+            <div class="form-group">
+              <label>Email du tuteur</label>
+              <input type="email" formControlName="tuteurEmail" class="form-control" placeholder="tuteur@exemple.com">
+            </div>
+            <div class="form-group">
+              <label>Téléphone du tuteur</label>
+              <input type="text" formControlName="tuteurTelephone" class="form-control" placeholder="Téléphone">
+            </div>
+            <div class="form-group span-2">
+              <label>Objectifs du stage</label>
+              <input type="text" formControlName="objectifsStage" class="form-control" placeholder="Objectifs">
+            </div>
+            <div class="form-group">
+              <label>Durée (semaines)</label>
+              <input type="number" formControlName="dureeSemaines" class="form-control" placeholder="Ex: 12">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section : Spécifique Freelance -->
+        <div class="form-block" *ngIf="form.get('typeContrat')?.value === 'FREELANCE'">
+          <div class="block-title"><span class="material-symbols-outlined">work</span> Informations Freelance</div>
+          <div class="form-grid grid-2">
+            <div class="form-group span-2">
+              <label>Description de la prestation <span class="required">*</span></label>
+              <input type="text" formControlName="descriptionPrestation" class="form-control" placeholder="Description">
+            </div>
+            <div class="form-group">
+              <label>Modalités de paiement</label>
+              <input type="text" formControlName="modalitesPaiement" class="form-control" placeholder="Ex: Facture mensuelle">
+            </div>
+            <div class="form-group">
+              <label>Durée (mois)</label>
+              <input type="number" formControlName="dureeMoisPrestation" class="form-control" placeholder="Ex: 6">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section : Observations -->
+        <div class="form-block">
+          <div class="block-title"><span class="material-symbols-outlined">note</span> Observations</div>
+          <div class="form-group">
+            <textarea formControlName="observations" class="form-control" rows="2" placeholder="Informations complémentaires..."></textarea>
+          </div>
+        </div>
+
+        <!-- Section : Fichiers -->
+        <div class="form-block" *ngIf="!editMode()">
+          <div class="block-title"><span class="material-symbols-outlined">attach_file</span> Pièces jointes</div>
+          <div class="form-group">
+            <input type="file" multiple (change)="onFileSelected($event)" accept=".pdf,.jpg,.jpeg,.png" class="form-control" style="padding-top: 10px;">
+            <span style="font-size: 12px; color: #64748b;">Formats acceptés: PDF, JPG, PNG</span>
+          </div>
+        </div>
+
+        <div class="modal-footer-bar">
+          <button type="button" class="btn btn-ghost" (click)="closeModal()">Annuler</button>
+          <button type="submit" [disabled]="form.invalid || isLoading()" class="btn btn-primary">
+            {{ editMode() ? 'Mettre à jour' : 'Créer' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- MODALE : Détails du contrat (sans IDs)       -->
+<!-- ============================================ -->
+<div class="modal-overlay" *ngIf="showDetailModal()">
+  <div class="modal-glass max-lg">
+    <div class="modal-top-header">
+      <div class="modal-title-group">
+        <div class="modal-icon">
+          <span class="material-symbols-outlined">visibility</span>
+        </div>
+        <div>
+          <h3>Détails du contrat</h3>
+          <p *ngIf="selectedContratForDetail()">
+            Contrat de {{ selectedContratForDetail().employeePrenom || '' }} {{ selectedContratForDetail().employeeNom || '' }}
+          </p>
+        </div>
+      </div>
+      <button class="close-btn" (click)="closeDetailModal()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="modal-body-scroll" *ngIf="selectedContratForDetail()">
+      <div class="detail-grid">
+        <!-- Informations générales (sans ID) -->
+        <div class="detail-section">
+          <div class="section-title">
+            <span class="material-symbols-outlined">info</span>
+            Informations générales
+          </div>
+          <div class="detail-row">
+            <span class="label">Type</span>
+            <span class="value">{{ getTypeLibelle(selectedContratForDetail().typeContrat) }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Statut</span>
+            <span class="value status-badge" [class.active]="isActive(selectedContratForDetail().statut)" [class.inactive]="!isActive(selectedContratForDetail().statut)">
+              {{ getStatutLibelle(selectedContratForDetail().statut) }}
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Date de début</span>
+            <span class="value">{{ selectedContratForDetail().dateDebut | date:'dd/MM/yyyy' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Date de fin</span>
+            <span class="value">{{ selectedContratForDetail().dateFin ? (selectedContratForDetail().dateFin | date:'dd/MM/yyyy') : 'Sans fin' }}</span>
+          </div>
+        </div>
+
+        <!-- Employé (sans ID) -->
+        <div class="detail-section">
+          <div class="section-title">
+            <span class="material-symbols-outlined">person</span>
+            Employé
+          </div>
+          <div class="detail-row">
+            <span class="label">Nom complet</span>
+            <span class="value">{{ selectedContratForDetail().employeePrenom || '' }} {{ selectedContratForDetail().employeeNom || '' }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().employeeMatricule">
+            <span class="label">Matricule</span>
+            <span class="value">{{ selectedContratForDetail().employeeMatricule }}</span>
+          </div>
+        </div>
+
+        <!-- Période d'essai -->
+        <div class="detail-section" *ngIf="selectedContratForDetail().dureeEssaiMois || selectedContratForDetail().dateFinEssai">
+          <div class="section-title">
+            <span class="material-symbols-outlined">timer</span>
+            Période d'essai
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().dureeEssaiMois">
+            <span class="label">Durée (mois)</span>
+            <span class="value">{{ selectedContratForDetail().dureeEssaiMois }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().dateFinEssai">
+            <span class="label">Date de fin</span>
+            <span class="value">{{ selectedContratForDetail().dateFinEssai | date:'dd/MM/yyyy' }}</span>
+          </div>
+        </div>
+
+        <!-- Rémunération -->
+        <div class="detail-section" *ngIf="selectedContratForDetail().salaireBrut || selectedContratForDetail().salaireNet || selectedContratForDetail().tauxHoraire || selectedContratForDetail().nombreHeuresSemaine">
+          <div class="section-title">
+            <span class="material-symbols-outlined">payments</span>
+            Rémunération
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().salaireBrut">
+            <span class="label">Salaire brut</span>
+            <span class="value">{{ selectedContratForDetail().salaireBrut | number:'1.0-2' }} FCFA</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().salaireNet">
+            <span class="label">Salaire net</span>
+            <span class="value">{{ selectedContratForDetail().salaireNet | number:'1.0-2' }} FCFA</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().tauxHoraire">
+            <span class="label">Taux horaire</span>
+            <span class="value">{{ selectedContratForDetail().tauxHoraire | number:'1.0-2' }} FCFA</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().nombreHeuresSemaine">
+            <span class="label">Heures/semaine</span>
+            <span class="value">{{ selectedContratForDetail().nombreHeuresSemaine }}</span>
+          </div>
+        </div>
+
+        <!-- CDD -->
+        <div class="detail-section" *ngIf="selectedContratForDetail().typeContrat === 'CDD' && (selectedContratForDetail().motifRecours || selectedContratForDetail().dureeMois)">
+          <div class="section-title">
+            <span class="material-symbols-outlined">info</span>
+            Informations CDD
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().motifRecours">
+            <span class="label">Motif de recours</span>
+            <span class="value">{{ selectedContratForDetail().motifRecours }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().dureeMois">
+            <span class="label">Durée (mois)</span>
+            <span class="value">{{ selectedContratForDetail().dureeMois }}</span>
+          </div>
+        </div>
+
+        <!-- Stage -->
+        <div class="detail-section" *ngIf="(selectedContratForDetail().typeContrat === 'STAGE_ACADEMIQUE' || selectedContratForDetail().typeContrat === 'STAGE_PROFESSIONNEL') && (selectedContratForDetail().etablissement || selectedContratForDetail().tuteurNom)">
+          <div class="section-title">
+            <span class="material-symbols-outlined">school</span>
+            Informations Stage
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().etablissement">
+            <span class="label">Établissement</span>
+            <span class="value">{{ selectedContratForDetail().etablissement }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().tuteurNom">
+            <span class="label">Tuteur</span>
+            <span class="value">{{ selectedContratForDetail().tuteurNom }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().tuteurEmail">
+            <span class="label">Email du tuteur</span>
+            <span class="value">{{ selectedContratForDetail().tuteurEmail }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().tuteurTelephone">
+            <span class="label">Téléphone du tuteur</span>
+            <span class="value">{{ selectedContratForDetail().tuteurTelephone }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().objectifsStage">
+            <span class="label">Objectifs</span>
+            <span class="value">{{ selectedContratForDetail().objectifsStage }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().dureeSemaines">
+            <span class="label">Durée (semaines)</span>
+            <span class="value">{{ selectedContratForDetail().dureeSemaines }}</span>
+          </div>
+        </div>
+
+        <!-- Freelance -->
+        <div class="detail-section" *ngIf="selectedContratForDetail().typeContrat === 'FREELANCE' && (selectedContratForDetail().descriptionPrestation || selectedContratForDetail().modalitesPaiement || selectedContratForDetail().dureeMoisPrestation)">
+          <div class="section-title">
+            <span class="material-symbols-outlined">work</span>
+            Informations Freelance
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().descriptionPrestation">
+            <span class="label">Description</span>
+            <span class="value">{{ selectedContratForDetail().descriptionPrestation }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().modalitesPaiement">
+            <span class="label">Modalités de paiement</span>
+            <span class="value">{{ selectedContratForDetail().modalitesPaiement }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().dureeMoisPrestation">
+            <span class="label">Durée (mois)</span>
+            <span class="value">{{ selectedContratForDetail().dureeMoisPrestation }}</span>
+          </div>
+        </div>
+
+        <!-- Renouvellement -->
+        <div class="detail-section" *ngIf="selectedContratForDetail().estRenouvelable || selectedContratForDetail().nombreRenouvellements || selectedContratForDetail().renouvellementMax">
+          <div class="section-title">
+            <span class="material-symbols-outlined">autorenew</span>
+            Renouvellement
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().estRenouvelable !== undefined">
+            <span class="label">Renouvelable</span>
+            <span class="value">{{ selectedContratForDetail().estRenouvelable ? 'Oui' : 'Non' }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().nombreRenouvellements !== undefined">
+            <span class="label">Nb renouvellements</span>
+            <span class="value">{{ selectedContratForDetail().nombreRenouvellements }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().renouvellementMax">
+            <span class="label">Renouvellement max</span>
+            <span class="value">{{ selectedContratForDetail().renouvellementMax }}</span>
+          </div>
+        </div>
+
+        <!-- Résiliation -->
+        <div class="detail-section" *ngIf="selectedContratForDetail().motifResiliation || selectedContratForDetail().dateResiliation">
+          <div class="section-title">
+            <span class="material-symbols-outlined">cancel</span>
+            Résiliation
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().motifResiliation">
+            <span class="label">Motif</span>
+            <span class="value">{{ selectedContratForDetail().motifResiliation }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().dateResiliation">
+            <span class="label">Date</span>
+            <span class="value">{{ selectedContratForDetail().dateResiliation | date:'dd/MM/yyyy' }}</span>
+          </div>
+        </div>
+
+        <!-- Observations -->
+        <div class="detail-section" *ngIf="selectedContratForDetail().observations">
+          <div class="section-title">
+            <span class="material-symbols-outlined">note</span>
+            Observations
+          </div>
+          <div class="detail-row">
+            <span class="value">{{ selectedContratForDetail().observations }}</span>
+          </div>
+        </div>
+
+
+        <!-- Métadonnées -->
+        <div class="detail-section">
+          <div class="section-title">
+            <span class="material-symbols-outlined">history</span>
+            Métadonnées
+          </div>
+          <div class="detail-row">
+            <span class="label">Créé le</span>
+            <span class="value">{{ selectedContratForDetail().createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().createdBy">
+            <span class="label">Créé par</span>
+            <span class="value">{{ selectedContratForDetail().createdBy }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().updatedAt">
+            <span class="label">Modifié le</span>
+            <span class="value">{{ selectedContratForDetail().updatedAt | date:'dd/MM/yyyy HH:mm' }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedContratForDetail().updatedBy">
+            <span class="label">Modifié par</span>
+            <span class="value">{{ selectedContratForDetail().updatedBy }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer-bar">
+      <button type="button" class="btn btn-ghost" (click)="closeDetailModal()">Fermer</button>
+    </div>
+  </div>
+</div>

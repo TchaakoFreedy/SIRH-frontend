@@ -1,0 +1,273 @@
+<!-- src/app/features/discipline/components/sanction/sanction-list/sanction-list.component.html -->
+
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">gavel</span>
+      </div>
+      <div>
+        <h1>Gestion des sanctions</h1>
+        <p>Suivi et gestion des sanctions disciplinaires</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary" (click)="createSanction()">
+        <span class="material-symbols-outlined">add</span> Nouvelle sanction
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== STATS ==================== -->
+  <div class="stats-grid">
+    <div class="stat-card red">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">warning</span>
+      </div>
+      <div class="stat-info">
+        <p>Sanctions actives</p>
+        <h3>{{ getStatCount(StatutSanction.ACTIVE) }}</h3>
+      </div>
+    </div>
+    
+    <div class="stat-card green">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">check_circle</span>
+      </div>
+      <div class="stat-info">
+        <p>Sanctions terminées</p>
+        <h3>{{ getStatCount(StatutSanction.TERMINEE) }}</h3>
+      </div>
+    </div>
+    
+    <div class="stat-card gray">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">block</span>
+      </div>
+      <div class="stat-info">
+        <p>Sanctions annulées</p>
+        <h3>{{ getStatCount(StatutSanction.ANNULEE) }}</h3>
+      </div>
+    </div>
+    
+    <div class="stat-card blue">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">database</span>
+      </div>
+      <div class="stat-info">
+        <p>Total sanctions</p>
+        <h3>{{ totalElements }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== RECHERCHE & FILTRES ==================== -->
+  <div class="search-filter-bar">
+    <div class="search-wrapper">
+      <span class="material-symbols-outlined search-icon">search</span>
+      <input 
+        type="text" 
+        class="search-input" 
+        [(ngModel)]="searchTerm" 
+        (input)="applyFilters()"
+        placeholder=" Rechercher par numéro, employé, motif..."
+        autocomplete="off"
+      />
+      <ng-container *ngIf="searchTerm">
+        <button class="clear-search" (click)="clearSearch()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </ng-container>
+    </div>
+
+    <div class="filter-wrapper">
+      <span class="material-symbols-outlined filter-icon">filter_list</span>
+      <select class="filter-select" [(ngModel)]="selectedStatut" (change)="applyFilters()">
+        <option value="">Tous les statuts</option>
+        <option *ngFor="let statut of statutOptions" [value]="statut">
+          {{ getStatutLabel(statut) }}
+        </option>
+      </select>
+      <ng-container *ngIf="selectedStatut">
+        <button class="clear-filter" (click)="clearFilter()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </ng-container>
+    </div>
+
+    <div class="filter-results">
+      <span class="result-count">
+        <span class="material-symbols-outlined">description</span>
+        {{ filteredData().length }} sanction(s)
+      </span>
+      <ng-container *ngIf="searchTerm || selectedStatut">
+        <button class="btn-reset-filters" (click)="resetFilters()">
+          <span class="material-symbols-outlined">refresh</span>
+          Réinitialiser
+        </button>
+      </ng-container>
+    </div>
+  </div>
+
+  <!-- ==================== TABLEAU ==================== -->
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">
+        <span class="material-symbols-outlined">list_alt</span>
+        <h2>Liste des sanctions</h2>
+      </div>
+      <div class="table-actions">
+        <span class="table-info">{{ filteredData().length }} sur {{ totalElements }} sanctions</span>
+      </div>
+    </div>
+
+    <div class="responsive-wrapper">
+      <table class="up-table">
+        <thead>
+          <tr>
+            <th>Numéro</th>
+            <th>Employé</th>
+            <th>Type</th>
+            <th>Statut</th>
+            <th>Date début</th>
+            <th class="th-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let sanction of paginatedData; trackBy: trackById">
+            <td><span class="tag-numero">{{ sanction.numero }}</span></td>
+            <td>
+              <div class="user-cell">
+                <div class="avatar">{{ (sanction.employeNom || 'U')[0] }}</div>
+                <div>
+                  <div class="name">{{ sanction.employeNom || 'Non défini' }}</div>
+                  <div class="meta">ID: {{ sanction.id | slice:0:8 }}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="type-badge" [class]="getTypeClass(sanction.type)">
+                <span class="material-symbols-outlined">{{ getTypeIcon(sanction.type) }}</span>
+                {{ getTypeLabel(sanction.type) }}
+              </span>
+            </td>
+            <td>
+              <span class="status-pill" [class]="getStatutClass(sanction.statut)">
+                {{ getStatutLabel(sanction.statut) }}
+              </span>
+            </td>
+            <td>
+              <div class="date-cell">
+                <span class="material-symbols-outlined">event</span>
+                {{ sanction.dateDebut | date:'dd/MM/yyyy' }}
+              </div>
+            </td>
+            <td>
+              <div class="actions-cell">
+                <!-- ✅ Bouton Voir - Navigation corrigée -->
+                <button class="action-btn info" (click)="viewSanction(sanction.id!)" title="Voir le détail">
+                  <span class="material-symbols-outlined">visibility</span>
+                </button>
+                <ng-container *ngIf="sanction.statut === StatutSanction.ACTIVE">
+                  <button class="action-btn success" (click)="liftSanction(sanction.id!)" title="Lever la sanction">
+                    <span class="material-symbols-outlined">check_circle</span>
+                  </button>
+                </ng-container>
+                <ng-container *ngIf="canDelete(sanction.statut)">
+                  <button class="action-btn danger" (click)="deleteSanction(sanction.id!)" title="Supprimer">
+                    <span class="material-symbols-outlined">delete</span>
+                  </button>
+                </ng-container>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="paginatedData.length === 0">
+            <td colspan="6">
+              <div class="empty-state">
+                <span class="material-symbols-outlined">inbox</span>
+                <p>Aucune sanction trouvée</p>
+                <ng-container *ngIf="searchTerm || selectedStatut">
+                  <p class="empty-hint">Essayez de modifier vos critères de recherche</p>
+                </ng-container>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ==================== PAGINATION ==================== -->
+    <ng-container *ngIf="filteredData().length > 0">
+      <div class="pagination-container">
+        <div class="pagination-info">
+          <span>
+            Affichage de 
+            <strong>{{ (currentPage - 1) * itemsPerPage + 1 }}</strong> 
+            à 
+            <strong>{{ Math.min(currentPage * itemsPerPage, filteredData().length) }}</strong> 
+            sur 
+            <strong>{{ filteredData().length }}</strong> 
+            sanctions
+          </span>
+          
+          <div class="page-size-selector">
+            <label for="pageSize">Lignes par page :</label>
+            <select id="pageSize" [(ngModel)]="itemsPerPage" (change)="onPageSizeChange()">
+              <option [value]="5">5</option>
+              <option [value]="10">10</option>
+              <option [value]="25">25</option>
+              <option [value]="50">50</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pagination-controls">
+          <button class="pagination-btn" 
+                  (click)="previousPage()" 
+                  [disabled]="currentPage === 1"
+                  [class.disabled]="currentPage === 1">
+            <span class="material-symbols-outlined">chevron_left</span>
+            <span>Précédent</span>
+          </button>
+
+          <div class="page-numbers">
+            <button *ngIf="totalPages > 1" 
+                    class="page-number" 
+                    [class.active]="currentPage === 1"
+                    (click)="goToPage(1)">
+              1
+            </button>
+
+            <span *ngIf="currentPage > 3" class="ellipsis">…</span>
+
+            <button *ngFor="let page of getVisiblePages()" 
+                    class="page-number" 
+                    [class.active]="currentPage === page"
+                    (click)="goToPage(page)">
+              {{ page }}
+            </button>
+
+            <span *ngIf="currentPage < totalPages - 2" class="ellipsis">…</span>
+
+            <button *ngIf="totalPages > 1" 
+                    class="page-number" 
+                    [class.active]="currentPage === totalPages"
+                    (click)="goToPage(totalPages)">
+              {{ totalPages }}
+            </button>
+          </div>
+
+          <button class="pagination-btn" 
+                  (click)="nextPage()" 
+                  [disabled]="currentPage === totalPages"
+                  [class.disabled]="currentPage === totalPages">
+            <span>Suivant</span>
+            <span class="material-symbols-outlined">chevron_right</span>
+          </button>
+        </div>
+      </div>
+    </ng-container>
+  </div>
+</div>

@@ -9,7 +9,7 @@
       </div>
       <div>
         <h1>Importer des bulletins de paie</h1>
-        <p>Téléchargez un fichier PDF contenant l'ensemble des bulletins pour une période donnée.</p>
+        <p>Téléchargez un fichier PDF contenant l'ensemble des bulletins pour une periode donnee.</p>
       </div>
     </div>
     <div class="btn-group">
@@ -21,39 +21,65 @@
 
   <!-- ========== ZONE D'UPLOAD ========== -->
   <div class="upload-card">
-    <div class="upload-zone" [class.dragover]="false">
-      <input type="file" id="fileInput" accept=".pdf" (change)="onFileSelected($event)" />
+    <div class="upload-zone" [class.dragover]="isDragging"
+         (dragover)="$event.preventDefault(); isDragging = true"
+         (dragenter)="$event.preventDefault(); isDragging = true"
+         (dragleave)="$event.preventDefault(); isDragging = false"
+         (drop)="$event.preventDefault(); isDragging = false; onFileDropped($event)">
+      <input type="file" id="fileInput" accept=".pdf" (change)="onFileSelected($event)" [disabled]="isUploadingOrProcessing" />
       <div class="upload-content">
         <span class="material-symbols-outlined upload-icon">cloud_upload</span>
-        <strong>{{ selectedFile ? + selectedFile.name : 'Glissez-déposez votre fichier PDF ici' }}</strong>
+        <strong>{{ selectedFile ? selectedFile.name : 'Glissez-deposez votre fichier PDF ici' }}</strong>
         <span *ngIf="!selectedFile" class="hint">ou cliquez pour parcourir vos dossiers</span>
         <span *ngIf="selectedFile" class="file-size">{{ (selectedFile.size / 1024) | number:'1.0-0' }} Ko</span>
+        <span *ngIf="selectedFile" class="file-remove" (click)="resetForm(); $event.stopPropagation()">
+          <span class="material-symbols-outlined">close</span>
+        </span>
       </div>
     </div>
 
     <!-- Barre de progression -->
-    <div *ngIf="uploading" class="progress-container">
-      <div class="progress-bar" [style.width.%]="progress">
-        <span>{{ progress }}%</span>
+    <div *ngIf="uploading || isProcessing || hasSucceeded" class="progress-container">
+      <div class="progress-track">
+        <div class="progress-bar" 
+             [style.width.%]="progress"
+             [class.success]="hasSucceeded"
+             [class.failed]="!hasSucceeded && !uploading && !isProcessing && progress > 0">
+          <span *ngIf="progress > 10">{{ progress }}%</span>
+        </div>
       </div>
-      <span class="progress-label">Traitement en cours...</span>
+      <span class="progress-label" [class.success]="hasSucceeded" [class.failed]="!hasSucceeded && !uploading && !isProcessing && progress > 0">
+        {{ hasSucceeded ? 'Upload termine avec succes' : uploading ? 'Traitement en cours...' : isProcessing ? 'Finalisation...' : '' }}
+      </span>
     </div>
 
     <div class="upload-actions">
-      <!-- Reset button – disabled during upload/processing -->
       <button type="button" class="btn btn-secondary" 
               (click)="resetForm(); $event.stopPropagation()" 
               *ngIf="selectedFile || response"
               [disabled]="isUploadingOrProcessing">
-        <span class="material-symbols-outlined">refresh</span> Réinitialiser
+        <span class="material-symbols-outlined">refresh</span> Reinitialiser
       </button>
-      <!-- Upload button – uses the getter -->
-      <button type="button" class="btn btn-primary"
+      <button type="button" id="uploadBtn" class="btn btn-primary"
               (click)="upload(); $event.stopPropagation()"
-              [disabled]="!selectedFile || isUploadingOrProcessing">
-        <span class="material-symbols-outlined">{{ uploading ? 'hourglass_top' : 'upload' }}</span>
-        {{ uploading ? 'Upload en cours...' : 'Uploader' }}
+              [disabled]="!selectedFile || isUploadingOrProcessing || hasSucceeded">
+        <span class="material-symbols-outlined">{{ uploading || isProcessing ? 'hourglass_top' : 'upload' }}</span>
+        {{ uploading || isProcessing ? 'Upload en cours...' : 'Uploader' }}
       </button>
+    </div>
+
+    <!-- Status du token (debug) -->
+    <div class="token-status" *ngIf="tokenStatus">
+      <span class="badge" [ngClass]="{
+        'bg-success': tokenStatus === 'Valide',
+        'bg-danger': tokenStatus === 'Expire',
+        'bg-warning': tokenStatus === 'Absent'
+      }">
+        Token: {{ tokenStatus }}
+      </span>
+      <span *ngIf="tokenExpiry" class="text-muted ms-2">
+        Expire le: {{ tokenExpiry }}
+      </span>
     </div>
   </div>
 
@@ -68,68 +94,68 @@
     <div class="result-header">
       <span class="material-symbols-outlined" [class.success]="failureCount === 0">check_circle</span>
       <span class="material-symbols-outlined" *ngIf="failureCount > 0" style="color:#ef4444">warning</span>
-      <h3>Résumé de l'import</h3>
+      <h3>Resume de l'import</h3>
       <span class="badge" [class.success]="failureCount === 0" [class.partial]="failureCount > 0 && successCount > 0" [class.fail]="successCount === 0">
-        {{ failureCount === 0 ? 'Succès' : failureCount > 0 && successCount > 0 ? 'Partiel' : 'Échec' }}
+        {{ failureCount === 0 ? 'Succes' : failureCount > 0 && successCount > 0 ? 'Partiel' : 'Echec' }}
       </span>
     </div>
 
-    <!-- Métriques avancées -->
+    <!-- Metriques avancees -->
     <div *ngIf="hasMetrics" class="metrics-grid">
       <div class="metric-item">
-        <span class="metric-label">📄 Pages totales</span>
+        <span class="metric-label">Pages totales</span>
         <span class="metric-value">{{ response.totalPages || response.totalEmployeesProcessed }}</span>
       </div>
       <div class="metric-item" *ngIf="response.textPages !== undefined">
-        <span class="metric-label">📝 Pages texte</span>
+        <span class="metric-label">Pages texte</span>
         <span class="metric-value">{{ response.textPages }}</span>
       </div>
       <div class="metric-item" *ngIf="response.ocrPages !== undefined">
-        <span class="metric-label">🔍 Pages OCR</span>
+        <span class="metric-label">Pages OCR</span>
         <span class="metric-value">{{ response.ocrPages }}</span>
       </div>
       <div class="metric-item" *ngIf="response.employeesMatched !== undefined">
-        <span class="metric-label">✅ Employés trouvés</span>
+        <span class="metric-label">Employes trouves</span>
         <span class="metric-value">{{ response.employeesMatched }}</span>
       </div>
       <div class="metric-item" *ngIf="response.employeesNotMatched !== undefined">
-        <span class="metric-label">❌ Employés non trouvés</span>
+        <span class="metric-label">Employes non trouves</span>
         <span class="metric-value">{{ response.employeesNotMatched }}</span>
       </div>
       <div class="metric-item" *ngIf="response.processingTime">
-        <span class="metric-label">⏱️ Temps de traitement</span>
+        <span class="metric-label">Temps de traitement</span>
         <span class="metric-value">{{ response.processingTime }}</span>
       </div>
     </div>
 
-    <!-- Statistiques simplifiées -->
+    <!-- Statistiques simplifiees -->
     <div class="stats-grid" *ngIf="!hasMetrics">
       <div class="stat-card blue">
         <div class="stat-icon"><span class="material-symbols-outlined">receipt</span></div>
         <div class="stat-info">
-          <p>Total traités</p>
+          <p>Total traites</p>
           <h3>{{ response.totalEmployeesProcessed || 0 }}</h3>
         </div>
       </div>
       <div class="stat-card green">
         <div class="stat-icon"><span class="material-symbols-outlined">check_circle</span></div>
         <div class="stat-info">
-          <p>Succès</p>
+          <p>Succes</p>
           <h3>{{ response.successCount || 0 }}</h3>
         </div>
       </div>
       <div class="stat-card red">
         <div class="stat-icon"><span class="material-symbols-outlined">error</span></div>
         <div class="stat-info">
-          <p>Échecs</p>
+          <p>Echecs</p>
           <h3>{{ response.failureCount || 0 }}</h3>
         </div>
       </div>
     </div>
 
-    <!-- Détails des erreurs -->
+    <!-- Details des erreurs -->
     <div *ngIf="response.errors && response.errors.length > 0" class="errors-section">
-      <h4>Détails des erreurs ({{ response.errors.length }}) :</h4>
+      <h4>Details des erreurs ({{ response.errors.length }}) :</h4>
       <ul>
         <li *ngFor="let err of response.errors">
           <span class="material-symbols-outlined">error_outline</span>

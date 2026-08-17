@@ -1,15 +1,11 @@
-<!-- src/app/layout/sidebar/sidebar.component.html -->
 <aside
   class="sidebar"
   [class.collapsed]="collapsed() && !isMobile"
   [class.mobile]="isMobile"
   [class.mobile-open]="isOpen"
 >
-  <!-- ===== En-tête : logo + toggle ===== -->
+  <!-- En-tête : logo + toggle -->
   <div class="sidebar-logo">
-   
-
-    <!-- Toggle réduction (desktop uniquement) -->
     @if (!isMobile) {
       <button
         class="toggle-btn"
@@ -21,8 +17,6 @@
         <mat-icon>{{ collapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
       </button>
     }
-
-    <!-- ✅ Bouton de fermeture (mobile uniquement) -->
     @if (isMobile) {
       <button 
         class="toggle-btn close-btn-mobile" 
@@ -35,7 +29,7 @@
     }
   </div>
 
-  <!-- ===== Navigation ===== -->
+  <!-- Navigation -->
   <nav class="sidebar-nav">
     <ul>
       @for (item of visibleNavItems(); track item.label) {
@@ -46,7 +40,6 @@
           (mouseenter)="onGroupEnter(item)"
           (mouseleave)="onGroupLeave()"
         >
-          <!-- ===== Item sans enfants ===== -->
           @if (!item.children) {
             <a
               [routerLink]="item.route"
@@ -64,7 +57,6 @@
             </a>
           }
 
-          <!-- ===== Item avec enfants ===== -->
           @if (item.children && item.children.length > 0) {
             <button
               class="nav-link nav-group"
@@ -84,7 +76,6 @@
               }
             </button>
 
-            <!-- ===== Sous-menu (mode étendu) ===== -->
             <div
               class="sub-menu-wrapper"
               [class.open]="item.expanded && (!collapsed() || isMobile)"
@@ -108,7 +99,6 @@
               </ul>
             </div>
 
-            <!-- ===== Flyout (mode réduit) ===== -->
             @if (collapsed() && !isMobile && flyoutItem === item) {
               <div
                 class="flyout"
@@ -135,7 +125,7 @@
     </ul>
   </nav>
 
-  <!-- ===== Pied : profil ===== -->
+  <!-- Pied : profil -->
   <div class="sidebar-footer">
     <button class="profile-btn" (click)="logout()" type="button">
       <div class="avatar">

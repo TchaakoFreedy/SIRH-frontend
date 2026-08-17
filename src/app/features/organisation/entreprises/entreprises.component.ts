@@ -59,13 +59,13 @@ export class EntreprisesComponent implements OnInit, OnDestroy {
   selectedStatut = signal('');
 
   // ============ PERMISSIONS ============
-  canViewAllCompanies = signal(true);
-  canCreateCompany = signal(true);
-  canUpdateCompany = signal(true);
-  canDeleteCompany = signal(true);
-  canSuspendCompany = signal(true);
-  canReactivateCompany = signal(true);
-  canViewCompany = signal(true);
+  canViewAllCompanies = signal(false);
+  canViewCompany = signal(false);
+  canCreateCompany = signal(false);
+  canUpdateCompany = signal(false);
+  canDeleteCompany = signal(false);
+  canSuspendCompany = signal(false);
+  canReactivateCompany = signal(false);
 
   // ============ PAGINATION ============
   currentPage = signal(1);
@@ -118,7 +118,6 @@ export class EntreprisesComponent implements OnInit, OnDestroy {
 
   // ============ CONSTRUCTOR ============
   constructor() {
-    // Effet pour réinitialiser la page à 1 dès qu'un filtre change
     this.effectRef = effect(() => {
       this.searchTerm();
       this.selectedStatut();
@@ -140,40 +139,73 @@ export class EntreprisesComponent implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // 🔐 PERMISSIONS
+  // 🔐 PERMISSIONS - 100% BASÉ SUR LES PERMISSIONS
   // ==========================================
 
   private loadPermissions(): void {
     console.log('🔐 Chargement des permissions Entreprises...');
     
     const user = this.authService.getCurrentUser();
-    const isAdmin = user?.role === 'RH' || 
-                    user?.role === 'SUPER_ADMIN' || 
-                    user?.role === 'TOP_MANAGER' ||
-                    user?.roles?.includes('RH') ||
-                    user?.roles?.includes('SUPER_ADMIN') ||
-                    user?.roles?.includes('TOP_MANAGER') ||
-                    user?.permissions?.includes('*');
+    console.log('👤 Utilisateur connecté:', user);
+    console.log('🔒 Rôle:', user?.role);
 
-    if (isAdmin) {
-      console.log('✅ Admin détecté - Activation de toutes les permissions Entreprises');
-      this.canViewAllCompanies.set(true);
-      this.canViewCompany.set(true);
-      this.canCreateCompany.set(true);
-      this.canUpdateCompany.set(true);
-      this.canDeleteCompany.set(true);
-      this.canSuspendCompany.set(true);
-      this.canReactivateCompany.set(true);
-      return;
-    }
+    // ✅ Vérifier si l'utilisateur a la permission wildcard (accès total)
+    const hasWildcard = user?.permissions?.includes('*') === true;
 
-    this.canViewAllCompanies.set(this.permissionService.hasPermissionSync('COMPANY_VIEW_ALL'));
-    this.canViewCompany.set(this.permissionService.hasPermissionSync('COMPANY_VIEW'));
-    this.canCreateCompany.set(this.permissionService.hasPermissionSync('COMPANY_CREATE'));
-    this.canUpdateCompany.set(this.permissionService.hasPermissionSync('COMPANY_UPDATE'));
-    this.canDeleteCompany.set(this.permissionService.hasPermissionSync('COMPANY_DELETE'));
-    this.canSuspendCompany.set(this.permissionService.hasPermissionSync('COMPANY_SUSPEND'));
-    this.canReactivateCompany.set(this.permissionService.hasPermissionSync('COMPANY_REACTIVATE'));
+    // ✅ Vérifier si l'utilisateur a la permission SYSTEM_ADMIN
+    const isSystemAdmin = this.permissionService.hasPermissionSync('SYSTEM_ADMIN');
+
+    // ✅ Charger chaque permission individuellement via PermissionService
+    this.canViewAllCompanies.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('COMPANY_VIEW_ALL')
+    );
+    
+    this.canViewCompany.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('COMPANY_VIEW')
+    );
+    
+    this.canCreateCompany.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('COMPANY_CREATE')
+    );
+    
+    this.canUpdateCompany.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('COMPANY_UPDATE')
+    );
+    
+    this.canDeleteCompany.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('COMPANY_DELETE')
+    );
+    
+    this.canSuspendCompany.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('COMPANY_SUSPEND')
+    );
+    
+    this.canReactivateCompany.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('COMPANY_REACTIVATE')
+    );
+
+    console.log('🔐 Permissions Entreprises chargées:', {
+      canViewAllCompanies: this.canViewAllCompanies(),
+      canViewCompany: this.canViewCompany(),
+      canCreateCompany: this.canCreateCompany(),
+      canUpdateCompany: this.canUpdateCompany(),
+      canSuspendCompany: this.canSuspendCompany(),
+      canReactivateCompany: this.canReactivateCompany(),
+    });
   }
 
   // ============ FORMULAIRE MODALE ============
@@ -191,11 +223,8 @@ export class EntreprisesComponent implements OnInit, OnDestroy {
 
   // ============ MÉTHODES DE FILTRAGE ============
   
-  // Le filtrage est automatique grâce aux signaux.
-  // On garde ces méthodes pour les boutons clear/reset.
   applyFilters(): void {
     // L'effet s'occupe de remettre la page à 1.
-    // On peut laisser vide ou ajouter d'autres traitements.
   }
 
   clearSearch(): void {
@@ -279,6 +308,7 @@ export class EntreprisesComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ✅ CORRIGÉ - BASÉ UNIQUEMENT SUR LES PERMISSIONS
   openCreateModal(): void {
     if (!this.canCreateCompany()) {
       this.showToast('❌ Vous n\'avez pas la permission de créer une entreprise', true);
@@ -290,6 +320,7 @@ export class EntreprisesComponent implements OnInit, OnDestroy {
     this.showModal.set(true);
   }
 
+  // ✅ CORRIGÉ - BASÉ UNIQUEMENT SUR LES PERMISSIONS
   openEditModal(ent: Entreprise): void {
     if (!this.canUpdateCompany()) {
       this.showToast('❌ Vous n\'avez pas la permission de modifier une entreprise', true);
@@ -309,6 +340,7 @@ export class EntreprisesComponent implements OnInit, OnDestroy {
     this.showModal.set(true);
   }
 
+  // ✅ CORRIGÉ - BASÉ UNIQUEMENT SUR LES PERMISSIONS
   viewDetails(ent: Entreprise): void {
     if (!this.canViewCompany() && !this.canViewAllCompanies()) {
       this.showToast('❌ Vous n\'avez pas la permission de voir les détails', true);
@@ -322,6 +354,7 @@ export class EntreprisesComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ✅ CORRIGÉ - BASÉ UNIQUEMENT SUR LES PERMISSIONS
   confirmDelete(ent: Entreprise): void {
     if (!this.canDeleteCompany()) {
       this.showToast('❌ Vous n\'avez pas la permission de supprimer une entreprise', true);
@@ -356,6 +389,7 @@ export class EntreprisesComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ✅ CORRIGÉ - BASÉ UNIQUEMENT SUR LES PERMISSIONS
   suspendre(ent: Entreprise): void {
     if (!this.canSuspendCompany()) {
       this.showToast('❌ Vous n\'avez pas la permission de suspendre une entreprise', true);
@@ -391,6 +425,7 @@ export class EntreprisesComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ✅ CORRIGÉ - BASÉ UNIQUEMENT SUR LES PERMISSIONS
   reactiver(ent: Entreprise): void {
     if (!this.canReactivateCompany()) {
       this.showToast('❌ Vous n\'avez pas la permission de réactiver une entreprise', true);

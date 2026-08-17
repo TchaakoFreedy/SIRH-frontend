@@ -1,0 +1,209 @@
+<!-- src/app/features/performance/components/critere/critere-edit/critere-edit.component.html -->
+
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">edit_note</span>
+      </div>
+      <div>
+        <h1>Modifier le critère</h1>
+        <p>Mettez à jour les paramètres du critère de performance</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button type="button" class="btn btn-outline" (click)="cancel()">
+        <span class="material-symbols-outlined">arrow_back</span> Retour
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== STATS ==================== -->
+  <div class="stats-grid" *ngIf="!isLoading">
+    <div class="stat-card blue">
+      <div class="stat-icon"><span class="material-symbols-outlined">rule</span></div>
+      <div class="stat-info">
+        <p>Critère en cours</p>
+        <h3>{{ critereForm.get('nom')?.value || '—' }}</h3>
+      </div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon"><span class="material-symbols-outlined">score</span></div>
+      <div class="stat-info">
+        <p>Note maximale</p>
+        <h3>{{ critereForm.get('noteMaximale')?.value || 0 }}</h3>
+      </div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-icon"><span class="material-symbols-outlined">scale</span></div>
+      <div class="stat-info">
+        <p>Coefficient</p>
+        <h3>{{ critereForm.get('coefficient')?.value || 0 }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== CHARGEMENT ==================== -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Chargement du critère...</p>
+  </div>
+
+  <!-- ==================== FORMULAIRE ==================== -->
+  <div class="table-card" *ngIf="!isLoading">
+    <form [formGroup]="critereForm" (ngSubmit)="onSubmit()">
+      
+      <!-- SECTION 1 : INFORMATIONS GÉNÉRALES -->
+      <div class="form-section">
+        <div class="section-header">
+          <span class="material-symbols-outlined">info</span>
+          <h3>Informations du critère</h3>
+        </div>
+        
+        <div class="form-grid">
+          <!-- Nom -->
+          <div class="form-group span-2">
+            <label>Nom du critère <span class="required">*</span></label>
+            <input 
+              type="text" 
+              formControlName="nom" 
+              placeholder="Ex: Ponctualité, Productivité, Qualité..."
+              [class.error]="critereForm.get('nom')?.touched && critereForm.get('nom')?.invalid"
+            />
+            <div *ngIf="critereForm.get('nom')?.touched && critereForm.get('nom')?.invalid">
+              <small class="error-text">
+                <span class="material-symbols-outlined">error</span> Le nom est obligatoire
+              </small>
+            </div>
+          </div>
+
+          <!-- Description -->
+          <div class="form-group span-2">
+            <label>Description</label>
+            <textarea 
+              formControlName="description" 
+              rows="3" 
+              placeholder="Décrivez ce que ce critère évalue..."
+            ></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 2 : PARAMÈTRES -->
+      <div class="form-section">
+        <div class="section-header">
+          <span class="material-symbols-outlined">settings</span>
+          <h3>Paramètres d'évaluation</h3>
+          <span class="section-badge">Configuration</span>
+        </div>
+
+        <div class="form-grid">
+          <!-- Note maximale -->
+          <div class="form-group">
+            <label>Note maximale <span class="required">*</span></label>
+            <div class="input-with-suffix">
+              <input 
+                type="number" 
+                formControlName="noteMaximale" 
+                min="1" 
+                max="100"
+                [class.error]="critereForm.get('noteMaximale')?.touched && critereForm.get('noteMaximale')?.invalid"
+              />
+              <span class="suffix">/ 100</span>
+            </div>
+            <div *ngIf="critereForm.get('noteMaximale')?.touched && critereForm.get('noteMaximale')?.invalid">
+              <small class="error-text" *ngIf="critereForm.get('noteMaximale')?.hasError('required')">
+                <span class="material-symbols-outlined">error</span> La note maximale est obligatoire
+              </small>
+              <small class="error-text" *ngIf="critereForm.get('noteMaximale')?.hasError('min')">
+                <span class="material-symbols-outlined">error</span> La note doit être ≥ 1
+              </small>
+              <small class="error-text" *ngIf="critereForm.get('noteMaximale')?.hasError('max')">
+                <span class="material-symbols-outlined">error</span> La note ne peut pas dépasser 100
+              </small>
+            </div>
+          </div>
+
+          <!-- Coefficient -->
+          <div class="form-group">
+            <label>Coefficient <span class="required">*</span></label>
+            <div class="input-with-suffix">
+              <input 
+                type="number" 
+                formControlName="coefficient" 
+                min="1"
+                [class.error]="critereForm.get('coefficient')?.touched && critereForm.get('coefficient')?.invalid"
+              />
+              <span class="suffix">×</span>
+            </div>
+            <div *ngIf="critereForm.get('coefficient')?.touched && critereForm.get('coefficient')?.invalid">
+              <small class="error-text" *ngIf="critereForm.get('coefficient')?.hasError('required')">
+                <span class="material-symbols-outlined">error</span> Le coefficient est obligatoire
+              </small>
+              <small class="error-text" *ngIf="critereForm.get('coefficient')?.hasError('min')">
+                <span class="material-symbols-outlined">error</span> Le coefficient doit être ≥ 1
+              </small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 3 : STATUT -->
+      <div class="form-section">
+        <div class="section-header">
+          <span class="material-symbols-outlined">toggle_on</span>
+          <h3>Statut du critère</h3>
+        </div>
+
+        <div class="toggle-container">
+          <div class="toggle-wrapper">
+            <mat-slide-toggle formControlName="actif" color="primary">
+              <span class="toggle-label">
+                {{ critereForm.get('actif')?.value ? 'Actif' : 'Inactif' }}
+              </span>
+            </mat-slide-toggle>
+            <span class="toggle-help">
+              {{ critereForm.get('actif')?.value ? '✅ Ce critère est utilisé dans les évaluations' : '⛔ Ce critère n\'est pas utilisé dans les évaluations' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== ACTIONS ==================== -->
+      <div class="form-actions">
+        <div class="action-left">
+          <span class="required-fields">* Champs obligatoires</span>
+          <span class="status-badge" [class.active]="critereForm.get('actif')?.value" [class.inactive]="!critereForm.get('actif')?.value">
+            {{ critereForm.get('actif')?.value ? 'Actif' : 'Inactif' }}
+          </span>
+        </div>
+        <div class="action-right">
+          <button type="button" class="btn btn-ghost" (click)="cancel()">
+            <span class="material-symbols-outlined">close</span> Annuler
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="submitting || critereForm.invalid">
+            <span *ngIf="!submitting">
+              <span class="material-symbols-outlined">save</span> Enregistrer
+            </span>
+            <span *ngIf="submitting">
+              <span class="material-symbols-outlined spinning">refresh</span> Enregistrement...
+            </span>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ==================== INFO ==================== -->
+  <div class="info-card" *ngIf="!isLoading">
+    <div class="info-content">
+      <span class="material-symbols-outlined">info</span>
+      <div>
+        <strong>À savoir :</strong>
+        <span>La modification d'un critère affecte les évaluations futures. Les notes déjà attribuées restent inchangées.</span>
+      </div>
+    </div>
+  </div>
+</div>

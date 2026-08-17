@@ -1,7 +1,8 @@
 // src/app/core/interceptors/auth.interceptor.ts
-import { HttpInterceptorFn } from '@angular/common/http';
+
+import { HttpInterceptorFn, HttpResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { catchError, throwError, switchMap } from 'rxjs';
+import { catchError, throwError, switchMap, tap } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { Router } from '@angular/router';
 
@@ -9,90 +10,105 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  // 🔍 LOG DE DEBUG
-  console.log(`🛡️ Interceptor [${req.method}] ${req.url}`);
+  // Logs de debug (supprimer en production)
+  console.log(`[AuthInterceptor] Request [${req.method}] ${req.url}`);
 
-  // Récupération du token avec la bonne clé (access_token)
-  let token = localStorage.getItem('access_token');
+  let token = authService.getToken();
   
-  // Fallback si le token est stocké sous une autre clé
-  if (!token) {
-    token = localStorage.getItem('token');
-  }
-  if (!token) {
-    token = localStorage.getItem('jwt');
-  }
-
-  console.log(`   Token trouvé: ${!!token}`);
+  console.log(`[AuthInterceptor] Token found: ${token ? 'YES' : 'NO'}`);
   if (token) {
-    console.log(`   Token (début): ${token.substring(0, 20)}...`);
+    console.log(`[AuthInterceptor] Token preview: ${token.substring(0, 30)}...`);
   }
-  console.log(`   Clés disponibles:`, Object.keys(localStorage));
 
-  // URLs publiques qui ne nécessitent pas de token
   const isPublic = req.url.includes('/auth/login') ||
                    req.url.includes('/auth/refresh-token') ||
                    req.url.includes('/auth/logout') ||
                    req.url.includes('/auth/forgot-password') ||
-                   req.url.includes('/auth/reset-password');
+                   req.url.includes('/auth/reset-password') ||
+                   req.url.includes('/auth/register') ||
+                   req.url.includes('/auth/verify-2fa') ||
+                   req.url.includes('/uploads/') ||
+                   req.method === 'OPTIONS';
+
+  console.log(`[AuthInterceptor] Is public: ${isPublic}`);
 
   let authReq = req;
 
-  // Ajouter le token uniquement si présent et que ce n'est pas une URL publique
   if (token && !isPublic) {
     authReq = req.clone({
       setHeaders: {
-        Authorization: `Bearer ${token}`
+        'Authorization': `Bearer ${token}`
       }
     });
-    console.log('✅ Header Authorization ajouté');
+    console.log('[AuthInterceptor] Authorization header added');
   } else if (!token && !isPublic) {
-    console.warn(`⚠️ Aucun token trouvé pour la requête protégée: ${req.url}`);
-    
-    // Vérifier si l'utilisateur est authentifié
-    if (!authService.isAuthenticated()) {
-      console.warn('🔒 Utilisateur non authentifié');
-    }
+    console.warn('[AuthInterceptor] No token for protected endpoint');
   }
 
-  // Gestion des erreurs
   return next(authReq).pipe(
+    tap({
+      next: (event) => {
+        if (event instanceof HttpResponse) {
+          console.log(`[AuthInterceptor] Response: ${event.status} for ${req.url}`);
+        }
+      },
+      error: (error) => {
+        console.error('[AuthInterceptor] Error in tap:', error);
+      }
+    }),
     catchError((error) => {
-      console.error('❌ Erreur HTTP:', error.status, error.message);
-      console.error('   URL:', req.url);
-      console.error('   Headers:', authReq.headers.keys());
+      console.error(`[AuthInterceptor] HTTP Error: ${error.status} - ${error.message}`);
+      console.error('[AuthInterceptor] URL:', req.url);
+      
+      if (error.error) {
+        console.error('[AuthInterceptor] Error body:', error.error);
+      }
 
-      // Si erreur 401 ou 403, tenter de rafraîchir le token
-      if ((error.status === 401 || error.status === 403) && !req.url.includes('/auth/refresh-token')) {
-        console.log('🔄 Tentative de rafraîchissement du token...');
+      // Les erreurs 403 (Forbidden) ne doivent PAS déclencher de refresh token
+      if (error.status === 403) {
+        console.warn('[AuthInterceptor] Access refused (403) - No logout, no refresh');
+        return throwError(() => error);
+      }
+
+      // Seulement les 401 (Unauthorized) déclenchent un refresh token
+      if (error.status === 401 && !req.url.includes('/auth/refresh-token') && !req.url.includes('/auth/login')) {
+        console.log('[AuthInterceptor] Attempting token refresh for 401...');
         
-        const refreshToken = localStorage.getItem('refresh_token');
+        const refreshToken = authService.getRefreshToken();
         if (refreshToken) {
           return authService.refreshToken().pipe(
             switchMap((response: any) => {
-              console.log('✅ Token rafraîchi avec succès');
-              // Réessayer la requête originale avec le nouveau token
-              const newToken = localStorage.getItem('access_token');
-              const newReq = req.clone({
-                setHeaders: {
-                  Authorization: `Bearer ${newToken}`
-                }
-              });
-              return next(newReq);
+              console.log('[AuthInterceptor] Token refreshed successfully');
+              const newToken = authService.getToken();
+              if (newToken) {
+                const newReq = req.clone({
+                  setHeaders: {
+                    'Authorization': `Bearer ${newToken}`
+                  }
+                });
+                return next(newReq);
+              }
+              return throwError(() => error);
             }),
             catchError((refreshError) => {
-              console.error('❌ Échec du rafraîchissement du token');
-              authService.logout();
+              console.error('[AuthInterceptor] Token refresh failed:', refreshError);
+              if (refreshError.status === 401 || refreshError.status === 403) {
+                console.log('[AuthInterceptor] Logging out due to invalid refresh token');
+                authService.logout();
+                router.navigate(['/login']);
+              }
               return throwError(() => refreshError);
             })
           );
         } else {
-          console.warn('🔒 Aucun refresh token disponible, déconnexion');
+          console.warn('[AuthInterceptor] No refresh token available for 401');
           authService.logout();
+          router.navigate(['/login']);
           return throwError(() => error);
         }
       }
 
+      // Pour toutes les autres erreurs, les propager
       return throwError(() => error);
     })
   );

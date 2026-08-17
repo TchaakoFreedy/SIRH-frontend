@@ -1,0 +1,286 @@
+<!-- src/app/features/performance/components/evaluation/evaluation-create/evaluation-create.component.html -->
+
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">rate_review</span>
+      </div>
+      <div>
+        <h1>Nouvelle évaluation de performance</h1>
+        <p>Évaluer les compétences et performances d'un collaborateur</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-secondary" routerLink="/app/performance/evaluations">
+        <span class="material-symbols-outlined">arrow_back</span> Retour
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== STATS ==================== -->
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">people</span>
+      </div>
+      <div class="stat-info">
+        <p>Employés</p>
+        <h3>
+          <span *ngIf="isLoading" class="spinner-small"></span>
+          <span *ngIf="!isLoading">{{ employees.length }}</span>
+        </h3>
+      </div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">checklist</span>
+      </div>
+      <div class="stat-info">
+        <p>Critères actifs</p>
+        <h3>{{ allCriteres.length }}</h3>
+      </div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">calendar_month</span>
+      </div>
+      <div class="stat-info">
+        <p>Année en cours</p>
+        <h3>{{ currentYear }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== FORMULAIRE ==================== -->
+  <div class="form-card">
+    <form [formGroup]="evaluationForm" (ngSubmit)="onSubmit()">
+      
+      <!-- SECTION 1 : INFORMATIONS GÉNÉRALES -->
+      <div class="form-section">
+        <div class="section-header">
+          <span class="material-symbols-outlined">info</span>
+          <h3>Informations générales</h3>
+        </div>
+        
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label>Employé <span class="required">*</span></label>
+            <div class="select-wrapper">
+              <select 
+                formControlName="employeId" 
+                [class.error]="evaluationForm.get('employeId')?.touched && evaluationForm.get('employeId')?.invalid"
+              >
+                <option value="" disabled selected>
+                  {{ isLoading ? 'Chargement des employés...' : '-- Sélectionner un employé --' }}
+                </option>
+                <option *ngFor="let emp of employees" [value]="emp.id">
+                  {{ getEmployeeDisplay(emp) }}
+                </option>
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+            <div *ngIf="evaluationForm.get('employeId')?.touched && evaluationForm.get('employeId')?.invalid">
+              <small class="error-text">
+                <span class="material-symbols-outlined">error</span> L'employé est obligatoire
+              </small>
+            </div>
+            <small class="hint-text" *ngIf="!isLoading && employees.length > 0">
+              {{ employees.length }} employé(s) disponible(s)
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label>Période <span class="required">*</span></label>
+            <div class="select-wrapper">
+              <select formControlName="periode" [class.error]="evaluationForm.get('periode')?.touched && evaluationForm.get('periode')?.invalid">
+                <option value="" disabled selected>-- Sélectionner une période --</option>
+                <option *ngFor="let periode of periodeOptions" [value]="periode">{{ getPeriodeLabel(periode) }}</option>
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+            <div *ngIf="evaluationForm.get('periode')?.touched && evaluationForm.get('periode')?.invalid">
+              <small class="error-text">
+                <span class="material-symbols-outlined">error</span> La période est obligatoire
+              </small>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Année <span class="required">*</span></label>
+            <div class="select-wrapper">
+              <select formControlName="annee" [class.error]="evaluationForm.get('annee')?.touched && evaluationForm.get('annee')?.invalid">
+                <option value="" disabled selected>-- Sélectionner une année --</option>
+                <option *ngFor="let year of yearOptions" [value]="year">{{ year }}</option>
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+            <div *ngIf="evaluationForm.get('annee')?.touched && evaluationForm.get('annee')?.invalid">
+              <small class="error-text">
+                <span class="material-symbols-outlined">error</span> L'année est obligatoire
+              </small>
+            </div>
+          </div>
+
+          <!-- Sélecteur de mois - visible uniquement pour la période MENSUEL -->
+          <div class="form-group" *ngIf="showMonthSelector">
+            <label>Mois <span class="required">*</span></label>
+            <div class="select-wrapper">
+              <select 
+                formControlName="mois" 
+                [class.error]="evaluationForm.get('mois')?.touched && evaluationForm.get('mois')?.invalid"
+              >
+                <option value="" disabled selected>-- Sélectionner un mois --</option>
+                <option *ngFor="let month of monthOptions" [value]="month.value">{{ month.label }}</option>
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+            <div *ngIf="evaluationForm.get('mois')?.touched && evaluationForm.get('mois')?.invalid">
+              <small class="error-text">
+                <span class="material-symbols-outlined">error</span> Le mois est obligatoire pour la période mensuelle
+              </small>
+            </div>
+            <small class="hint-text">Sélectionnez le mois de l'évaluation mensuelle</small>
+          </div>
+
+          <div class="form-group span-2">
+            <label>Commentaires</label>
+            <textarea 
+              formControlName="commentaires" 
+              rows="3" 
+              placeholder="Ajoutez des commentaires pour contextualiser l'évaluation..."
+            ></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 2 : SÉLECTION DES CRITÈRES -->
+      <div class="form-section" *ngIf="selectedEmployeeId && availableCriteres.length > 0">
+        <div class="section-header">
+          <span class="material-symbols-outlined">checklist</span>
+          <h3>Sélection des critères d'évaluation</h3>
+          <span class="section-badge">
+            {{ selectedCritereIds.size }} / {{ availableCriteres.length }} sélectionnés
+          </span>
+        </div>
+        <p class="hint">Cochez les critères que vous souhaitez utiliser pour évaluer cet employé.</p>
+        
+        <div class="critere-selection-grid">
+          <div *ngFor="let critere of availableCriteres" class="critere-selection-item">
+            <label class="critere-checkbox">
+              <input 
+                type="checkbox" 
+                [checked]="isCritereSelected(critere.id || '')"
+                (change)="toggleCritereSelection(critere.id || '', $event)"
+              />
+              <div class="critere-info">
+                <span class="critere-name">{{ critere.nom }}</span>
+              </div>
+              <span class="critere-max">/ {{ critere.noteMaximale }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 3 : ÉVALUATION PAR CRITÈRE -->
+      <div class="form-section" *ngIf="notesArray.length > 0">
+        <div class="section-header">
+          <span class="material-symbols-outlined">star</span>
+          <h3>Notation des critères</h3>
+          <span class="section-badge">{{ notesArray.length }} critères à noter</span>
+        </div>
+        <p class="hint">Attribuez une note pour chaque critère sélectionné.</p>
+        
+        <div class="notes-grid">
+          <div *ngFor="let noteControl of notesArray.controls; let i = index" class="note-item">
+            <div class="note-header">
+              <div class="critere-info">
+                <span class="critere-name">{{ getCritereNom(i) }}</span>             
+              </div>
+              <span class="critere-max">/ {{ getCritereNoteMax(getCritereId(i)) }}</span>
+            </div>
+            <div class="note-input-wrapper">
+              <input 
+                type="number" 
+                [formControl]="getNoteControl(i)" 
+                [min]="0" 
+                [max]="getCritereNoteMax(getCritereId(i))" 
+                step="0.5"
+                [class.error]="getNoteControl(i).touched && getNoteControl(i).invalid"
+                placeholder="0"
+              />
+              <div class="note-error" *ngIf="getNoteControl(i).touched && getNoteControl(i).invalid">
+                <small class="error-text" *ngIf="getNoteControl(i).hasError('required')">
+                  <span class="material-symbols-outlined">error</span> Note obligatoire
+                </small>
+                <small class="error-text" *ngIf="getNoteControl(i).hasError('min')">
+                  <span class="material-symbols-outlined">error</span> ≥ 0
+                </small>
+                <small class="error-text" *ngIf="getNoteControl(i).hasError('max')">
+                  <span class="material-symbols-outlined">error</span> ≤ {{ getCritereNoteMax(getCritereId(i)) }}
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Message si aucun critère sélectionné -->
+      <div *ngIf="selectedEmployeeId && availableCriteres.length > 0 && selectedCritereIds.size === 0" class="empty-state">
+        <span class="material-symbols-outlined">warning</span>
+        <p>Aucun critère sélectionné.</p>
+        <p class="hint">Veuillez sélectionner au moins un critère pour évaluer cet employé.</p>
+      </div>
+
+      <!-- Message si aucun critère disponible -->
+      <div *ngIf="selectedEmployeeId && availableCriteres.length === 0" class="empty-state">
+        <span class="material-symbols-outlined" *ngIf="!isLoading">warning</span>
+        <span class="material-symbols-outlined spinning" *ngIf="isLoading">refresh</span>
+        <p *ngIf="!isLoading">Aucun critère d'évaluation disponible pour cet employé.</p>
+        <p *ngIf="isLoading">Chargement des critères...</p>
+        <p class="hint" *ngIf="!isLoading">Veuillez attribuer des critères sélectifs à cet employé ou activer des critères globaux.</p>
+      </div>
+
+      <!-- Message si aucun employé sélectionné -->
+      <div *ngIf="!selectedEmployeeId" class="empty-state">
+        <span class="material-symbols-outlined">info</span>
+        <p>Sélectionnez un employé pour voir ses critères d'évaluation.</p>
+      </div>
+
+      <!-- ==================== ACTIONS ==================== -->
+      <div class="form-actions">
+        <div class="action-left">
+          <span class="required-fields">* Champs obligatoires</span>
+        </div>
+        <div class="action-right">
+          <button type="button" class="btn btn-ghost" (click)="cancel()">
+            <span class="material-symbols-outlined">close</span> Annuler
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="submitting || evaluationForm.invalid || selectedCritereIds.size === 0">
+            <span *ngIf="!submitting">
+              <span class="material-symbols-outlined">check_circle</span>
+              Créer l'évaluation
+            </span>
+            <span *ngIf="submitting">
+              <span class="material-symbols-outlined spinning">refresh</span>
+              Création en cours...
+            </span>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ==================== INFO ==================== -->
+  <div class="info-card">
+    <div class="info-content">
+      <span class="material-symbols-outlined">info</span>
+      <div>
+        <strong>À savoir :</strong>
+        <span>L'évaluation de performance permet de mesurer les compétences et la productivité des collaborateurs. Les résultats sont automatiquement calculés et un classement est généré.</span>
+      </div>
+    </div>
+  </div>
+</div>

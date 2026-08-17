@@ -2,7 +2,7 @@
 
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
-import { Observable, throwError, tap, catchError, timeout, TimeoutError, shareReplay } from 'rxjs';
+import { Observable, throwError, tap, catchError, timeout, TimeoutError, shareReplay, of } from 'rxjs';
 import { retry } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { PaySlip, PaySlipUploadResponse } from '../models/pay-slip.model';
@@ -12,8 +12,9 @@ import { PaySlip, PaySlipUploadResponse } from '../models/pay-slip.model';
 })
 export class PaySlipService {
   private apiUrl = `${environment.apiUrl}/pay-slips`;
-  private debug = true;
+  private debug = false;
   private activeUploads = new Map<string, Observable<PaySlipUploadResponse>>();
+  private uploadStates = new Map<string, boolean>();
 
   constructor(private http: HttpClient) {
     console.log(`PaySlipService initialized with URL: ${this.apiUrl}`);
@@ -27,33 +28,47 @@ export class PaySlipService {
     return environment.apiUrl.replace('/api', '');
   }
 
-  // ========== 1. UPLOAD ==========
   upload(file: File, idempotencyKey: string): Observable<PaySlipUploadResponse> {
-    const uploadKey = `${file.name}-${file.size}`;
+    const uploadKey = this.getUploadKey(file);
+    const requestId = crypto.randomUUID();
 
-    if (this.activeUploads.has(uploadKey)) {
-      this.log('Upload already in progress, reusing');
-      return this.activeUploads.get(uploadKey)!;
+    if (this.uploadStates.get(uploadKey)) {
+      this.log('Upload already in progress');
+      return throwError(() => ({
+        status: 409,
+        message: 'Upload deja en cours pour ce fichier',
+        error: 'DUPLICATE_REQUEST'
+      }));
     }
+
+    this.uploadStates.set(uploadKey, true);
 
     const formData = new FormData();
     formData.append('file', file);
 
     const headers = new HttpHeaders()
       .set('Idempotency-Key', idempotencyKey)
-      .set('X-Request-ID', crypto.randomUUID());
+      .set('X-Request-ID', requestId);
 
     const uploadUrl = `${this.apiUrl}/upload`;
 
     const upload$ = this.http.post<PaySlipUploadResponse>(uploadUrl, formData, { headers }).pipe(
-      timeout(600000), // 10 minutes timeout for large files
-      tap(res => {
-        this.log('Upload successful:', res);
-        this.activeUploads.delete(uploadKey);
+      timeout(600000),
+      tap({
+        next: (res) => {
+          this.log('Upload successful:', res);
+          this.uploadStates.delete(uploadKey);
+        },
+        error: (error) => {
+          this.log('Upload error:', error);
+          this.uploadStates.delete(uploadKey);
+        },
+        finalize: () => {
+          this.uploadStates.delete(uploadKey);
+        }
       }),
       catchError((error) => {
-        this.activeUploads.delete(uploadKey);
-        console.error('Upload error:', error);
+        this.uploadStates.delete(uploadKey);
         return this.handleError(error);
       }),
       shareReplay({ bufferSize: 1, refCount: false })
@@ -63,7 +78,10 @@ export class PaySlipService {
     return upload$;
   }
 
-  // ========== 2. GET ALL PAY SLIPS ==========
+  private getUploadKey(file: File): string {
+    return `${file.name}-${file.size}`;
+  }
+
   getAll(): Observable<PaySlip[]> {
     return this.http.get<PaySlip[]>(this.apiUrl).pipe(
       timeout(30000),
@@ -72,7 +90,6 @@ export class PaySlipService {
     );
   }
 
-  // ========== 3. GET MY PAY SLIPS ==========
   getMySlips(): Observable<PaySlip[]> {
     const url = `${this.apiUrl}/me`;
     return this.http.get<PaySlip[]>(url).pipe(
@@ -82,7 +99,6 @@ export class PaySlipService {
     );
   }
 
-  // ========== 4. GET BY ID ==========
   getById(id: string): Observable<PaySlip> {
     if (!id || id.trim() === '') {
       return throwError(() => new Error('Invalid pay slip ID'));
@@ -95,7 +111,6 @@ export class PaySlipService {
     );
   }
 
-  // ========== 5. UPDATE ==========
   update(id: string, data: Partial<PaySlip>): Observable<PaySlip> {
     const url = `${this.apiUrl}/${id}`;
     return this.http.put<PaySlip>(url, data).pipe(
@@ -105,7 +120,6 @@ export class PaySlipService {
     );
   }
 
-  // ========== 6. DELETE ==========
   delete(id: string): Observable<void> {
     const url = `${this.apiUrl}/${id}`;
     return this.http.delete<void>(url).pipe(
@@ -115,14 +129,31 @@ export class PaySlipService {
     );
   }
 
-  // ========== 7. DOWNLOAD PDF ==========
   downloadPdf(id: string): void {
     if (!id) return;
+    
     const url = `${this.apiUrl}/${id}/download`;
-    window.open(url, '_blank');
+    
+    this.http.get(url, {
+      responseType: 'blob',
+      headers: new HttpHeaders().set('Accept', 'application/pdf')
+    }).subscribe({
+      next: (blob) => {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `bulletin-${id}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+      },
+      error: (error) => {
+        console.error('Erreur lors du telechargement du PDF:', error);
+        window.open(url, '_blank');
+      }
+    });
   }
 
-  // ========== 8. GET PAGE IDS ==========
   getPageIds(id: string): Observable<string[]> {
     const url = `${this.apiUrl}/${id}/pages`;
     return this.http.get<string[]>(url).pipe(
@@ -132,19 +163,28 @@ export class PaySlipService {
     );
   }
 
-  // ========== 9. DOWNLOAD PAGE ==========
   downloadPage(id: string, pageNumber: number): void {
     const url = `${this.apiUrl}/${id}/download/page/${pageNumber}`;
-    window.open(url, '_blank');
+    
+    this.http.get(url, {
+      responseType: 'blob'
+    }).subscribe({
+      next: (blob) => {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `page-${pageNumber}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+      },
+      error: (error) => {
+        console.error('Erreur lors du telechargement de la page:', error);
+        window.open(url, '_blank');
+      }
+    });
   }
 
-  // ========== 10. DOWNLOAD ZIP ==========
-  downloadZip(id: string): void {
-    const url = `${this.apiUrl}/${id}/zip`;
-    window.open(url, '_blank');
-  }
-
-  // ========== 11. GET IMAGE URL ==========
   getImageUrl(imageUrl: string): string {
     if (imageUrl.startsWith('http')) {
       return imageUrl;
@@ -153,7 +193,6 @@ export class PaySlipService {
     return `${baseUrl}${imageUrl}`;
   }
 
-  // ========== 12. GET IMAGE WITH AUTH ==========
   getImageWithAuth(imageUrl: string, retries: number = 3): Observable<Blob> {
     const fullUrl = this.getImageUrl(imageUrl);
     const headers = new HttpHeaders().set('Authorization', `Bearer ${localStorage.getItem('access_token')}`);
@@ -173,13 +212,11 @@ export class PaySlipService {
     );
   }
 
-  // ========== 13. VIEW IMAGE ==========
   viewImage(imageUrl: string): void {
     const fullUrl = this.getImageUrl(imageUrl);
     window.open(fullUrl, '_blank');
   }
 
-  // ========== 14. GET IMAGE BLOB ==========
   getImageBlob(imageUrl: string): Observable<Blob> {
     const fullUrl = this.getImageUrl(imageUrl);
     return this.http.get(fullUrl, { 
@@ -192,7 +229,6 @@ export class PaySlipService {
     );
   }
 
-  // ========== ERROR HANDLING ==========
   private handleError(error: HttpErrorResponse | TimeoutError): Observable<never> {
     let userMessage = 'Server error';
 
@@ -237,6 +273,9 @@ export class PaySlipService {
         case 408:
           userMessage = 'Request timed out. Please try again.';
           break;
+        case 409:
+          userMessage = 'Upload already in progress for this file.';
+          break;
         case 413:
           userMessage = 'File too large (max 10MB).';
           break;
@@ -259,7 +298,6 @@ export class PaySlipService {
     }));
   }
 
-  // ========== UTILITY METHODS ==========
   getStatusColor(status?: string): string {
     if (!status) return 'secondary';
     const map: Record<string, string> = {
@@ -290,11 +328,12 @@ export class PaySlipService {
 
   isUploadInProgress(fileName: string, fileSize: number): boolean {
     const key = `${fileName}-${fileSize}`;
-    return this.activeUploads.has(key);
+    return this.uploadStates.has(key) || this.activeUploads.has(key);
   }
 
   cancelUpload(fileName: string, fileSize: number): void {
     const key = `${fileName}-${fileSize}`;
     this.activeUploads.delete(key);
+    this.uploadStates.delete(key);
   }
 }

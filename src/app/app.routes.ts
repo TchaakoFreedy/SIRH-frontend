@@ -1,4 +1,4 @@
-// app.routes.ts
+// src/app/app.routes.ts
 
 import { Routes } from '@angular/router';
 import { MainLayoutComponent } from './layout/main-layout/main-layout.component';
@@ -12,6 +12,15 @@ export const routes: Routes = [
   {
     path: 'login',
     component: LoginComponent
+  },
+
+  // ✅ 2FA VERIFICATION - Match the component's expected path
+  {
+    path: 'login/two-factor',
+    loadComponent: () =>
+      import('./features/auth/login/components/two-factor-login/two-factor-login.component')
+        .then(m => m.TwoFactorLoginComponent)
+    // Pas de guard car on vérifie la session dans le composant
   },
 
   // 🔁 REDIRECTION
@@ -51,7 +60,6 @@ export const routes: Routes = [
     component: MainLayoutComponent,
     canActivate: [AuthGuard],
     children: [
-
       // ========== DASHBOARD ==========
       {
         path: 'dashboard',
@@ -93,6 +101,14 @@ export const routes: Routes = [
           import('./features/mon-espace/profil/profil.component')
             .then(m => m.ProfilComponent)
       },
+      {
+        path: 'mon-espace/performances',
+        loadChildren: () =>
+          import('./features/performance/components/my-performance/my-performance.module')
+            .then(m => m.MyPerformanceModule),
+        canActivate: [PermissionGuard],
+        data: { permission: 'PERFORMANCE_VIEW' }
+      },
 
       // ========== RESSOURCES HUMAINES (RH) ==========
       {
@@ -103,7 +119,7 @@ export const routes: Routes = [
         canActivate: [PermissionGuard],
         data: { permission: 'EMPLOYEE_VIEW_ALL' }
       },
-        {
+      {
         path: 'rh/documents',
         loadComponent: () =>
           import('./features/rh/documents/documents.component')
@@ -122,7 +138,7 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/conges/demande-conge/demande-conge.component')
             .then(m => m.DemandeCongeComponent),
-            canActivate: [PermissionGuard],
+        canActivate: [PermissionGuard],
         data: { permission: 'LEAVE_VIEW_OWN' }
       },
       {
@@ -157,55 +173,92 @@ export const routes: Routes = [
       },
 
       // ========== MODULE PAIE ==========
-    // ========== MODULE PAIE ==========
-{
-  path: 'paie/bulletins',
-  loadComponent: () =>
-    import('./features/pay-slip/pay-slip-list.component')
-      .then(m => m.PaySlipListComponent),
-  canActivate: [PermissionGuard],
-  data: { permission: 'PAYSLIP_VIEW_ALL' }
-},
-{
-  path: 'paie/import',
-  loadComponent: () =>
-    import('./features/pay-slip/pay-slip-upload.component')
-      .then(m => m.PaySlipUploadComponent),
-  canActivate: [PermissionGuard],
-  data: { permission: 'PAYSLIP_CREATE' }
-},
-{
-  path: 'paie/historique',
-  loadComponent: () =>
-    import('./features/pay-slip/pay-slip-list.component')
-      .then(m => m.PaySlipListComponent),
-  canActivate: [PermissionGuard],
-  data: { permission: 'PAYSLIP_VIEW_ALL' }
-},
-{
-  path: 'paie/pay-slip-detail/:id',
-  loadComponent: () =>
-    import('./features/pay-slip/pay-slip-detail.component')
-      .then(m => m.PaySlipDetailComponent),
-  canActivate: [PermissionGuard],
-  data: { permission: 'PAYSLIP_VIEW' }
-},
-{
-  path: 'paie/edit/:id',
-  loadComponent: () =>
-    import('./features/pay-slip/pay-slip-edit.component')
-      .then(m => m.PaySlipEditComponent),
-  canActivate: [PermissionGuard],
-  data: { permission: 'PAYSLIP_UPDATE' }
-},
-{
-  path: 'paie/mes-bulletins',
-  loadComponent: () =>
-    import('./features/pay-slip/my-pay-slips.component')
-      .then(m => m.MyPaySlipsComponent),
-  canActivate: [PermissionGuard],
-  data: { permission: 'PAYSLIP_VIEW' }
-},
+      {
+        path: 'paie/bulletins',
+        loadComponent: () =>
+          import('./features/pay-slip/pay-slip-list.component')
+            .then(m => m.PaySlipListComponent),
+        canActivate: [PermissionGuard],
+        data: { permission: 'PAYSLIP_VIEW_ALL' }
+      },
+      {
+        path: 'paie/import',
+        loadComponent: () =>
+          import('./features/pay-slip/pay-slip-upload.component')
+            .then(m => m.PaySlipUploadComponent),
+        canActivate: [PermissionGuard],
+        data: { permission: 'PAYSLIP_CREATE' }
+      },
+      {
+        path: 'paie/historique',
+        loadComponent: () =>
+          import('./features/pay-slip/pay-slip-list.component')
+            .then(m => m.PaySlipListComponent),
+        canActivate: [PermissionGuard],
+        data: { permission: 'PAYSLIP_VIEW_ALL' }
+      },
+      {
+        path: 'paie/pay-slip-detail/:id',
+        loadComponent: () =>
+          import('./features/pay-slip/pay-slip-detail.component')
+            .then(m => m.PaySlipDetailComponent),
+        canActivate: [PermissionGuard],
+        data: { permission: 'PAYSLIP_VIEW' }
+      },
+      {
+        path: 'paie/edit/:id',
+        loadComponent: () =>
+          import('./features/pay-slip/pay-slip-edit.component')
+            .then(m => m.PaySlipEditComponent),
+        canActivate: [PermissionGuard],
+        data: { permission: 'PAYSLIP_UPDATE' }
+      },
+      {
+        path: 'paie/mes-bulletins',
+        loadComponent: () =>
+          import('./features/pay-slip/my-pay-slips.component')
+            .then(m => m.MyPaySlipsComponent),
+        canActivate: [PermissionGuard],
+        data: { permission: 'PAYSLIP_VIEW' }
+      },
+
+      // ========== MODULE DISCIPLINE ==========
+      {
+        path: 'discipline',
+        loadChildren: () =>
+          import('./features/discipline/discipline-routing.module')
+            .then(m => m.DisciplineRoutingModule),
+        canActivate: [AuthGuard]
+      },
+
+      // ========== MODULE PERFORMANCE ==========
+      {
+        path: 'performance',
+        loadChildren: () =>
+          import('./features/performance/performance-routing.module')
+            .then(m => m.PerformanceRoutingModule),
+        canActivate: [PermissionGuard],
+        data: { permission: 'PERFORMANCE_VIEW' }
+      },
+      
+      {
+        path: 'performance/my-performance',
+        loadChildren: () =>
+          import('./features/performance/components/my-performance/my-performance.module')
+            .then(m => m.MyPerformanceModule),
+        canActivate: [PermissionGuard],
+        data: { permission: 'PERFORMANCE_VIEW' }
+      },
+      
+      {
+        path: 'performance/classement',
+        loadChildren: () =>
+          import('./features/performance/components/employee-ranking/employee-ranking.module')
+            .then(m => m.EmployeeRankingModule),
+        canActivate: [PermissionGuard],
+        data: { permission: 'RANKING_VIEW' }
+      },
+
       // ========== ADMIN ==========
       {
         path: 'admin/dashboard',
@@ -240,11 +293,22 @@ export const routes: Routes = [
         data: { permission: 'USER_PERMISSION_VIEW' }
       },
 
+      // ========== DASHBOARD ROUTES ==========
       {
         path: 'dashboard',
         loadChildren: () => import('./features/dashboard/dashboard.routes').then(m => m.DASHBOARD_ROUTES),
         canActivate: [AuthGuard],
       },
+
+      // ========== CONTRATS ==========
+{
+  path: 'contrats',
+  loadComponent: () =>
+    import('./features/contrats/contrats.component')
+      .then(m => m.ContratsComponent),
+  canActivate: [PermissionGuard],
+  data: { permission: 'CONTRACT_VIEW_ALL' }
+},
 
       // ========== REDIRECTION PAR DÉFAUT ==========
       {

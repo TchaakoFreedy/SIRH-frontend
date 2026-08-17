@@ -1,0 +1,120 @@
+<!-- src/app/features/auth/login/components/two-factor-login/two-factor-login.component.html -->
+
+<div class="twofa-page">
+  <!-- Left side - 2FA Form -->
+  <div class="twofa-card">
+    <img
+      src="logo.png"
+      alt="Logo de l'entreprise"
+      class="twofa-logo"
+      onerror="this.style.display='none'; this.nextElementSibling?.style?.setProperty('display', 'flex');"
+    />
+    <div class="twofa-logo-fallback" style="display: none;">SIRH</div>
+
+    <div class="twofa-header">
+      <div class="twofa-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="3" y="11" width="18" height="11" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M7 11V7a5 5 0 0110 0v4" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="12" cy="16" r="1.5" fill="currentColor"/>
+        </svg>
+      </div>
+      <h1>Vérification en deux étapes</h1>
+      <p>Entrez le code à 6 chiffres généré par Google Authenticator</p>
+      <div class="user-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="12" cy="7" r="4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        {{ userEmail() }}
+      </div>
+    </div>
+
+    <form [formGroup]="twoFactorForm" (ngSubmit)="verifyTwoFactor()" class="twofa-form" novalidate>
+      <!-- Error message -->
+      @if (errorMessage()) {
+        <div class="alert-error">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 8v4M12 16h.01" stroke-linecap="round"/>
+          </svg>
+          {{ errorMessage() }}
+        </div>
+      }
+
+      <!-- OTP Code -->
+      <div class="form-group">
+        <label for="otpCode">Code OTP</label>
+        <div class="input-wrapper" [class.input-error]="errorMessage()">
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="2" y="4" width="20" height="16" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8 10h8M8 14h6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <input
+            id="otpCode"
+            type="text"
+            formControlName="otpCode"
+            placeholder="000000"
+            maxlength="6"
+            autocomplete="one-time-code"
+            class="otp-input"
+            [class.error]="errorMessage()"
+          />
+        </div>
+        @if (twoFactorForm.get('otpCode')?.invalid && twoFactorForm.get('otpCode')?.touched) {
+          <span class="field-error">
+            @if (twoFactorForm.get('otpCode')?.errors?.['required']) {
+              Le code OTP est requis.
+            } @else if (twoFactorForm.get('otpCode')?.errors?.['pattern']) {
+              Veuillez entrer un code à 6 chiffres valide.
+            }
+          </span>
+        }
+      </div>
+
+      <!-- Actions -->
+      <div class="form-actions">
+        <button type="button" class="btn btn-ghost" (click)="cancel()" [disabled]="isVerifying()">
+          Annuler
+        </button>
+        <button type="submit" class="btn btn-primary" [disabled]="isVerifying() || twoFactorForm.invalid">
+          @if (!isVerifying()) {
+            <span>Vérifier</span>
+          } @else {
+            <span class="btn-loading">
+              <svg class="spinner" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="40" stroke-dashoffset="10"/>
+              </svg>
+              Vérification…
+            </span>
+          }
+        </button>
+      </div>
+
+      <!-- Help text -->
+      <div class="twofa-help">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="12" r="10" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M12 17h.01" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div>
+          <p>Ouvrez Google Authenticator et saisissez le code à 6 chiffres.</p>
+          <p class="hint">Le code change toutes les 30 secondes.</p>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Right side - Panel -->
+  <div class="side-panel" aria-hidden="true">
+    <div class="side-panel-content">
+      <div class="side-panel-logo">
+        <img src="logo1.png" alt="Logo de l'entreprise" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+        <div class="side-panel-logo-fallback">SIRH</div>
+      </div>
+      <h2>Sécurité renforcée</h2>
+      <p>Protégez votre compte avec l'authentification à deux facteurs pour une sécurité optimale.</p>
+    </div>
+  </div>
+</div>

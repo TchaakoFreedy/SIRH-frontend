@@ -1,0 +1,123 @@
+<!-- ==========================================================
+     DIALOGUE DÉTAIL ÉVALUATION - DESIGN TURQUOISE PREMIUM
+     ========================================================== -->
+
+<div class="dialog-container">
+  <!-- Header avec dégradé turquoise -->
+  <div class="dialog-header-glass">
+    <div class="header-left">
+      <div class="header-icon">
+        <span class="material-symbols-outlined">description</span>
+      </div>
+      <div>
+        <h2>Détail de l'évaluation</h2>
+        <p *ngIf="evaluation">Consultation de l'évaluation du {{ evaluation.dateEvaluation | date:'dd/MM/yyyy' }}</p>
+      </div>
+    </div>
+    <button class="close-btn" (click)="close()" aria-label="Fermer">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+
+  <!-- Contenu principal -->
+  @if (loading) {
+    <div class="loading-overlay">
+      <div class="loader-box">
+        <div class="spinner"></div>
+        <span>Chargement en cours...</span>
+      </div>
+    </div>
+  }
+
+  @if (!loading && evaluation) {
+    <div class="dialog-body">
+      <!-- En-tête des détails -->
+      <div class="detail-header">
+        <div>
+          <div class="periode-annee">
+            <span class="periode">{{ evaluation.periode }}</span>
+            <span class="annee">{{ evaluation.annee }}</span>
+          </div>
+          <div class="date">
+            <span class="material-symbols-outlined">calendar_today</span>
+            {{ evaluation.dateEvaluation | date:'dd/MM/yyyy à HH:mm' }}
+          </div>
+        </div>
+        <div class="mention-badge" [class]="'mention-' + getMentionClass(evaluation.mention || '')">
+          {{ getMentionLabel(evaluation.mention || '') }}
+        </div>
+      </div>
+
+      <!-- Score global (carte stat) -->
+      <div class="stat-card score-card">
+        <div class="stat-icon">
+          <span class="material-symbols-outlined">scoreboard</span>
+        </div>
+        <div class="stat-info">
+          <p>Score global</p>
+          <h3>{{ (evaluation.pourcentage ?? 0) | number:'1.1-1' }}%</h3>
+          <span class="score-sub">sur 100%</span>
+        </div>
+        <div class="score-circle">
+          <span>{{ (evaluation.pourcentage ?? 0) | number:'1.0-0' }}%</span>
+        </div>
+      </div>
+
+      <!-- Détail des critères -->
+      @if (evaluation.notes && evaluation.notes.length > 0) {
+        <div class="section-block">
+          <div class="section-title">
+            <span class="material-symbols-outlined">checklist</span>
+            <h3>Critères évalués</h3>
+            <span class="section-badge">{{ evaluation.notes.length }}</span>
+          </div>
+          <div class="notes-list">
+            @for (note of evaluation.notes; track note.critereId) {
+              <div class="note-item">
+                <div class="critere-info">
+                  <!-- ✅ Utilisation directe du nom du critère (provenant du backend) -->
+                  <span class="critere-nom">{{ note.critereNom }}</span>
+                  <span class="note-valeur">{{ note.note }} / 10</span>
+                </div>
+                <div class="note-bar-wrapper">
+                  <div class="note-bar" [style.width.%]="(note.note / 10) * 100"></div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Commentaires -->
+      @if (evaluation.commentaires) {
+        <div class="section-block">
+          <div class="section-title">
+            <span class="material-symbols-outlined">comment</span>
+            <h3>Commentaires</h3>
+          </div>
+          <div class="comment-box">
+            <p>{{ evaluation.commentaires }}</p>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Footer avec navigation et fermeture -->
+  @if (!loading) {
+    <div class="dialog-footer">
+      <div class="nav-buttons">
+        <button class="nav-btn" [disabled]="!hasPrevious()" (click)="goToPrevious()">
+          <span class="material-symbols-outlined">chevron_left</span>
+          <span>Précédent</span>
+        </button>
+        <span class="nav-counter">{{ currentIndex + 1 }} / {{ data.allEvaluations.length }}</span>
+        <button class="nav-btn" [disabled]="!hasNext()" (click)="goToNext()">
+          <span>Suivant</span>
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+      </div>
+      <button class="btn-close" (click)="close()">Fermer</button>
+    </div>
+  }
+</div>

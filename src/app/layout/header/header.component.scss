@@ -64,12 +64,12 @@ $info: #3b82f6;
   &:hover::after {
     opacity: 1;
   }
+}
 
 .logo-icon {
   width: 60px;
   height: 44px;
   border-radius: 12px;
- 
   display: flex;
   align-items: center;
   justify-content: center;
@@ -84,23 +84,21 @@ $info: #3b82f6;
     box-shadow: 0 4px 20px rgba($turquoise, 0.35);
   }
 
-  /* Remplacement de .logo-svg par .logo-img */
   .logo-img {
-    width: 60px; /* Ajuste cette valeur si tu veux le logo plus grand ou plus petit */
-    height: 48px;  /* Idem ici pour garder un ratio carré (1:1) */
-    object-fit: contain; /* Force l'image à garder ses proportions sans déborder */
+    width: 60px;
+    height: 48px;
+    object-fit: contain;
   }
 }
 
-  .brand-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    z-index: 1;
+.brand-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  z-index: 1;
 
-    @media (max-width: 768px) {
-      display: none;
-    }
+  @media (max-width: 768px) {
+    display: none;
   }
 }
 
@@ -137,6 +135,31 @@ $info: #3b82f6;
 
   @media (max-width: 1024px) {
     display: none;
+  }
+}
+
+// ===== Bouton hamburger (mobile) =====
+.menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  transition: background 0.2s;
+  color: $turquoise;
+
+  &:hover {
+    background: rgba($turquoise, 0.08);
+  }
+
+  mat-icon {
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
   }
 }
 
@@ -755,16 +778,6 @@ $info: #3b82f6;
 
   .header-brand {
     padding: 4px 8px 4px 4px;
-    
-    // .logo-icon {
-    //   width:10x;
-    //   height: 10px;
-      
-    //   .logo-svg {
-    //     width: 22px;
-    //     height: 22px;
-    //   }
-    // }
   }
 }
 
@@ -815,23 +828,8 @@ $info: #3b82f6;
     width: 300px;
     right: -20px;
   }
-
-
-
-//  /* Cibler l'image du logo */
-// .logo-img {
-//   max-width: 120px; /* Aligne cette valeur (ex: 100px, 150px) selon tes besoins */
-//   height: auto;     /* Garde les proportions de l'image pour éviter de la déformer */
-//   display: block;   /* Évite les espaces vides indésirables en bas de l'image */
-// }
-
-// /* Optionnel : Assurer que le conteneur s'adapte aussi */
-// .logo-icon {
-//   display: flex;
-//   align-items: center;
-//   justify-content: center;
-// }
 }
+
 // ===== Footer du dropdown notifications =====
 .notif-footer {
   padding: 12px 20px;

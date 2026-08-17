@@ -418,3 +418,21 @@ $primary-dark: #115e59;
   }
 }
 
+// Ajoutez ceci dans votre fichier styles.scss
+.modal-panel .mat-dialog-container {
+  padding: 0 !important;
+  border-radius: 26px !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.modal-panel .mat-dialog-container .mat-dialog-content {
+  margin: 0 !important;
+  padding: 0 !important;
+  max-height: none !important;
+}
+
+.cdk-overlay-pane {
+  max-height: 95vh !important;
+}

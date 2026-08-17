@@ -1,4 +1,5 @@
 // src/app/features/pay-slip/my-pay-slips.component.ts
+
 import { Component, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
@@ -157,10 +158,6 @@ export class MyPaySlipsComponent implements OnInit, OnDestroy {
     this.paySlipService.downloadPdf(id);
   }
 
-  downloadZip(id: string): void {
-    this.paySlipService.downloadZip(id);
-  }
-
   // ======== UTILITAIRES ========
   getStatusBadgeClass(status?: string): string {
     if (!status) return 'badge-secondary';
@@ -211,7 +208,6 @@ export class MyPaySlipsComponent implements OnInit, OnDestroy {
     return this.paySlips.reduce((sum, s) => sum + (s.imageUrls?.length || 0), 0);
   }
 
-  // Helper pour obtenir le nombre de pages d'un bulletin
   getPageCount(slip: PaySlip): number {
     return slip.imageUrls?.length || 0;
   }

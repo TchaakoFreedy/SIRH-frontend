@@ -22,4 +22,12 @@ export interface DashboardEmployeeResponse {
     message: string;
     details: any;
   }[];
+  
+  // Nouveaux champs pour discipline, sanctions et performance
+  pendingExplanationRequests: number;
+  activeSanctions: number;
+  pendingEvaluations: number;
+  explanationRequestsEvolution: { month: string; count: number }[];
+  sanctionsByType: { type: string; count: number }[];
+  performanceEvolution: { month: string; averageScore: number }[];
 }

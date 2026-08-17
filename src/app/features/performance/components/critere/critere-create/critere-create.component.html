@@ -1,0 +1,179 @@
+<!-- src/app/features/performance/components/critere/critere-create/critere-create.component.html -->
+
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">rule</span>
+      </div>
+      <div>
+        <h1>Nouveau critère de performance</h1>
+        <p>Définissez les critères d'évaluation des collaborateurs</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-secondary" routerLink="/app/performance/criteres">
+        <span class="material-symbols-outlined">arrow_back</span> Retour
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== STATS ==================== -->
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-icon"><span class="material-symbols-outlined">checklist</span></div>
+      <div class="stat-info">
+        <p>Critères actifs</p>
+        <h3>{{ criteresCount }}</h3>
+      </div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon"><span class="material-symbols-outlined">trending_up</span></div>
+      <div class="stat-info">
+        <p>Note maximale par défaut</p>
+        <h3>10</h3>
+      </div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-icon"><span class="material-symbols-outlined">scale</span></div>
+      <div class="stat-info">
+        <p>Coefficient par défaut</p>
+        <h3>1</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== FORMULAIRE ==================== -->
+  <div class="form-card">
+    <form [formGroup]="critereForm" (ngSubmit)="onSubmit()">
+      
+      <!-- SECTION 1 : INFORMATIONS GÉNÉRALES -->
+      <div class="form-section">
+        <div class="section-header">
+          <span class="material-symbols-outlined">info</span>
+          <h3>Informations du critère</h3>
+        </div>
+        
+        <div class="form-grid">
+          <!-- Nom -->
+          <div class="form-group span-2">
+            <label>Nom du critère <span class="required">*</span></label>
+            <input 
+              type="text" 
+              formControlName="nom" 
+              placeholder="Ex: Ponctualité, Productivité, Qualité..."
+              [class.error]="critereForm.get('nom')?.touched && critereForm.get('nom')?.invalid"
+            />
+            <div *ngIf="critereForm.get('nom')?.touched && critereForm.get('nom')?.invalid">
+              <small class="error-text">
+                <span class="material-symbols-outlined">error</span> Le nom est obligatoire
+              </small>
+            </div>
+          </div>
+
+          <!-- Description -->
+          <div class="form-group span-2">
+            <label>Description</label>
+            <textarea 
+              formControlName="description" 
+              rows="3" 
+              placeholder="Décrivez ce que ce critère évalue..."
+            ></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 2 : PARAMÈTRES -->
+      <div class="form-section">
+        <div class="section-header">
+          <span class="material-symbols-outlined">settings</span>
+          <h3>Paramètres d'évaluation</h3>
+          <span class="section-badge">Configuration</span>
+        </div>
+
+        <div class="form-grid">
+          <!-- Note maximale -->
+          <div class="form-group">
+            <label>Note maximale <span class="required">*</span></label>
+            <div class="input-with-suffix">
+              <input 
+                type="number" 
+                formControlName="noteMaximale" 
+                min="1" 
+                max="100"
+                [class.error]="critereForm.get('noteMaximale')?.touched && critereForm.get('noteMaximale')?.invalid"
+              />
+              <span class="suffix">/ 100</span>
+            </div>
+            <div *ngIf="critereForm.get('noteMaximale')?.touched && critereForm.get('noteMaximale')?.invalid">
+              <small class="error-text" *ngIf="critereForm.get('noteMaximale')?.hasError('required')">
+                <span class="material-symbols-outlined">error</span> La note maximale est obligatoire
+              </small>
+              <small class="error-text" *ngIf="critereForm.get('noteMaximale')?.hasError('min')">
+                <span class="material-symbols-outlined">error</span> La note doit être ≥ 1
+              </small>
+              <small class="error-text" *ngIf="critereForm.get('noteMaximale')?.hasError('max')">
+                <span class="material-symbols-outlined">error</span> La note ne peut pas dépasser 100
+              </small>
+            </div>
+          </div>
+
+          <!-- Coefficient -->
+          <div class="form-group">
+            <label>Coefficient <span class="required">*</span></label>
+            <div class="input-with-suffix">
+              <input 
+                type="number" 
+                formControlName="coefficient" 
+                min="1"
+                [class.error]="critereForm.get('coefficient')?.touched && critereForm.get('coefficient')?.invalid"
+              />
+              <span class="suffix">×</span>
+            </div>
+            <div *ngIf="critereForm.get('coefficient')?.touched && critereForm.get('coefficient')?.invalid">
+              <small class="error-text" *ngIf="critereForm.get('coefficient')?.hasError('required')">
+                <span class="material-symbols-outlined">error</span> Le coefficient est obligatoire
+              </small>
+              <small class="error-text" *ngIf="critereForm.get('coefficient')?.hasError('min')">
+                <span class="material-symbols-outlined">error</span> Le coefficient doit être ≥ 1
+              </small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== ACTIONS ==================== -->
+      <div class="form-actions">
+        <div class="action-left">
+          <span class="required-fields">* Champs obligatoires</span>
+        </div>
+        <div class="action-right">
+          <button type="button" class="btn btn-ghost" routerLink="/app/performance/criteres">
+            <span class="material-symbols-outlined">close</span> Annuler
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="submitting || critereForm.invalid">
+            <span *ngIf="!submitting">
+              <span class="material-symbols-outlined">add</span> Créer le critère
+            </span>
+            <span *ngIf="submitting">
+              <span class="material-symbols-outlined spinning">refresh</span> Création en cours...
+            </span>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ==================== INFO ==================== -->
+  <div class="info-card">
+    <div class="info-content">
+      <span class="material-symbols-outlined">info</span>
+      <div>
+        <strong>À savoir :</strong>
+        <span>Un critère de performance permet d'évaluer les compétences des collaborateurs. La note maximale et le coefficient influencent le score final.</span>
+      </div>
+    </div>
+  </div>
+</div>

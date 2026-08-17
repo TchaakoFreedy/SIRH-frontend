@@ -1,93 +1,46 @@
 // src/app/core/services/contrat.service.ts
+
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { 
-  Contrat, 
-  CreateContratRequest, 
-  UpdateContratRequest, 
-  RenouvellementContratRequest, 
-  StatistiquesContrat 
+import {
+  Contrat,
+  CreateContratRequest,
+  UpdateContratRequest,
+  RenouvellementContratRequest,
+  StatistiquesContratDTO
 } from '../models/contrat.model';
 
-
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class ContratService {
   private baseUrl = `${environment.apiUrl}/contrats`;
 
-
   constructor(private http: HttpClient) {}
 
-  // ===== CRUD =====
-  
-  // Méthode pour créer un contrat avec des images
-  createContratWithImages(formData: FormData): Observable<Contrat> {
-    // ContratController attend POST /api/contrats/ (création) OU endpoint spécifique.
-    // Ton erreur 404 montre que /api/contrats n'existe pas côté backend pour ce payload.
-    // Ici on aligne avec l'endpoint déjà utilisé pour la création simple.
+  // Création avec fichiers
+  createContrat(request: CreateContratRequest, files?: File[]): Observable<Contrat> {
+    const formData = new FormData();
+    formData.append('contrat', JSON.stringify(request));
+    if (files) {
+      files.forEach(file => formData.append('files', file));
+    }
     return this.http.post<Contrat>(this.baseUrl, formData);
   }
 
-
-  // Méthode pour créer un contrat sans images
-  create(request: CreateContratRequest): Observable<Contrat> {
-    return this.http.post<Contrat>(this.baseUrl, request);
+  // Alias pour compatibilité
+  createContratWithImages(formData: FormData): Observable<Contrat> {
+    return this.http.post<Contrat>(this.baseUrl, formData);
   }
 
-  update(id: string, request: UpdateContratRequest): Observable<Contrat> {
-    return this.http.put<Contrat>(`${this.baseUrl}/${id}`, request);
-  }
-
-  archiver(id: string): Observable<void> {
-    return this.http.patch<void>(`${this.baseUrl}/${id}/archiver`, {});
-  }
-
-  resilier(id: string): Observable<void> {
-    return this.http.patch<void>(`${this.baseUrl}/${id}/resilier`, {});
-  }
-
-  renouveler(request: RenouvellementContratRequest): Observable<Contrat> {
-    return this.http.post<Contrat>(`${this.baseUrl}/renouveler`, request);
-  }
-
-  delete(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.baseUrl}/${id}`);
-  }
-
-  // ===== GESTION DES IMAGES =====
-  uploadContratImages(contratId: string, files: File[]): Observable<Contrat> {
+  // Upload d'images
+  uploadImages(id: string, files: File[]): Observable<Contrat> {
     const formData = new FormData();
     files.forEach(file => formData.append('files', file));
-    
-    return this.http.post<Contrat>(`${this.baseUrl}/${contratId}/images`, formData);
+    return this.http.post<Contrat>(`${this.baseUrl}/${id}/images`, formData);
   }
 
-  getContratImages(contratId: string): Observable<string[]> {
-    return this.http.get<string[]>(`${this.baseUrl}/${contratId}/images`);
-  }
-
-  downloadContratImage(contratId: string, index: number): Observable<Blob> {
-    return this.http.get(`${this.baseUrl}/${contratId}/download`, {
-      params: { index: index.toString() },
-      responseType: 'blob'
-    });
-  }
-
-  viewContratImage(contratId: string, index: number): Observable<Blob> {
-    return this.http.get(`${this.baseUrl}/${contratId}/view`, {
-      params: { index: index.toString() },
-      responseType: 'blob'
-    });
-  }
-
-  deleteContratImage(contratId: string, index: number): Observable<Contrat> {
-    return this.http.delete<Contrat>(`${this.baseUrl}/${contratId}/images/${index}`);
-  }
-
-  // ===== LECTURES =====
+  // Récupération
   getAll(): Observable<Contrat[]> {
     return this.http.get<Contrat[]>(this.baseUrl);
   }
@@ -112,28 +65,62 @@ export class ContratService {
     return this.http.get<Contrat[]>(`${this.baseUrl}/type/${type}`);
   }
 
-  getActifs(): Observable<Contrat[]> {
+  getActiveContracts(): Observable<Contrat[]> {
     return this.http.get<Contrat[]>(`${this.baseUrl}/actifs`);
   }
 
-  getExpires(): Observable<Contrat[]> {
+  getExpiredContracts(): Observable<Contrat[]> {
     return this.http.get<Contrat[]>(`${this.baseUrl}/expires`);
   }
 
-  getExpirant(days?: number): Observable<Contrat[]> {
-    const params = days ? `?days=${days}` : '';
-    return this.http.get<Contrat[]>(`${this.baseUrl}/expirant${params}`);
+  getContractsExpiringSoon(days: number = 14): Observable<Contrat[]> {
+    const params = new HttpParams().set('days', days.toString());
+    return this.http.get<Contrat[]>(`${this.baseUrl}/expirant`, { params });
   }
 
-  getRecents(): Observable<Contrat[]> {
+  getRecentContracts(): Observable<Contrat[]> {
     return this.http.get<Contrat[]>(`${this.baseUrl}/recents`);
   }
 
   search(term: string): Observable<Contrat[]> {
-    return this.http.get<Contrat[]>(`${this.baseUrl}/search?term=${term}`);
+    const params = new HttpParams().set('term', term);
+    return this.http.get<Contrat[]>(`${this.baseUrl}/search`, { params });
   }
 
-  getStatistiques(): Observable<StatistiquesContrat> {
-    return this.http.get<StatistiquesContrat>(`${this.baseUrl}/statistiques`);
+  update(id: string, request: UpdateContratRequest): Observable<Contrat> {
+    return this.http.put<Contrat>(`${this.baseUrl}/${id}`, request);
+  }
+
+  renouveler(request: RenouvellementContratRequest): Observable<Contrat> {
+    return this.http.post<Contrat>(`${this.baseUrl}/renouveler`, request);
+  }
+
+  resilier(id: string): Observable<void> {
+    return this.http.patch<void>(`${this.baseUrl}/${id}/resilier`, {});
+  }
+
+  archiver(id: string): Observable<void> {
+    return this.http.patch<void>(`${this.baseUrl}/${id}/archiver`, {});
+  }
+
+  getContratImages(id: string): Observable<string[]> {
+    return this.http.get<string[]>(`${this.baseUrl}/${id}/images`);
+  }
+
+  deleteContratImage(id: string, index: number): Observable<Contrat> {
+    return this.http.delete<Contrat>(`${this.baseUrl}/${id}/images/${index}`);
+  }
+
+  getStatistiques(): Observable<StatistiquesContratDTO> {
+    return this.http.get<StatistiquesContratDTO>(`${this.baseUrl}/statistiques`);
+  }
+
+  checkExpiring(): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/check-expiring`, {});
+  }
+
+  // Avenant
+  createAvenant(avenantData: any): Observable<Contrat> {
+    return this.http.post<Contrat>(`${this.baseUrl}/avenant`, avenantData);
   }
 }

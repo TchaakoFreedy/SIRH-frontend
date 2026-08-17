@@ -49,15 +49,25 @@ import { RecentActivitiesComponent } from '../recent-activities/recent-activitie
         title="En congé aujourd'hui"
         [value]="data.employeesOnLeaveToday"
       />
+  
+
+      <!-- Nouvelles cartes pour discipline, sanctions et performance -->
       <app-stats-card
-        icon="priority_high"
-        color="#ba1a1a"
-        title="Demandes en attente"
-        [value]="data.pendingLeaveRequests"
+        icon="help"
+        color="#e67e22"
+        title="Demandes d'explication en attente"
+        [value]="data.pendingExplanationRequests"
+      />
+      
+      <app-stats-card
+        icon="assessment"
+        color="#2980b9"
+        title="Évaluations en attente"
+        [value]="data.pendingEvaluations"
       />
     </div>
 
-    <!-- Charts -->
+    <!-- Charts existants -->
     <div class="charts-grid">
       <app-chart-card
         title="Évolution des recrutements"
@@ -83,6 +93,26 @@ import { RecentActivitiesComponent } from '../recent-activities/recent-activitie
         [datasets]="[{ label: 'Employés', data: data.employeesByDepartment.map(d => d.count), backgroundColor: '#006972' }]"
         type="bar"
       />
+
+      <!-- Nouveaux graphiques pour discipline, sanctions et performance -->
+      <app-chart-card
+        title="Demandes d'explication"
+        [labels]="data.explanationRequestsEvolution.map(e => e.month)"
+        [datasets]="[{ label: 'Demandes', data: data.explanationRequestsEvolution.map(e => e.count), backgroundColor: '#e67e22' }]"
+        type="line"
+      />
+      <app-chart-card
+        title="Répartition des sanctions"
+        [labels]="data.sanctionsByType.map(s => s.type)"
+        [datasets]="[{ label: 'Sanctions', data: data.sanctionsByType.map(s => s.count), backgroundColor: ['#c0392b', '#e74c3c', '#f39c12', '#8e44ad'] }]"
+        type="doughnut"
+      />
+      <app-chart-card
+        title="Évolution des performance"
+        [labels]="data.performanceEvolution.map(p => p.month)"
+        [datasets]="[{ label: 'Note moyenne', data: data.performanceEvolution.map(p => p.averageScore), backgroundColor: '#2980b9', borderColor: '#2980b9' }]"
+        type="line"
+      />
     </div>
 
     <!-- Alertes et activités -->
@@ -97,7 +127,7 @@ import { RecentActivitiesComponent } from '../recent-activities/recent-activitie
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 1rem;
       margin-bottom: 2rem;
-      grid-auto-rows: 1fr;  /* ✅ Uniformise la hauteur de toutes les lignes */
+      grid-auto-rows: 1fr;
     }
     .charts-grid {
       display: grid;

@@ -1,0 +1,209 @@
+<!-- src/app/features/discipline/components/demande-explication/demande-explication-actions-modal/demande-explication-actions-modal.component.html -->
+<div class="modal-overlay" (click)="$event.target === $event.currentTarget && close()">
+  <div class="modal-glass max-lg">
+    
+    <!-- Header avec gradient -->
+    <div class="modal-top-header">
+      <div class="modal-title-group">
+        <div class="modal-icon">
+          <span class="material-symbols-outlined">
+            {{ data.action === 'view' ? 'visibility' : data.action === 'edit' ? 'edit' : 'delete' }}
+          </span>
+        </div>
+        <div>
+          <h3>
+            {{ data.action === 'view' ? 'Détails de la demande' :
+               data.action === 'edit' ? 'Modifier la demande' :
+               'Supprimer la demande' }}
+          </h3>
+          <p>{{ demande.numero }}</p>
+        </div>
+      </div>
+      <button class="close-btn" (click)="close()" [disabled]="isLoading">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body-scroll">
+      
+      <!-- ============ MODE VIEW ============ -->
+      <div *ngIf="data.action === 'view'">
+        <!-- En-tête avec statut -->
+        <div class="detail-header">
+          <div class="detail-title">
+            <span class="material-symbols-outlined">description</span>
+            <span>{{ demande.objet }}</span>
+          </div>
+          <span class="status-pill" [class]="getStatutClass(demande.statut)">
+            {{ getStatutLabel(demande.statut) }}
+          </span>
+        </div>
+
+        <!-- Grille d'informations -->
+        <div class="detail-section">
+          <h4><span class="material-symbols-outlined">info</span> Informations générales</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="lbl">Numéro</span>
+              <span class="val accent">{{ demande.numero }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="lbl">Motif</span>
+              <span class="val">{{ demande.motif }}</span>
+            </div>
+            <div class="detail-item span-2">
+              <span class="lbl">Description</span>
+              <span class="val description-text">{{ demande.description }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="lbl">Employé concerné</span>
+              <span class="val">{{ demande.employeConcerneNom || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="lbl">Auteur</span>
+              <span class="val">{{ demande.auteurNom || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="lbl">Date de création</span>
+              <span class="val">{{ formatDate(demande.dateCreation) }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="lbl">Date limite</span>
+              <span class="val">{{ formatDateShort(demande.dateLimiteReponse) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Réponse -->
+        <div *ngIf="demande.reponse" class="detail-section">
+          <h4><span class="material-symbols-outlined">reply</span> Réponse</h4>
+          <div class="reponse-content">
+            <p>{{ demande.reponse.contenu }}</p>
+            <small>Répondu le {{ formatDate(demande.reponse.dateReponse) }}</small>
+          </div>
+        </div>
+
+        <!-- Historique -->
+        <div *ngIf="demande.historique?.length" class="detail-section">
+          <h4><span class="material-symbols-outlined">history</span> Historique</h4>
+          <div class="historique-list">
+            <div *ngFor="let h of demande.historique" class="historique-item">
+              <div class="historique-icon">
+                <span class="material-symbols-outlined">event_note</span>
+              </div>
+              <div class="historique-body">
+                <div class="historique-action">{{ h.action }}</div>
+                <div class="historique-meta">par {{ h.utilisateurNom }} • {{ formatDate(h.date) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ============ MODE EDIT ============ -->
+      <div *ngIf="data.action === 'edit'">
+        <form #editForm="ngForm">
+          <div class="form-block">
+            <div class="block-title">
+              <span class="material-symbols-outlined">edit_note</span>
+              Modifier la demande
+            </div>
+            <div class="form-grid grid-2">
+              <div class="form-group span-2">
+                <label>Objet *</label>
+                <input 
+                  type="text" 
+                  [(ngModel)]="demande.objet" 
+                  name="objet"
+                  required
+                  class="form-input"
+                  placeholder="Objet de la demande"
+                />
+              </div>
+              <div class="form-group span-2">
+                <label>Motif *</label>
+                <input 
+                  type="text" 
+                  [(ngModel)]="demande.motif" 
+                  name="motif"
+                  required
+                  class="form-input"
+                  placeholder="Motif de la demande"
+                />
+              </div>
+              <div class="form-group span-2">
+                <label>Description *</label>
+                <textarea 
+                  [(ngModel)]="demande.description" 
+                  name="description"
+                  required
+                  rows="4"
+                  class="form-textarea"
+                  placeholder="Description détaillée"
+                ></textarea>
+              </div>
+              <div class="form-group">
+                <label>Date limite de réponse *</label>
+                <input 
+                  type="date" 
+                  [(ngModel)]="demande.dateLimiteReponse" 
+                  name="dateLimite"
+                  required
+                  class="form-input"
+                />
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- ============ MODE DELETE ============ -->
+      <div *ngIf="data.action === 'delete'" class="delete-mode">
+        <div class="delete-icon">
+          <span class="material-symbols-outlined">warning</span>
+        </div>
+        <h3>Confirmer la suppression</h3>
+        <p>
+          Êtes-vous sûr de vouloir supprimer la demande 
+          <strong>#{{ demande.numero }}</strong> ?
+        </p>
+        <p class="delete-warning">
+          Cette action est irréversible.
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer-bar">
+      <button class="btn btn-ghost" (click)="close()" [disabled]="isLoading">
+        {{ data.action === 'view' ? 'Fermer' : 'Annuler' }}
+      </button>
+      <button 
+        *ngIf="data.action === 'edit'" 
+        class="btn btn-primary" 
+        (click)="saveEdit()"
+        [disabled]="editForm?.invalid || isLoading"
+      >
+        <span *ngIf="!isLoading">
+          <span class="material-symbols-outlined">save</span> Enregistrer
+        </span>
+        <span *ngIf="isLoading" class="spinner">⏳</span>
+      </button>
+      <button 
+        *ngIf="data.action === 'delete'" 
+        class="btn btn-danger" 
+        (click)="confirmDelete()"
+        [disabled]="isLoading"
+      >
+        <span *ngIf="!isLoading">
+          <span class="material-symbols-outlined">delete</span> Supprimer
+        </span>
+        <span *ngIf="isLoading" class="spinner">⏳</span>
+      </button>
+    </div>
+
+  </div>
+</div>

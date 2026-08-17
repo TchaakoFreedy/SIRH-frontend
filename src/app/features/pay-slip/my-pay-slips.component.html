@@ -1,4 +1,5 @@
 <!-- src/app/features/pay-slip/my-pay-slips.component.html -->
+
 <div class="pay-slip-list-container">
   <!-- Header -->
   <div class="page-header">
@@ -118,9 +119,6 @@
                 </button>
                 <button *ngIf="canDownload" class="btn-icon" (click)="downloadPdf(slip.id)" title="Télécharger PDF">
                   <span class="material-symbols-outlined">picture_as_pdf</span>
-                </button>
-                <button *ngIf="canDownload && getPageCount(slip) > 1" class="btn-icon" (click)="downloadZip(slip.id)" title="Télécharger ZIP">
-                  <span class="material-symbols-outlined">folder_zip</span>
                 </button>
               </div>
             </td>

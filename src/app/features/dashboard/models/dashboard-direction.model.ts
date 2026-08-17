@@ -19,4 +19,12 @@ export interface DashboardDirectionResponse {
     message: string;
     details: any;
   }[];
+  
+  // Nouveaux indicateurs pour discipline, sanctions et performance (périmètre direction)
+  pendingExplanationRequests: number;
+  activeSanctions: number;
+  pendingEvaluations: number;
+  explanationRequestsEvolution: { month: string; count: number }[];
+  sanctionsByType: { type: string; count: number }[];
+  performanceEvolution: { month: string; averageScore: number }[];
 }

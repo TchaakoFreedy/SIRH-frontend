@@ -1,4 +1,5 @@
 <!-- src/app/features/pay-slip/pay-slip-detail.component.html -->
+
 <div class="detail-container">
 
   <!-- ========== HEADER ========== -->
@@ -16,7 +17,6 @@
       <button class="btn btn-secondary" routerLink="/app/paie/mes-bulletins">
         <span class="material-symbols-outlined">arrow_back</span> Back
       </button>
-     
     </div>
   </div>
 
@@ -58,22 +58,6 @@
       </div>
     </div>
 
-    <!-- Salary details -->
-    <div class="salary-grid">
-      <div class="salary-item brut">
-        <span class="label">Gross salary</span>
-        <span class="value">{{ paySlip.grossSalary | currency:'XOF':'symbol':'1.0-0' }}</span>
-      </div>
-      <div class="salary-item deductions">
-        <span class="label">Deductions</span>
-        <span class="value">{{ paySlip.deductions | currency:'XOF':'symbol':'1.0-0' }}</span>
-      </div>
-      <div class="salary-item net">
-        <span class="label">Net salary</span>
-        <span class="value">{{ paySlip.netSalary | currency:'XOF':'symbol':'1.0-0' }}</span>
-      </div>
-    </div>
-
     <!-- ========== PAY SLIP IMAGE ========== -->
     <div class="pages-section">
       <div class="pages-header">
@@ -81,15 +65,11 @@
           <span class="material-symbols-outlined">image</span>
           Pay Slip Document
         </h3>
-        <div class="pages-actions">
+        <!-- <div class="pages-actions">
           <button *ngIf="canDownload" class="btn btn-sm btn-secondary" (click)="downloadPdf()">
-            <span class="material-symbols-outlined">description</span> Original PDF
+            <span class="material-symbols-outlined">description</span> Télécharger PDF
           </button>
-          <button *ngIf="canDownload && getPageCount() > 1" 
-                  class="btn btn-sm btn-secondary" (click)="downloadZip()">
-            <span class="material-symbols-outlined">folder_zip</span> Download ZIP
-          </button>
-        </div>
+        </div> -->
       </div>
 
       <!-- Image display -->
@@ -154,11 +134,7 @@
     <!-- ========== ACTIONS ========== -->
     <div class="actions-section">
       <button *ngIf="canDownload" class="btn btn-primary" (click)="downloadPdf()">
-        <span class="material-symbols-outlined">download</span> Download PDF
-      </button>
-      <button *ngIf="canDownload && getPageCount() > 0" 
-              class="btn btn-success" (click)="downloadZip()">
-        <span class="material-symbols-outlined">folder_zip</span> Download ZIP
+        <span class="material-symbols-outlined">download</span> Télécharger PDF
       </button>
     </div>
 
@@ -177,16 +153,13 @@
     <div class="meta-section">
       <small>
         <span class="material-symbols-outlined">create</span>
-        Created on {{ paySlip.createdAt | date:'dd/MM/yyyy HH:mm' }} by {{ paySlip.createdBy }}
+        Created on {{ paySlip.createdAt | date:'dd/MM/yyyy HH:mm' }} 
       </small>
       <small *ngIf="paySlip.updatedAt">
         <span class="material-symbols-outlined">edit</span>
         Modified on {{ paySlip.updatedAt | date:'dd/MM/yyyy HH:mm' }}
       </small>
-      <small *ngIf="paySlip.uploadedFileName">
-        <span class="material-symbols-outlined">attach_file</span>
-        File: {{ paySlip.uploadedFileName }}
-      </small>
+     
     </div>
   </div>
 </div>

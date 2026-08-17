@@ -39,4 +39,23 @@ export interface DashboardRHResponse {
     message: string;
     details: any;
   }[];
+  
+  // Nouveaux indicateurs pour discipline, sanctions et performance
+  pendingExplanationRequests: number;
+  activeSanctions: number;
+  pendingEvaluations: number;
+  
+  // Données pour les graphiques supplémentaires
+  explanationRequestsEvolution: {
+    month: string;
+    count: number;
+  }[];
+  sanctionsByType: {
+    type: string;
+    count: number;
+  }[];
+  performanceEvolution: {
+    month: string;
+    averageScore: number;
+  }[];
 }

@@ -1,0 +1,545 @@
+/* src/app/features/discipline/components/demande-explication/demande-explication-create/demande-explication-create.component.scss */
+
+/* ==========================================================
+   IMPORT DES POLICES
+   ========================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined' !important;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'liga';
+}
+
+/* ==========================================================
+   VARIABLES
+   ========================================================== */
+:host {
+  --primary: #019393;
+  --primary-dark: #017a7a;
+  --primary-light: rgba(1, 147, 147, 0.12);
+  --primary-gradient: linear-gradient(135deg, #019393, #017a7a);
+
+  --red: #7f0505;
+  --red-light: rgba(127, 5, 5, 0.12);
+
+  --gray: #4A6867;
+  --gray-light: #EAF0F0;
+  --gray-dark: #3a5352;
+
+  --blue: #2563eb;
+  --blue-light: #dbeafe;
+
+  --purple: #7c3aed;
+  --purple-light: #ede9fe;
+
+  --orange: #f59e0b;
+  --orange-light: #fef3c7;
+
+  --green: #10b981;
+  --green-light: #d1fae5;
+
+  --bg: #f3fbfa;
+  --card: #ffffff;
+  --text: #172033;
+  --muted: #4A6867;
+  --border: #EAF0F0;
+
+  --radius: 18px;
+  --shadow: 0 12px 30px rgba(74, 104, 103, 0.08);
+  --shadow-hover: 0 18px 40px rgba(74, 104, 103, 0.12);
+}
+
+/* ==========================================================
+   CONTENEUR PRINCIPAL
+   ========================================================== */
+.unity-container {
+  min-height: 100vh;
+  padding: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(1, 147, 147, 0.12), transparent 30%),
+    linear-gradient(180deg, #EAF0F0 0%, #f8fafc 100%);
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--text);
+}
+
+/* ==========================================================
+   HEADER
+   ========================================================== */
+.page-header-glass {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(1, 147, 147, 0.18);
+  border-radius: 24px;
+  padding: 28px 32px;
+  margin-bottom: 26px;
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.title-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #019393, #017a7a);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 28px rgba(1, 147, 147, 0.32);
+  flex-shrink: 0;
+}
+
+.title-icon .material-symbols-outlined {
+  font-size: 34px;
+  color: white;
+}
+
+.page-title h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--text);
+}
+
+.page-title p {
+  margin: 8px 0 0;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+/* ==========================================================
+   BOUTONS
+   ========================================================== */
+.btn-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  height: 48px;
+  padding: 0 22px;
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary), #017a7a);
+  color: white;
+  box-shadow: 0 12px 24px rgba(1, 147, 147, 0.28);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(1, 147, 147, 0.38);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: white;
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 18px rgba(74, 104, 103, 0.06);
+}
+
+.btn-secondary:hover {
+  color: var(--primary-dark);
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--muted);
+}
+
+.btn-ghost:hover {
+  background: #EAF0F0;
+  color: var(--text);
+}
+
+/* ==========================================================
+   CARTE DU FORMULAIRE
+   ========================================================== */
+.form-card {
+  background: white;
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 32px;
+  margin-bottom: 24px;
+}
+
+/* ==========================================================
+   SECTIONS DU FORMULAIRE
+   ========================================================== */
+.form-section {
+  margin-bottom: 32px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--border);
+}
+
+.form-section:last-of-type {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--primary-light);
+}
+
+.section-header .material-symbols-outlined {
+  color: var(--primary);
+  font-size: 28px;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ==========================================================
+   GRILLE DU FORMULAIRE
+   ========================================================== */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-grid.grid-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.span-2 {
+  grid-column: span 2;
+}
+
+/* ==========================================================
+   CHAMPS DU FORMULAIRE
+   ========================================================== */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gray);
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: white;
+  color: var(--text);
+  padding: 12px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #a0b3b2;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(1, 147, 147, 0.14);
+}
+
+.form-group input.error,
+.form-group textarea.error {
+  border-color: var(--red);
+}
+
+.form-group input.error:focus,
+.form-group textarea.error:focus {
+  box-shadow: 0 0 0 4px rgba(127, 5, 5, 0.14);
+}
+
+/* ==========================================================
+   SELECT
+   ========================================================== */
+.select-wrapper {
+  position: relative;
+}
+
+.select-wrapper select {
+  width: 100%;
+  height: 48px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: white;
+  color: var(--text);
+  padding: 0 44px 0 14px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.select-wrapper select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(1, 147, 147, 0.14);
+}
+
+.select-wrapper select.error {
+  border-color: var(--red);
+}
+
+.select-wrapper select.error:focus {
+  box-shadow: 0 0 0 4px rgba(127, 5, 5, 0.14);
+}
+
+.select-arrow {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--primary);
+  pointer-events: none;
+  font-size: 24px;
+}
+
+/* ==========================================================
+   MESSAGES D'ERREUR
+   ========================================================== */
+.error-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--red);
+  margin-top: 2px;
+}
+
+/* ==========================================================
+   SECTION RÉCAPITULATIF
+   ========================================================== */
+.summary-section {
+  background: var(--gray-light);
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin-top: 8px;
+  border: 1px solid var(--border);
+}
+
+.summary-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.summary-bar .material-symbols-outlined {
+  color: var(--green);
+  font-size: 24px;
+}
+
+.summary-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--gray);
+}
+
+/* ==========================================================
+   ACTIONS DU FORMULAIRE
+   ========================================================== */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 2px solid var(--border);
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================
+   CARTE D'AIDE
+   ========================================================== */
+.help-card {
+  background: var(--blue-light);
+  border: 1px solid #bfdbfe;
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-top: 8px;
+}
+
+.help-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.help-content .material-symbols-outlined {
+  color: var(--blue);
+  font-size: 24px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.help-content div {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.help-content strong {
+  color: var(--blue);
+}
+
+/* ==========================================================
+   RESPONSIVE
+   ========================================================== */
+@media (max-width: 1024px) {
+  .page-header-glass {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-group {
+    justify-content: flex-start;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .span-2 {
+    grid-column: span 1;
+  }
+
+  .form-grid.grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .unity-container {
+    padding: 16px;
+  }
+
+  .page-title h1 {
+    font-size: 24px;
+  }
+
+  .title-icon {
+    width: 52px;
+    height: 52px;
+  }
+
+  .title-icon .material-symbols-outlined {
+    font-size: 28px;
+  }
+
+  .form-card {
+    padding: 20px;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .form-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .summary-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .summary-dot {
+    display: none;
+  }
+
+  .help-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-header-glass {
+    padding: 20px;
+  }
+
+  .page-title {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .section-header h3 {
+    font-size: 16px;
+  }
+}

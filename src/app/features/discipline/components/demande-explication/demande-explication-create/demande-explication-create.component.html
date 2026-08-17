@@ -1,0 +1,154 @@
+<!-- src/app/features/discipline/components/demande-explication/demande-explication-create/demande-explication-create.component.html -->
+
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">help_outline</span>
+      </div>
+      <div>
+        <h1>Nouvelle demande d'explication</h1>
+        <p>Formulaire de saisine disciplinaire</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-secondary" (click)="cancel()">
+        <span class="material-symbols-outlined">arrow_back</span> Retour
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== FORMULAIRE ==================== -->
+  <div class="form-card">
+    <form [formGroup]="demandeForm" (ngSubmit)="onSubmit()">
+      
+      <!-- SECTION 1 : INFORMATIONS GÉNÉRALES -->
+      <div class="form-section">
+        <div class="section-header">
+          <span class="material-symbols-outlined">info</span>
+          <h3>Informations générales</h3>
+        </div>
+        
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label>Objet de la demande *</label>
+            <input 
+              type="text" 
+              formControlName="objet" 
+              placeholder="Ex: Retard répété, non-respect des procédures..."
+              [class.error]="f['objet'].touched && f['objet'].invalid"
+            />
+            @if (f['objet'].touched && f['objet'].invalid) {
+              <small class="error-text">L'objet est obligatoire</small>
+            }
+          </div>
+
+          <div class="form-group span-2">
+            <label>Motif *</label>
+            <input 
+              type="text" 
+              formControlName="motif" 
+              placeholder="Raison principale de la demande"
+              [class.error]="f['motif'].touched && f['motif'].invalid"
+            />
+            @if (f['motif'].touched && f['motif'].invalid) {
+              <small class="error-text">Le motif est obligatoire</small>
+            }
+          </div>
+
+          <div class="form-group span-2">
+            <label>Description détaillée *</label>
+            <textarea 
+              formControlName="description" 
+              rows="5" 
+              placeholder="Décrivez en détail les faits, les circonstances et les éléments de contexte..."
+              [class.error]="f['description'].touched && f['description'].invalid"
+            ></textarea>
+            @if (f['description'].touched && f['description'].invalid) {
+              <small class="error-text">La description est obligatoire</small>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 2 : PERSONNES ET DATES -->
+      <div class="form-section">
+        <div class="section-header">
+          <span class="material-symbols-outlined">people</span>
+          <h3>Personnes et délais</h3>
+        </div>
+        
+        <div class="form-grid grid-2">
+          <div class="form-group">
+            <label>Employé concerné *</label>
+            <div class="select-wrapper">
+              <select formControlName="employeConcerneId" [class.error]="f['employeConcerneId'].touched && f['employeConcerneId'].invalid">
+                <option value="" disabled selected>-- Sélectionner un employé --</option>
+                @for (emp of employees; track emp.id) {
+                  <option [value]="emp.id">{{ getEmployeeDisplay(emp) }}</option>
+                }
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+            @if (f['employeConcerneId'].touched && f['employeConcerneId'].invalid) {
+              <small class="error-text">L'employé est obligatoire</small>
+            }
+          </div>
+
+          <div class="form-group">
+            <label>Date limite de réponse *</label>
+            <input 
+              type="date" 
+              formControlName="dateLimiteReponse"
+              [class.error]="f['dateLimiteReponse'].touched && f['dateLimiteReponse'].invalid"
+            />
+            @if (f['dateLimiteReponse'].touched && f['dateLimiteReponse'].invalid) {
+              <small class="error-text">La date limite est obligatoire</small>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 3 : RÉCAPITULATIF -->
+      <div class="form-section summary-section">
+        <div class="summary-bar">
+          <span class="material-symbols-outlined">check_circle</span>
+          <span><strong>Récapitulatif</strong></span>
+          <span class="summary-dot"></span>
+          <span>Objet: {{ demandeForm.get('objet')?.value || 'Non défini' }}</span>
+          <span class="summary-dot"></span>
+          <span>Employé: {{ getSelectedEmployeeName() }}</span>
+        </div>
+      </div>
+
+      <!-- ==================== ACTIONS ==================== -->
+      <div class="form-actions">
+        <button type="button" class="btn btn-ghost" (click)="cancel()">
+          <span class="material-symbols-outlined">close</span> Annuler
+        </button>
+        <button type="submit" class="btn btn-primary" [disabled]="submitting">
+          @if (!submitting) {
+            <span class="material-symbols-outlined">send</span>
+            <span>Créer la demande</span>
+          } @else {
+            <span class="material-symbols-outlined spinning">refresh</span>
+            <span>Création en cours...</span>
+          }
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ==================== AIDE ==================== -->
+  <div class="help-card">
+    <div class="help-content">
+      <span class="material-symbols-outlined">info</span>
+      <div>
+        <strong>À savoir :</strong>
+        <span>La demande d'explication est un préalable à toute procédure disciplinaire. L'employé dispose d'un délai pour répondre.</span>
+      </div>
+    </div>
+  </div>
+</div>

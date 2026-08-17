@@ -1,4 +1,5 @@
 // src/app/services/auth.service.ts
+
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { BehaviorSubject, Observable, tap, catchError, throwError } from 'rxjs';
@@ -36,6 +37,21 @@ export interface LoginResponse {
   roleName?: string;
   roleLevel?: number;
   message?: string;
+  error?: string;
+  twoFactorRequired?: boolean;
+  success?: boolean;
+  requiresTwoFactor?: boolean;
+  requires_2fa?: boolean;
+  userId?: string;
+  email?: string;
+  twoFactorEnabled?: boolean;
+}
+
+export interface TwoFactorSession {
+  userId: string;
+  email: string;
+  tempToken?: string;
+  expiresAt?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -43,13 +59,16 @@ export class AuthService {
 
   private apiUrl = `${environment.apiUrl}/auth`;
   
-  // ✅ Utiliser 'access_token' comme clé principale (cohérent avec PaySlipService)
   private readonly TOKEN_KEY = 'access_token';
   private readonly REFRESH_TOKEN_KEY = 'refresh_token';
   private readonly USER_KEY = 'currentUser';
+  private readonly TWO_FA_SESSION_KEY = 'two_factor_session';
 
   private currentUserSubject: BehaviorSubject<AuthUser | null>;
   currentUser$: Observable<AuthUser | null>;
+
+  private refreshTokenInProgress = false;
+  private refreshTokenSubject = new BehaviorSubject<LoginResponse | null>(null);
 
   constructor(
     private http: HttpClient,
@@ -60,18 +79,17 @@ export class AuthService {
     this.currentUser$ = this.currentUserSubject.asObservable();
     this.loadStoredUser();
     this.listenToStorageChanges();
-
-    // 🔍 Vérification du token au démarrage
-    this.checkTokenOnStartup();
   }
 
   private getInitialUser(): AuthUser | null {
-    const token = localStorage.getItem(this.TOKEN_KEY);
+    const token = this.getToken();
     const userStr = localStorage.getItem(this.USER_KEY);
     if (token && userStr) {
       try {
         const user = JSON.parse(userStr);
-        if (user.token !== token) { user.token = token; }
+        if (user.token !== token) { 
+          user.token = token; 
+        }
         return user;
       } catch (e) {
         console.error('Error parsing stored user:', e);
@@ -81,64 +99,81 @@ export class AuthService {
     return null;
   }
 
-  private checkTokenOnStartup(): void {
-    const token = this.getToken();
-    if (token && !this.isTokenValid()) {
-      console.warn('⚠️ Token expiré au démarrage, tentative de rafraîchissement...');
-      const refreshToken = this.getRefreshToken();
-      if (refreshToken) {
-        this.refreshToken().subscribe({
-          next: () => console.log('✅ Token rafraîchi au démarrage'),
-          error: () => {
-            console.warn('❌ Échec du rafraîchissement, déconnexion');
-            this.logout();
-          }
-        });
-      } else {
-        this.logout();
-      }
-    }
-  }
-
-  login(email: string, password: string): Observable<LoginResponse> {
-    console.log(`🔐 Tentative de login pour: ${email}`);
+  verifyTwoFactor(userId: string, otpCode: number): Observable<LoginResponse> {
+    console.log(`Verification 2FA pour userId: ${userId}`);
     
-    return this.http.post<LoginResponse>(`${this.apiUrl}/login`, { email, password }).pipe(
+    return this.http.post<LoginResponse>(`${this.apiUrl}/verify-2fa`, { userId, otpCode }).pipe(
       tap({
         next: (response) => {
-          console.log('📥 Réponse login reçue:', response);
+          console.log('Reponse 2FA recue:', response);
           if (response?.accessToken) {
-            console.log('✅ Token reçu:', response.accessToken.substring(0, 20) + '...');
-            this.handleAuthResponse(response);
-          } else {
-            console.error('❌ Aucun token dans la réponse');
+            console.log('Token 2FA recu');
+            this.handleSuccessfulLogin(response);
           }
         },
         error: (error) => {
-          console.error('❌ Erreur login:', error);
+          console.error('Erreur verification 2FA:', error);
         }
       }),
       catchError((error) => {
-        console.error('❌ Erreur login catchée:', error);
+        console.error('Erreur 2FA catchee:', error);
         return throwError(() => error);
       })
     );
   }
 
-  private handleAuthResponse(response: LoginResponse): void {
-    console.log('🔑 Stockage du token...');
+  setTwoFactorSession(userId: string, email: string): void {
+    const session: TwoFactorSession = {
+      userId,
+      email,
+      expiresAt: Date.now() + (5 * 60 * 1000)
+    };
+    localStorage.setItem(this.TWO_FA_SESSION_KEY, JSON.stringify(session));
+    console.log('Session 2FA stockee pour:', email);
+  }
+
+  getTwoFactorSession(): TwoFactorSession | null {
+    const sessionStr = localStorage.getItem(this.TWO_FA_SESSION_KEY);
+    if (!sessionStr) return null;
     
-    // Stockage principal avec la clé 'access_token'
-    localStorage.setItem(this.TOKEN_KEY, response.accessToken);
+    try {
+      const session: TwoFactorSession = JSON.parse(sessionStr);
+      if (session.expiresAt && Date.now() > session.expiresAt) {
+        console.warn('Session 2FA expiree');
+        this.clearTwoFactorSession();
+        return null;
+      }
+      return session;
+    } catch (e) {
+      console.error('Erreur lecture session 2FA:', e);
+      return null;
+    }
+  }
+
+  clearTwoFactorSession(): void {
+    localStorage.removeItem(this.TWO_FA_SESSION_KEY);
+    console.log('Session 2FA effacee');
+  }
+
+  handleSuccessfulLogin(response: LoginResponse): void {
+    console.log('Handling successful login...');
     
-    // Stockage du refresh token
+    if (!response || !response.accessToken) {
+      console.error('Response invalide ou token manquant');
+      return;
+    }
+
+    const token = response.accessToken;
+    
+    localStorage.setItem(this.TOKEN_KEY, token);
+    localStorage.setItem('token', token);
+    localStorage.setItem('jwt', token);
+    
     if (response.refreshToken) {
       localStorage.setItem(this.REFRESH_TOKEN_KEY, response.refreshToken);
     }
 
-    // Construction de l'utilisateur
     const backendUser = response.user || {};
-
     const roleName = response.roleName 
                   || backendUser.roleName
                   || backendUser.role 
@@ -146,15 +181,9 @@ export class AuthService {
                   || 'EMPLOYEE';
 
     const roleLevel = response.roleLevel ?? backendUser.roleLevel ?? 0;
-
     const permissions = response.permissions 
                      || backendUser.permissions 
                      || backendUser.authorities 
-                     || [];
-
-    const authorities = response.authorities 
-                     || backendUser.authorities 
-                     || backendUser.permissions 
                      || [];
 
     const matriculeInterne = backendUser.matriculeInterne ||
@@ -168,11 +197,11 @@ export class AuthService {
       email: backendUser.email || '',
       firstName: backendUser.firstName || '',
       lastName: backendUser.lastName || '',
-      token: response.accessToken,
+      token: token,
       refreshToken: response.refreshToken,
       roles: backendUser.roles || response.roles || [roleName],
       permissions: permissions,
-      authorities: authorities,
+      authorities: permissions,
       employeeId: backendUser.employeeId || backendUser.id || backendUser._id,
       matriculeInterne: matriculeInterne,
       active: backendUser.active !== undefined ? backendUser.active : true,
@@ -181,60 +210,120 @@ export class AuthService {
       roleLevel: roleLevel,
     };
 
-    // Sauvegarde de l'utilisateur
     localStorage.setItem(this.USER_KEY, JSON.stringify(user));
     this.currentUserSubject.next(user);
 
-    console.log('✅ Utilisateur connecté avec succès');
-    console.log('   👤 Utilisateur:', user.username);
-    console.log('   🎭 Rôle:', roleName);
-    console.log('   🎯 Permissions:', permissions.length);
+    console.log('Utilisateur connecte avec succes');
+    console.log('   Utilisateur:', user.username);
+    console.log('   Role:', roleName);
+    console.log('   Token stocke:', this.getToken() ? 'YES' : 'NO');
+  }
+
+  login(email: string, password: string): Observable<LoginResponse> {
+    console.log(`Tentative de login pour: ${email}`);
+    
+    return this.http.post<LoginResponse>(`${this.apiUrl}/login`, { email, password }).pipe(
+      tap({
+        next: (response) => {
+          console.log('Reponse login recue:', response);
+          
+          if (response?.twoFactorRequired) {
+            console.log('2FA requis, pas de stockage du token');
+            return;
+          }
+          
+          if (response?.accessToken) {
+            console.log('Token recu, stockage...');
+            this.handleSuccessfulLogin(response);
+          } else {
+            console.error('Aucun token dans la reponse');
+          }
+        },
+        error: (error) => {
+          console.error('Erreur login:', error);
+        }
+      }),
+      catchError((error) => {
+        console.error('Erreur login catchee:', error);
+        return throwError(() => error);
+      })
+    );
   }
 
   private loadStoredUser(): void {
-    const token = localStorage.getItem(this.TOKEN_KEY);
+    const token = this.getToken();
     const userStr = localStorage.getItem(this.USER_KEY);
     if (token && userStr) {
       try {
         const user = JSON.parse(userStr);
-        if (user.token !== token) { user.token = token; }
+        if (user.token !== token) { 
+          user.token = token; 
+        }
         this.currentUserSubject.next(user);
-        console.log('✅ Utilisateur chargé depuis le storage');
+        console.log('Utilisateur charge depuis le storage');
       } catch (e) {
-        console.error('❌ Erreur chargement utilisateur:', e);
-        this.clearAuthData();
+        console.error('Erreur chargement utilisateur:', e);
+        this.clearAuthDataSilently();
       }
     }
   }
 
   refreshToken(): Observable<LoginResponse> {
     const refreshToken = this.getRefreshToken();
-    console.log('🔄 Tentative de refresh token...');
+    console.log('Tentative de refresh token...');
     
     if (!refreshToken) {
-      console.warn('❌ Pas de refresh token disponible');
-      this.logout();
+      console.warn('Pas de refresh token disponible');
       return throwError(() => new Error('No refresh token'));
     }
+
+    if (this.refreshTokenInProgress) {
+      return this.refreshTokenSubject.asObservable().pipe(
+        (source) => {
+          return new Observable<LoginResponse>((observer) => {
+            const subscription = source.subscribe({
+              next: (value) => {
+                if (value !== null) {
+                  observer.next(value);
+                } else {
+                  observer.error(new Error('Refresh token response was null'));
+                }
+              },
+              error: (err) => observer.error(err),
+              complete: () => observer.complete()
+            });
+            return () => subscription.unsubscribe();
+          });
+        }
+      );
+    }
+
+    this.refreshTokenInProgress = true;
+    this.refreshTokenSubject = new BehaviorSubject<LoginResponse | null>(null);
 
     return this.http.post<LoginResponse>(`${this.apiUrl}/refresh-token`, { refreshToken }).pipe(
       tap({
         next: (response) => {
+          this.refreshTokenInProgress = false;
           if (response?.accessToken) {
-            console.log('✅ Token rafraîchi avec succès');
+            console.log('Token rafraichi avec succes');
             this.updateToken(response.accessToken);
             if (response.refreshToken) {
               localStorage.setItem(this.REFRESH_TOKEN_KEY, response.refreshToken);
             }
+            this.refreshTokenSubject.next(response);
+          } else {
+            this.refreshTokenSubject.error(new Error('Invalid refresh response'));
           }
         },
         error: (error) => {
-          console.error('❌ Erreur refresh token:', error);
-          this.logout();
+          this.refreshTokenInProgress = false;
+          console.error('Erreur refresh token:', error);
+          this.refreshTokenSubject.error(error);
         }
       }),
       catchError((error) => {
-        this.logout();
+        this.refreshTokenInProgress = false;
         return throwError(() => error);
       })
     );
@@ -242,6 +331,8 @@ export class AuthService {
 
   private updateToken(newToken: string): void {
     localStorage.setItem(this.TOKEN_KEY, newToken);
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('jwt', newToken);
     const currentUser = this.currentUserSubject.value;
     if (currentUser) {
       currentUser.token = newToken;
@@ -251,18 +342,18 @@ export class AuthService {
   }
 
   logout(): void {
-    console.log('🚪 Déconnexion...');
+    console.log('Deconnexion manuelle...');
     const token = this.getToken();
     if (token) {
       this.http.post(`${this.apiUrl}/logout`, {}, {
         headers: new HttpHeaders().set('Authorization', `Bearer ${token}`)
       }).subscribe({
         next: () => {
-          console.log('✅ Déconnexion réussie');
+          console.log('Deconnexion reussie');
           this.clearAuthData();
         },
         error: () => {
-          console.warn('⚠️ Erreur lors de la déconnexion, nettoyage forcé');
+          console.warn('Erreur lors de la deconnexion, nettoyage force');
           this.clearAuthData();
         }
       });
@@ -271,9 +362,21 @@ export class AuthService {
     }
   }
 
-  private clearAuthData(): void {
-    console.log('🧹 Nettoyage des données d\'authentification');
+  private clearAuthDataSilently(): void {
+    console.log('Nettoyage silencieux des donnees d\'authentification');
     localStorage.removeItem(this.TOKEN_KEY);
+    localStorage.removeItem('token');
+    localStorage.removeItem('jwt');
+    localStorage.removeItem(this.REFRESH_TOKEN_KEY);
+    localStorage.removeItem(this.USER_KEY);
+    this.currentUserSubject.next(null);
+  }
+
+  private clearAuthData(): void {
+    console.log('Nettoyage des donnees d\'authentification');
+    localStorage.removeItem(this.TOKEN_KEY);
+    localStorage.removeItem('token');
+    localStorage.removeItem('jwt');
     localStorage.removeItem(this.REFRESH_TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
     this.currentUserSubject.next(null);
@@ -287,7 +390,7 @@ export class AuthService {
     try {
       const parts = token.split('.');
       if (parts.length !== 3) {
-        console.warn('⚠️ Token format invalide');
+        console.warn('Token format invalide');
         return false;
       }
       
@@ -297,12 +400,12 @@ export class AuthService {
       const isValid = expiryTime > now;
       
       if (!isValid) {
-        console.warn(`⚠️ Token expiré: ${new Date(expiryTime).toLocaleString()} < ${new Date(now).toLocaleString()}`);
+        console.warn(`Token expire: ${new Date(expiryTime).toLocaleString()} < ${new Date(now).toLocaleString()}`);
       }
       
       return isValid;
     } catch (e) {
-      console.error('❌ Token invalide:', e);
+      console.error('Token invalide:', e);
       return false;
     }
   }
@@ -318,7 +421,15 @@ export class AuthService {
   }
 
   getToken(): string | null {
-    return localStorage.getItem(this.TOKEN_KEY);
+    let token = localStorage.getItem(this.TOKEN_KEY);
+    if (!token) token = localStorage.getItem('token');
+    if (!token) token = localStorage.getItem('jwt');
+    
+    if (token && !localStorage.getItem(this.TOKEN_KEY)) {
+      localStorage.setItem(this.TOKEN_KEY, token);
+    }
+    
+    return token;
   }
 
   getRefreshToken(): string | null {
@@ -373,22 +484,22 @@ export class AuthService {
 
   private listenToStorageChanges(): void {
     window.addEventListener('storage', (event) => {
-      console.log(`📦 Storage change: ${event.key}`);
+      console.log(`Storage change: ${event.key}`);
       
-      if (event.key === this.TOKEN_KEY) {
-        const newToken = localStorage.getItem(this.TOKEN_KEY);
+      if (event.key === this.TOKEN_KEY || event.key === 'token' || event.key === 'jwt') {
+        const newToken = this.getToken();
         if (!newToken) {
-          console.warn('🔒 Token supprimé dans un autre onglet. Déconnexion...');
-          this.clearAuthData();
+          console.warn('Token supprime dans un autre onglet.');
+          this.clearAuthDataSilently();
         } else if (newToken !== this.currentUserSubject.value?.token) {
-          console.log('🔄 Token mis à jour dans un autre onglet. Rechargement...');
+          console.log('Token mis a jour dans un autre onglet. Rechargement...');
           this.loadStoredUser();
         }
       }
       
       if (event.key === this.USER_KEY && !localStorage.getItem(this.USER_KEY)) {
-        console.warn('🔒 Utilisateur supprimé dans un autre onglet. Déconnexion...');
-        this.clearAuthData();
+        console.warn('Utilisateur supprime dans un autre onglet.');
+        this.clearAuthDataSilently();
       }
     });
   }

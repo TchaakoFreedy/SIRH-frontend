@@ -1,3 +1,5 @@
+// src/app/features/rh/gestion-conges-rh/gestion-conges-rh.component.ts
+
 import { Component, OnInit, signal, computed, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -48,10 +50,11 @@ export class GestionCongesRhComponent implements OnInit {
   });
 
   // ============ PERMISSIONS ============
-  canViewAllLeaves = signal(true);
-  canApproveLeave = signal(true);
-  canRejectLeave = signal(true);
-  canViewTeam = signal(false); //  NOUVEAU SIGNAL POUR LEAVE_VIEW_TEAM
+  // ✅ Toutes les permissions sont chargées dynamiquement
+  canViewAllLeaves = signal(false);
+  canApproveLeave = signal(false);
+  canRejectLeave = signal(false);
+  canViewTeam = signal(false);
 
   // ============ PAGINATION ============
   currentPage = signal(1);
@@ -88,42 +91,49 @@ export class GestionCongesRhComponent implements OnInit {
   }
 
   // ==========================================
-  //  PERMISSIONS
+  // 🔐 PERMISSIONS UNIQUEMENT BASÉES SUR LES PERMISSIONS
   // ==========================================
 
   private loadPermissions(): void {
-    console.log(' Chargement des permissions Gestion des congés RH...');
+    console.log('🔐 Chargement des permissions Gestion des congés RH...');
     
     const user = this.authService.getCurrentUser();
-    console.log('Utilisateur connecté:', user);
-    console.log('Rôle:', user?.role);
+    console.log('👤 Utilisateur connecté:', user);
+    console.log('🔒 Rôle:', user?.role);
+
+    // ✅ Vérifier si l'utilisateur a la permission wildcard (accès total)
+    const hasWildcard = user?.permissions?.includes('*') === true;
+
+    // ✅ Vérifier si l'utilisateur a la permission SYSTEM_ADMIN
+    const isSystemAdmin = this.permissionService.hasPermissionSync('SYSTEM_ADMIN');
+
+    // ✅ Charger chaque permission individuellement via PermissionService
+    // Cela permet de donner n'importe quelle permission à n'importe quel rôle
+    this.canViewAllLeaves.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('LEAVE_VIEW_ALL')
+    );
     
-    const isAdmin = user?.role === 'RH' || 
-                    user?.role === 'SUPER_ADMIN' || 
-                    user?.role === 'TOP_MANAGER' ||
-                    user?.role === 'DIRECTION' ||
-                    user?.roles?.includes('RH') ||
-                    user?.roles?.includes('SUPER_ADMIN') ||
-                    user?.roles?.includes('TOP_MANAGER') ||
-                    user?.roles?.includes('DIRECTION') ||
-                    user?.permissions?.includes('*');
+    this.canApproveLeave.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('LEAVE_APPROVE')
+    );
+    
+    this.canRejectLeave.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('LEAVE_REJECT')
+    );
+    
+    this.canViewTeam.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('LEAVE_VIEW_TEAM')
+    );
 
-    if (isAdmin) {
-      console.log(' Admin détecté - Activation de toutes les permissions congés');
-      this.canViewAllLeaves.set(true);
-      this.canApproveLeave.set(true);
-      this.canRejectLeave.set(true);
-      this.canViewTeam.set(false); // Les admins n'ont pas besoin de cette permission car ils ont tout
-      return;
-    }
-
-    // Vérification des permissions spécifiques
-    this.canViewAllLeaves.set(this.permissionService.hasPermissionSync('LEAVE_VIEW_ALL'));
-    this.canApproveLeave.set(this.permissionService.hasPermissionSync('LEAVE_APPROVE'));
-    this.canRejectLeave.set(this.permissionService.hasPermissionSync('LEAVE_REJECT'));
-    this.canViewTeam.set(this.permissionService.hasPermissionSync('LEAVE_VIEW_TEAM'));
-
-    console.log(' Permissions Congés RH chargées:', {
+    console.log('🔐 Permissions Congés RH chargées:', {
       canViewAllLeaves: this.canViewAllLeaves(),
       canApproveLeave: this.canApproveLeave(),
       canRejectLeave: this.canRejectLeave(),
@@ -297,6 +307,7 @@ export class GestionCongesRhComponent implements OnInit {
   // ==========================================
 
   openValidationModal(conge: Conge, action: 'approve' | 'reject'): void {
+    // ✅ Vérification basée UNIQUEMENT sur les permissions
     if (action === 'approve' && !this.canApproveLeave()) {
       this.errorMessage.set('Vous n\'avez pas la permission d\'approuver des congés.');
       setTimeout(() => this.errorMessage.set(''), 3000);
@@ -342,7 +353,7 @@ export class GestionCongesRhComponent implements OnInit {
     if (this.validationAction === 'approve') {
       this.congeService.approve(id, this.validationComment).subscribe({
         next: () => {
-          this.successMessage.set('Demande approuvée avec succès !');
+          this.successMessage.set('✅ Demande approuvée avec succès !');
           this.closeValidationModal();
           setTimeout(() => this.successMessage.set(''), 3000);
           this.loadData();
@@ -356,7 +367,7 @@ export class GestionCongesRhComponent implements OnInit {
     } else {
       this.congeService.reject(id, this.validationComment).subscribe({
         next: () => {
-          this.successMessage.set('Demande rejetée avec succès !');
+          this.successMessage.set('✅ Demande rejetée avec succès !');
           this.closeValidationModal();
           setTimeout(() => this.successMessage.set(''), 3000);
           this.loadData();
@@ -438,11 +449,14 @@ export class GestionCongesRhComponent implements OnInit {
     return labels[type] || type;
   }
 
-  //  MÉTHODE MODIFIÉE POUR BLOQUER LES BOUTONS AVEC LEAVE_VIEW_TEAM
+  // ✅ MÉTHODE UNIQUEMENT BASÉE SUR LES PERMISSIONS
   isActionAllowed(conge: Conge): boolean {
-    // Si l'utilisateur a uniquement LEAVE_VIEW_TEAM (sans les permissions d'approbation)
-    if (this.canViewTeam() && !this.canApproveLeave() && !this.canRejectLeave()) {
-      return false; // Ne pas montrer les boutons
+    // ✅ Vérifier si l'utilisateur a au moins une permission d'action
+    const hasActionPermission = this.canApproveLeave() || this.canRejectLeave();
+    
+    // Si l'utilisateur n'a aucune permission d'action, ne pas montrer les boutons
+    if (!hasActionPermission) {
+      return false;
     }
     
     // Sinon, vérifier les conditions normales

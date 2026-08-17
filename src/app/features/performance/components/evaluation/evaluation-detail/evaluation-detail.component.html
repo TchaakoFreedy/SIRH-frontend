@@ -1,0 +1,163 @@
+<!-- evaluation-detail.component.html -->
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">rate_review</span>
+      </div>
+      <div>
+        <h1>Détail de l'évaluation</h1>
+        <p>Consultez les résultats et commentaires du collaborateur</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button type="button" class="btn btn-outline" (click)="goBack()">
+        <span class="material-symbols-outlined">arrow_back</span> Retour
+      </button>
+      <button type="button" class="btn btn-primary" (click)="editEvaluation()">
+        <span class="material-symbols-outlined">edit</span> Modifier
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== CHARGEMENT ==================== -->
+  <div class="loading-wrapper" *ngIf="isLoading">
+    <div class="loading-spinner">
+      <mat-spinner diameter="48"></mat-spinner>
+      <p>Chargement de l'évaluation...</p>
+    </div>
+  </div>
+
+  <!-- ==================== CONTENU ==================== -->
+  <div *ngIf="!isLoading && evaluation">
+    
+    <!-- ===== CARTE STATS ===== -->
+    <div class="stats-grid">
+      <div class="stat-card cyan">
+        <div class="stat-icon"><span class="material-symbols-outlined">score</span></div>
+        <div class="stat-info">
+          <p>Score total</p>
+          <h3>{{ getPourcentage(evaluation.pourcentage) }}</h3>
+        </div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-icon"><span class="material-symbols-outlined">military_tech</span></div>
+        <div class="stat-info">
+          <p>Mention</p>
+          <h3>
+            <span class="badge" [class]="'badge-' + getMentionColor(evaluation.mention)">
+              {{ getMentionLabel(evaluation.mention) }}
+            </span>
+          </h3>
+        </div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-icon"><span class="material-symbols-outlined">calendar_today</span></div>
+        <div class="stat-info">
+          <p>Date d'évaluation</p>
+          <h3>{{ evaluation.dateEvaluation | date:'dd/MM/yyyy' }}</h3>
+          <span class="stat-meta">{{ evaluation.dateEvaluation | date:'HH:mm' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== CARTE PRINCIPALE ===== -->
+    <div class="detail-card">
+      
+      <!-- Informations générales -->
+      <div class="info-section">
+        <h3 class="section-title">
+          <span class="material-symbols-outlined">person</span>
+          Informations générales
+        </h3>
+        <div class="info-grid">
+          <div class="info-item">
+            <label>Employé</label>
+            <div class="info-value">
+              <div class="avatar">{{ getInitials(evaluation.employeNom) }}</div>
+              <span>{{ evaluation.employeNom }}</span>
+            </div>
+          </div>
+          <div class="info-item">
+            <label>Période</label>
+            <span class="tag">{{ getPeriodeLabel(evaluation.periode) }}</span>
+          </div>
+          <div class="info-item">
+            <label>Année</label>
+            <span>{{ evaluation.annee }}</span>
+          </div>
+          <div class="info-item">
+            <label>Évaluateur</label>
+            <span>{{ evaluation.evaluateurNom || 'Non spécifié' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Commentaires -->
+      <div class="comment-section" *ngIf="evaluation.commentaires">
+        <h3 class="section-title">
+          <span class="material-symbols-outlined">comment</span>
+          Commentaires
+        </h3>
+        <div class="comment-content">
+          <p>{{ evaluation.commentaires }}</p>
+        </div>
+      </div>
+
+      <!-- Détail des notes -->
+      <div class="notes-section">
+        <h3 class="section-title">
+          <span class="material-symbols-outlined">list_alt</span>
+          Détail des notes
+        </h3>
+        <div class="notes-table-wrapper">
+          <table class="notes-table">
+            <thead>
+              <tr>
+                <th>Critère</th>
+                <th class="center">Note</th>
+                <th class="center">Coeff.</th>
+                <th class="center">Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let note of evaluation.notes">
+                <td>
+                  <span class="critere-name">{{ note.critereNom }}</span>
+                </td>
+                <td class="center">
+                  <span class="note-value">{{ note.note }}/5</span>
+                </td>
+                <td class="center">
+                  <span class="coeff-value">{{ note.coefficient || 1 }}</span>
+                </td>
+                <td class="center">
+                  <span class="score-value">{{ note.scorePondere }}</span>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3" class="total-label">
+                  <strong>Total</strong>
+                </td>
+                <td class="center total-value">
+                  <strong>{{ evaluation.totalObtenu }} / {{ evaluation.totalMaximal }}</strong>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions-footer">
+        <button type="button" class="btn btn-danger" (click)="deleteEvaluation()" [disabled]="isDeleting">
+          <span class="material-symbols-outlined">delete</span> Supprimer
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

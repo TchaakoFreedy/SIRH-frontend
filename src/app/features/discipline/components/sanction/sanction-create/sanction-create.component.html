@@ -1,0 +1,245 @@
+<!-- src/app/features/discipline/components/sanction/sanction-create/sanction-create.component.html -->
+
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">gavel</span>
+      </div>
+      <div>
+        <h1>Nouvelle sanction disciplinaire</h1>
+        <p>Attribuer une sanction à un employé suite à un manquement</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-secondary" (click)="cancel()">
+        <span class="material-symbols-outlined">arrow_back</span> Retour à la liste
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== STATS ==================== -->
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-icon"><span class="material-symbols-outlined">people</span></div>
+      <div class="stat-info">
+        <p>Employés disponibles</p>
+        <h3>{{ employees.length }}</h3>
+      </div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-icon"><span class="material-symbols-outlined">warning</span></div>
+      <div class="stat-info">
+        <p>Types de sanction</p>
+        <h3>{{ typeOptions.length }}</h3>
+      </div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-icon"><span class="material-symbols-outlined">assignment</span></div>
+      <div class="stat-info">
+        <p>Demandes en attente</p>
+        <h3>{{ demandes.length }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== FORMULAIRE ==================== -->
+  <div class="form-card">
+    <form [formGroup]="sanctionForm" (ngSubmit)="onSubmit()">
+      
+      <!-- SECTION 1 : INFORMATIONS PRINCIPALES -->
+      <div class="form-section">
+        <div class="section-header">
+          <span class="material-symbols-outlined">person</span>
+          <h3>Employé et type de sanction</h3>
+        </div>
+        
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Employé concerné <span class="required">*</span></label>
+            <div class="select-wrapper">
+              <select formControlName="employeId" (change)="onEmployeeChange()" [class.error]="sanctionForm.get('employeId')?.touched && sanctionForm.get('employeId')?.invalid">
+                <option value="" disabled selected>-- Sélectionner un employé --</option>
+                <!-- ✅ REMPLACER @for par *ngFor -->
+                <option *ngFor="let emp of employees" [value]="emp.id">
+                  {{ getEmployeeDisplay(emp) }}
+                </option>
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+            <!-- ✅ REMPLACER @if par *ngIf -->
+            <div *ngIf="sanctionForm.get('employeId')?.touched && sanctionForm.get('employeId')?.invalid" class="error-text">
+              <span class="material-symbols-outlined">error</span> L'employé est obligatoire
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Type de sanction <span class="required">*</span></label>
+            <div class="select-wrapper">
+              <select formControlName="type" [class.error]="sanctionForm.get('type')?.touched && sanctionForm.get('type')?.invalid">
+                <option value="" disabled selected>-- Sélectionner un type --</option>
+                <!-- ✅ REMPLACER @for par *ngFor -->
+                <option *ngFor="let type of typeOptions" [value]="type">
+                  {{ getTypeLabel(type) }}
+                </option>
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+            <!-- ✅ REMPLACER @if par *ngIf -->
+            <div *ngIf="sanctionForm.get('type')?.touched && sanctionForm.get('type')?.invalid" class="error-text">
+              <span class="material-symbols-outlined">error</span> Le type est obligatoire
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 2 : MOTIF ET DESCRIPTION -->
+      <div class="form-section">
+        <div class="section-header">
+          <span class="material-symbols-outlined">description</span>
+          <h3>Motif et description</h3>
+        </div>
+        
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label>Motif de la sanction <span class="required">*</span></label>
+            <input 
+              type="text" 
+              formControlName="motif" 
+              placeholder="Ex: Non-respect des règles internes, comportement inapproprié..."
+              [class.error]="sanctionForm.get('motif')?.touched && sanctionForm.get('motif')?.invalid"
+            />
+            <!-- ✅ REMPLACER @if par *ngIf -->
+            <div *ngIf="sanctionForm.get('motif')?.touched && sanctionForm.get('motif')?.invalid" class="error-text">
+              <span class="material-symbols-outlined">error</span>
+              <span *ngIf="sanctionForm.get('motif')?.hasError('required')">Le motif est obligatoire</span>
+              <span *ngIf="sanctionForm.get('motif')?.hasError('minlength')">Le motif doit contenir au moins 10 caractères</span>
+            </div>
+            <div class="char-counter">
+              {{ sanctionForm.get('motif')?.value?.length || 0 }} / 10 caractères minimum
+            </div>
+          </div>
+
+          <div class="form-group span-2">
+            <label>Description détaillée</label>
+            <textarea 
+              formControlName="description" 
+              rows="4" 
+              placeholder="Décrivez en détail les faits, les circonstances et les éléments de contexte..."
+            ></textarea>
+            <small class="hint-text">
+              <span class="material-symbols-outlined">info</span>
+              Une description détaillée permettra de justifier la sanction en cas de contestation.
+            </small>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 3 : PÉRIODE -->
+      <div class="form-section">
+        <div class="section-header">
+          <span class="material-symbols-outlined">calendar_month</span>
+          <h3>Période d'application</h3>
+        </div>
+        
+        <div class="form-grid grid-2">
+          <div class="form-group">
+            <label>Date de début <span class="required">*</span></label>
+            <input 
+              type="date" 
+              formControlName="dateDebut"
+              [class.error]="sanctionForm.get('dateDebut')?.touched && sanctionForm.get('dateDebut')?.invalid"
+            />
+            <!-- ✅ REMPLACER @if par *ngIf -->
+            <div *ngIf="sanctionForm.get('dateDebut')?.touched && sanctionForm.get('dateDebut')?.invalid" class="error-text">
+              <span class="material-symbols-outlined">error</span> La date de début est obligatoire
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Date de fin</label>
+            <input type="date" formControlName="dateFin" />
+            <small class="hint-text">
+              <span class="material-symbols-outlined">info</span>
+              Laissez vide pour une sanction sans date de fin
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label>Statut</label>
+            <div class="select-wrapper">
+              <select formControlName="statut">
+                <!-- ✅ REMPLACER @for par *ngFor -->
+                <option *ngFor="let statut of statutOptions" [value]="statut">
+                  {{ getStatutLabel(statut) }}
+                </option>
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 4 : DEMANDE LIÉE -->
+      <div class="form-section">
+        <div class="section-header">
+          <span class="material-symbols-outlined">link</span>
+          <h3>Demande d'explication liée</h3>
+          <span class="section-badge optional">Facultatif</span>
+        </div>
+        <p class="hint">Liez cette sanction à une demande d'explication existante pour assurer le suivi.</p>
+        
+        <div class="form-group">
+          <label>Demande d'explication</label>
+          <div class="select-wrapper">
+            <select formControlName="demandeExplicationId">
+              <option value="">Aucune demande liée</option>
+              <!-- ✅ REMPLACER @for par *ngFor -->
+              <option *ngFor="let demande of demandes" [value]="demande.id">
+                {{ demande.numero }} - {{ demande.objet }}
+              </option>
+            </select>
+            <span class="material-symbols-outlined select-arrow">expand_more</span>
+          </div>
+          <!-- ✅ REMPLACER @if par *ngIf -->
+          <div *ngIf="demandes.length === 0 && sanctionForm.get('employeId')?.value" class="info-message info">
+            <span class="material-symbols-outlined">info</span>
+            Aucune demande d'explication trouvée pour cet employé
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== ACTIONS ==================== -->
+      <div class="form-actions">
+        <div class="action-left">
+          <span class="required-fields">* Champs obligatoires</span>
+        </div>
+        <div class="action-right">
+          <button type="button" class="btn btn-ghost" (click)="cancel()">
+            <span class="material-symbols-outlined">close</span> Annuler
+          </button>
+          <button type="submit" class="btn btn-danger" [disabled]="submitting || sanctionForm.invalid">
+            <!-- ✅ REMPLACER @if par *ngIf -->
+            <span *ngIf="!submitting" class="material-symbols-outlined">gavel</span>
+            <span *ngIf="!submitting">Attribuer la sanction</span>
+            <span *ngIf="submitting" class="material-symbols-outlined spinning">refresh</span>
+            <span *ngIf="submitting">Création en cours...</span>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ==================== INFO ==================== -->
+  <div class="info-card">
+    <div class="info-content">
+      <span class="material-symbols-outlined">info</span>
+      <div>
+        <strong>À savoir :</strong>
+        <span>La sanction sera enregistrée dans le dossier de l'employé et une notification lui sera envoyée. Un historique complet des actions sera conservé.</span>
+      </div>
+    </div>
+  </div>
+</div>

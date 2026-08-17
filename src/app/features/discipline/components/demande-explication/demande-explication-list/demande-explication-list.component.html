@@ -1,0 +1,268 @@
+<!-- src/app/features/discipline/components/demande-explication/demande-explication-list/demande-explication-list.component.html -->
+
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">help_outline</span>
+      </div>
+      <div>
+        <h1>Demandes d'explication</h1>
+        <p>Gestion des procédures disciplinaires</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <!-- ✅ Bouton Import -->
+      <button class="btn btn-secondary" (click)="goToImport()">
+        <span class="material-symbols-outlined">upload_file</span> Importer
+      </button>
+      <button class="btn btn-primary" (click)="createDemande()">
+        <span class="material-symbols-outlined">add</span> Nouvelle demande
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== STATS ==================== -->
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-icon"><span class="material-symbols-outlined">pending</span></div>
+      <div class="stat-info">
+        <p>En attente</p>
+        <h3>{{ getStatCount(StatutDemandeExplication.EN_ATTENTE) }}</h3>
+      </div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-icon"><span class="material-symbols-outlined">forum</span></div>
+      <div class="stat-info">
+        <p>Répondues</p>
+        <h3>{{ getStatCount(StatutDemandeExplication.REPONDUE) }}</h3>
+      </div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon"><span class="material-symbols-outlined">check_circle</span></div>
+      <div class="stat-info">
+        <p>Validées</p>
+        <h3>{{ getStatCount(StatutDemandeExplication.VALIDEE) }}</h3>
+      </div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-icon"><span class="material-symbols-outlined">cancel</span></div>
+      <div class="stat-info">
+        <p>Rejetées / Annulées</p>
+        <h3>{{ getStatCount(StatutDemandeExplication.REJETEE) + getStatCount(StatutDemandeExplication.ANNULEE) }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== RECHERCHE & FILTRES ==================== -->
+  <div class="search-filter-bar">
+    <div class="search-wrapper">
+      <span class="material-symbols-outlined search-icon">search</span>
+      <input 
+        type="text" 
+        class="search-input" 
+        [(ngModel)]="searchTerm" 
+        (input)="applyFilters()"
+        placeholder=" Rechercher par numéro, objet, employé..."
+        autocomplete="off"
+      />
+      @if (searchTerm) {
+        <button class="clear-search" (click)="clearSearch()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      }
+    </div>
+
+    <div class="filter-wrapper">
+      <span class="material-symbols-outlined filter-icon">filter_list</span>
+      <select class="filter-select" [(ngModel)]="selectedStatut" (change)="applyFilters()">
+        <option value="">Tous les statuts</option>
+        @for (statut of statutOptions; track statut) {
+          <option [value]="statut">{{ getStatutLabel(statut) }}</option>
+        }
+      </select>
+      @if (selectedStatut) {
+        <button class="clear-filter" (click)="clearFilter()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      }
+    </div>
+
+    <div class="filter-results">
+      <span class="result-count">
+        <span class="material-symbols-outlined">description</span>
+        {{ filteredData().length }} demande(s)
+      </span>
+      @if (searchTerm || selectedStatut) {
+        <button class="btn-reset-filters" (click)="resetFilters()">
+          <span class="material-symbols-outlined">refresh</span>
+          Réinitialiser
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- ==================== TABLEAU ==================== -->
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">
+        <span class="material-symbols-outlined">list_alt</span>
+        <h2>Liste des demandes</h2>
+      </div>
+      <div class="table-actions">
+        <span class="table-info">{{ filteredData().length }} sur {{ totalElements }} demandes</span>
+      </div>
+    </div>
+
+    <div class="responsive-wrapper">
+      <table class="up-table">
+        <thead>
+          <tr>
+            <th>Numéro</th>
+            <th>Objet</th>
+            <th>Employé</th>
+            <th>Statut</th>
+            <th>Date création</th>
+            <th class="th-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (demande of paginatedData; track demande.id) {
+            <tr>
+              <td><span class="tag-numero">{{ demande.numero }}</span></td>
+              <td>
+                <div class="objet-cell">
+                  <div class="objet">{{ demande.objet }}</div>
+                  <div class="meta">par {{ demande.auteurNom || 'N/A' }}</div>
+                </div>
+              </td>
+              <td>
+                <div class="user-cell">
+                  <div class="avatar">{{ (demande.employeConcerneNom || 'U')[0] }}</div>
+                  <div>
+                    <div class="name">{{ demande.employeConcerneNom || 'Non défini' }}</div>
+                    <div class="meta">{{ demande.departementId ? 'Département ' + demande.departementId : 'N/A' }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="status-pill" [class]="getStatutClass(demande.statut)">
+                  {{ getStatutLabel(demande.statut) }}
+                </span>
+              </td>
+              <td>
+                <div class="date-cell">
+                  <span class="material-symbols-outlined">event</span>
+                  {{ demande.dateCreation | date:'dd/MM/yyyy HH:mm' }}
+                </div>
+              </td>
+              <td>
+                <div class="actions-cell">
+                  <button class="action-btn info" (click)="viewDemande(demande.id!)" title="Voir">
+                    <span class="material-symbols-outlined">visibility</span>
+                  </button>
+                  @if (canEdit(demande.statut)) {
+                    <button class="action-btn warning" (click)="editDemande(demande.id!)" title="Modifier">
+                      <span class="material-symbols-outlined">edit</span>
+                    </button>
+                  }
+                  @if (canDelete(demande.statut)) {
+                    <button class="action-btn danger" (click)="deleteDemande(demande.id!)" title="Supprimer">
+                      <span class="material-symbols-outlined">delete</span>
+                    </button>
+                  }
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6">
+                <div class="empty-state">
+                  <span class="material-symbols-outlined">inbox</span>
+                  <p>Aucune demande trouvée</p>
+                  @if (searchTerm || selectedStatut) {
+                    <p class="empty-hint">Essayez de modifier vos critères de recherche</p>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ==================== PAGINATION ==================== -->
+    @if (filteredData().length > 0) {
+      <div class="pagination-container">
+        <div class="pagination-info">
+          <span>
+            Affichage de 
+            <strong>{{ (currentPage - 1) * itemsPerPage + 1 }}</strong> 
+            à 
+            <strong>{{ Math.min(currentPage * itemsPerPage, filteredData().length) }}</strong> 
+            sur 
+            <strong>{{ filteredData().length }}</strong> 
+            demandes
+          </span>
+          
+          <div class="page-size-selector">
+            <label for="pageSize">Lignes par page :</label>
+            <select id="pageSize" [(ngModel)]="itemsPerPage" (change)="onPageSizeChange()">
+              <option [value]="5">5</option>
+              <option [value]="10">10</option>
+              <option [value]="25">25</option>
+              <option [value]="50">50</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pagination-controls">
+          <button class="pagination-btn" 
+                  (click)="previousPage()" 
+                  [disabled]="currentPage === 1"
+                  [class.disabled]="currentPage === 1">
+            <span class="material-symbols-outlined">chevron_left</span>
+            <span>Précédent</span>
+          </button>
+
+          <div class="page-numbers">
+            <button *ngIf="totalPages > 1" 
+                    class="page-number" 
+                    [class.active]="currentPage === 1"
+                    (click)="goToPage(1)">
+              1
+            </button>
+
+            <span *ngIf="currentPage > 3" class="ellipsis">…</span>
+
+            <button *ngFor="let page of getVisiblePages()" 
+                    class="page-number" 
+                    [class.active]="currentPage === page"
+                    (click)="goToPage(page)">
+              {{ page }}
+            </button>
+
+            <span *ngIf="currentPage < totalPages - 2" class="ellipsis">…</span>
+
+            <button *ngIf="totalPages > 1" 
+                    class="page-number" 
+                    [class.active]="currentPage === totalPages"
+                    (click)="goToPage(totalPages)">
+              {{ totalPages }}
+            </button>
+          </div>
+
+          <button class="pagination-btn" 
+                  (click)="nextPage()" 
+                  [disabled]="currentPage === totalPages"
+                  [class.disabled]="currentPage === totalPages">
+            <span>Suivant</span>
+            <span class="material-symbols-outlined">chevron_right</span>
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+</div>

@@ -214,17 +214,21 @@
             }
           </div>
 
-          <!-- ✅ Boutons d'action avec vérification des permissions -->
+          <!-- ============================================ -->
+          <!-- ✅ BOUTONS D'ACTION BASÉS UNIQUEMENT SUR LES PERMISSIONS -->
+          <!-- ============================================ -->
+          
+          <!-- ✅ Cas 1 : L'utilisateur a au moins une permission d'action -->
           @if (isActionAllowed(c)) {
             <div class="card-actions">
-              <!-- Approuver - Permission LEAVE_APPROVE -->
+              <!-- ✅ Approuver - UNIQUEMENT basé sur la permission LEAVE_APPROVE -->
               @if (canApproveLeave()) {
                 <button class="btn-approve" (click)="openValidationModal(c, 'approve')">
                   <i class="fas fa-check"></i> Approuver
                 </button>
               }
               
-              <!-- Rejeter - Permission LEAVE_REJECT -->
+              <!-- ✅ Rejeter - UNIQUEMENT basé sur la permission LEAVE_REJECT -->
               @if (canRejectLeave()) {
                 <button class="btn-reject" (click)="openValidationModal(c, 'reject')">
                   <i class="fas fa-times"></i> Rejeter
@@ -233,11 +237,33 @@
             </div>
           }
 
-          <!-- ✅ Message pour les utilisateurs avec uniquement LEAVE_VIEW_TEAM -->
-          @if (canViewTeam() && !canApproveLeave() && !canRejectLeave() && c.statut === 'EN_ATTENTE') {
+          <!-- ✅ Cas 2 : L'utilisateur n'a PAS de permission d'action -->
+          @if (!isActionAllowed(c) && c.statut === 'EN_ATTENTE') {
             <div class="card-actions view-only">
               <span class="view-only-message">
-                <i class="fas fa-eye"></i> Consultation uniquement - Vous ne pouvez pas modifier cette demande
+                <i class="fas fa-eye"></i> 
+                <!-- ✅ Message dynamique basé sur les permissions disponibles -->
+                @if (!canApproveLeave() && !canRejectLeave()) {
+                  Consultation uniquement - Vous n'avez pas les permissions nécessaires
+                } @else {
+                  Consultation uniquement - Cette demande ne peut pas être modifiée
+                }
+              </span>
+            </div>
+          }
+
+          <!-- ✅ Cas 3 : Message pour les congés déjà traités -->
+          @if (c.statut !== 'EN_ATTENTE') {
+            <div class="card-actions view-only">
+              <span class="view-only-message">
+                <i class="fas fa-check-circle"></i> 
+                @if (c.statut === 'APPROUVE') {
+                  Demande déjà approuvée
+                } @else if (c.statut === 'REJETE') {
+                  Demande déjà rejetée
+                } @else if (c.statut === 'ANNULE') {
+                  Demande annulée
+                }
               </span>
             </div>
           }

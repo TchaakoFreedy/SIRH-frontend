@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, ChangeDetectionStrategy, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, Input, OnInit, OnChanges, SimpleChanges, ChangeDetectionStrategy, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 Chart.register(...registerables);
@@ -24,6 +24,8 @@ Chart.register(...registerables);
       padding: 1.5rem;
       box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
       border: 1px solid rgba(0,0,0,0.03);
+      width: 100%;
+      min-width: 280px;
     }
     .header {
       display: flex;
@@ -36,13 +38,18 @@ Chart.register(...registerables);
       font-size: 1.1rem;
     }
     .chart-container {
-      height: 200px;
+      height: 250px; 
+      width: 100%;
       position: relative;
+    }
+    .chart-container canvas {
+      width: 100% !important;
+      height: 100% !important;
     }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ChartCardComponent implements OnInit, AfterViewInit {
+export class ChartCardComponent implements OnInit, OnChanges, AfterViewInit {
   @Input({ required: true }) title!: string;
   @Input({ required: true }) labels!: string[];
   @Input({ required: true }) datasets!: ChartConfiguration['data']['datasets'];
@@ -50,13 +57,22 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
   @ViewChild('chartCanvas') canvasRef!: ElementRef<HTMLCanvasElement>;
 
   private chart: Chart | null = null;
-
-  ngAfterViewInit() {
-    this.renderChart();
-  }
+  private isViewInitialized = false;
 
   ngOnInit() {
-    // Si les données changent, on peut réinitialiser le chart (à gérer via ngOnChanges, mais simplifié ici)
+    // Rien de spécifique ici
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    // Si les données d'entrée changent, recréer le graphique
+    if (this.isViewInitialized && (changes['labels'] || changes['datasets'] || changes['type'])) {
+      this.renderChart();
+    }
+  }
+
+  ngAfterViewInit() {
+    this.isViewInitialized = true;
+    this.renderChart();
   }
 
   private renderChart() {

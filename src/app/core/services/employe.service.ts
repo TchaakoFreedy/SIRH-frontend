@@ -11,6 +11,7 @@ import { Document } from '../models/document.model';
 export class EmployeService {
   private url = `${environment.apiUrl}/employees`;
   private docUrl = `${environment.apiUrl}/documents-management`;
+  private profileUrl = `${environment.apiUrl}/profile`; // ✅ Nouvel endpoint
 
   constructor(private http: HttpClient) {}
 
@@ -90,9 +91,25 @@ export class EmployeService {
 
   /**
    * Met à jour le profil d'un employé (lui-même - champs limités)
+   * @deprecated Utiliser updateMyProfile() à la place
    */
   updateSelfProfile(id: string, data: { telephone: string; addresse: string }): Observable<Employee> {
     return this.http.patch<Employee>(`${this.url}/${id}/profile`, data);
+  }
+
+  /**
+   * ✅ NOUVEAU : Met à jour le profil de l'utilisateur connecté
+   * Plus besoin de passer l'ID, le backend détermine automatiquement l'utilisateur
+   */
+  updateMyProfile(data: { telephone: string; addresse: string }): Observable<Employee> {
+    return this.http.patch<Employee>(`${this.profileUrl}`, data);
+  }
+
+  /**
+   * ✅ NOUVEAU : Récupère le profil de l'utilisateur connecté
+   */
+  getMyProfile(): Observable<Employee> {
+    return this.http.get<Employee>(`${this.profileUrl}`);
   }
 
   /**

@@ -1,0 +1,432 @@
+<!-- src/app/features/discipline/components/demande-explication/demande-explication-import/demande-explication-import.component.html -->
+
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">upload_file</span>
+      </div>
+      <div>
+        <h1>Importer des demandes d'explication</h1>
+        <p>Migration des données disciplinaires existantes</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-secondary" (click)="goBack()">
+        <span class="material-symbols-outlined">arrow_back</span> Retour
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== ONGLETS ==================== -->
+  <mat-tab-group class="import-tabs" animationDuration="300ms">
+    
+    <!-- ========================================================== -->
+    <!-- ONGLET 1 : IMPORT INDIVIDUEL                               -->
+    <!-- ========================================================== -->
+    <mat-tab label="Import individuel">
+      <div class="tab-content">
+        
+        <!-- Description -->
+        <div class="tab-description">
+          <span class="material-symbols-outlined">info</span>
+          <span>Importez une demande d'explication à la fois en remplissant le formulaire ci-dessous. Les champs marqués d'un <span class="required-star">*</span> sont obligatoires.</span>
+        </div>
+
+        <!-- ==================== FORMULAIRE ==================== -->
+        <div class="form-card">
+          <form [formGroup]="importForm" (ngSubmit)="onSubmit()">
+            
+            <!-- SECTION 1 : INFORMATIONS GÉNÉRALES -->
+            <div class="form-section">
+              <div class="section-header">
+                <span class="material-symbols-outlined">info</span>
+                <h3>Informations générales</h3>
+              </div>
+              
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Numéro original *</label>
+                  <input 
+                    type="text" 
+                    formControlName="numeroOriginal" 
+                    placeholder="EXP-2025-0001"
+                    [class.error]="f['numeroOriginal'].touched && f['numeroOriginal'].invalid"
+                  />
+                  @if (f['numeroOriginal'].touched && f['numeroOriginal'].invalid) {
+                    <small class="error-text">Le numéro original est obligatoire</small>
+                  }
+                </div>
+
+                <div class="form-group">
+                  <label>Statut</label>
+                  <div class="select-wrapper">
+                    <select formControlName="statut">
+                      <option *ngFor="let s of statuts" [value]="s.value">{{ s.label }}</option>
+                    </select>
+                    <span class="material-symbols-outlined select-arrow">expand_more</span>
+                  </div>
+                </div>
+
+                <div class="form-group span-2">
+                  <label>Objet *</label>
+                  <input 
+                    type="text" 
+                    formControlName="objet" 
+                    placeholder="Ex: Retard répété, non-respect des procédures..."
+                    [class.error]="f['objet'].touched && f['objet'].invalid"
+                  />
+                  @if (f['objet'].touched && f['objet'].invalid) {
+                    <small class="error-text">L'objet est obligatoire</small>
+                  }
+                </div>
+
+                <div class="form-group span-2">
+                  <label>Motif *</label>
+                  <input 
+                    type="text" 
+                    formControlName="motif" 
+                    placeholder="Raison principale de la demande"
+                    [class.error]="f['motif'].touched && f['motif'].invalid"
+                  />
+                  @if (f['motif'].touched && f['motif'].invalid) {
+                    <small class="error-text">Le motif est obligatoire</small>
+                  }
+                </div>
+
+                <div class="form-group span-2">
+                  <label>Description</label>
+                  <textarea 
+                    formControlName="description" 
+                    rows="4" 
+                    placeholder="Décrivez en détail les faits, les circonstances et les éléments de contexte..."
+                  ></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- SECTION 2 : ACTEURS -->
+            <div class="form-section">
+              <div class="section-header">
+                <span class="material-symbols-outlined">people</span>
+                <h3>Acteurs</h3>
+              </div>
+              
+              <div class="form-grid grid-2">
+                <!-- Employé concerné - Select avec liste -->
+                <div class="form-group">
+                  <label>Employé concerné *</label>
+                  <div class="select-wrapper">
+                    <select 
+                      formControlName="employeConcerneIdentifier"
+                      [class.error]="f['employeConcerneIdentifier'].touched && f['employeConcerneIdentifier'].invalid"
+                    >
+                      <option value="" disabled selected>-- Sélectionner un employé --</option>
+                      @for (emp of employees; track emp.id) {
+                        <option [value]="emp.id">
+                          {{ getEmployeeDisplay(emp) }}
+                        </option>
+                      }
+                    </select>
+                    <span class="material-symbols-outlined select-arrow">expand_more</span>
+                  </div>
+                  @if (f['employeConcerneIdentifier'].touched && f['employeConcerneIdentifier'].invalid) {
+                    <small class="error-text">L'employé concerné est obligatoire</small>
+                  }
+                  <small class="hint-text">Sélectionnez l'employé concerné par la demande</small>
+                </div>
+
+                <!-- Auteur - Select avec liste -->
+                <div class="form-group">
+                  <label>Auteur</label>
+                  <div class="select-wrapper">
+                    <select formControlName="auteurIdentifier">
+                      <option value="">-- Utilisateur RH par défaut --</option>
+                      @for (user of users; track user.id) {
+                        <option [value]="user.id">
+                          {{ getUserDisplay(user) }}
+                        </option>
+                      }
+                    </select>
+                    <span class="material-symbols-outlined select-arrow">expand_more</span>
+                  </div>
+                  <small class="hint-text">Laissez vide pour utiliser l'utilisateur RH par défaut</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- SECTION 3 : DATES -->
+            <div class="form-section">
+              <div class="section-header">
+                <span class="material-symbols-outlined">calendar_today</span>
+                <h3>Dates</h3>
+              </div>
+              
+              <div class="form-grid grid-2">
+                <div class="form-group">
+                  <label>Date de création</label>
+                  <input type="datetime-local" formControlName="dateCreation" />
+                </div>
+
+                <div class="form-group">
+                  <label>Date limite de réponse</label>
+                  <input type="date" formControlName="dateLimiteReponse" />
+                </div>
+              </div>
+            </div>
+
+            <!-- SECTION 4 : RÉPONSE -->
+            <div class="form-section">
+              <div class="section-header">
+                <span class="material-symbols-outlined">reply</span>
+                <h3>Réponse</h3>
+              </div>
+              
+              <div class="form-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" formControlName="hasReponse" />
+                  <span>Ajouter une réponse</span>
+                </label>
+              </div>
+
+              @if (f['hasReponse'].value) {
+                <div class="form-grid grid-2" formGroupName="reponse">
+                  <div class="form-group span-2">
+                    <label>Contenu de la réponse</label>
+                    <textarea 
+                      formControlName="contenu" 
+                      rows="3" 
+                      placeholder="Contenu de la réponse"
+                    ></textarea>
+                  </div>
+
+                  <div class="form-group">
+                    <label>Date de la réponse</label>
+                    <input type="datetime-local" formControlName="dateReponse" />
+                  </div>
+
+                  <div class="form-group">
+                    <label>Statut de la réponse</label>
+                    <div class="checkbox-group">
+                      <label class="checkbox-label">
+                        <input type="checkbox" formControlName="validee" />
+                        <span>Validée</span>
+                      </label>
+                      <label class="checkbox-label">
+                        <input type="checkbox" formControlName="rejetee" />
+                        <span>Rejetée</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- SECTION 5 : HISTORIQUE -->
+            <div class="form-section">
+              <div class="section-header">
+                <span class="material-symbols-outlined">history</span>
+                <h3>Historique</h3>
+              </div>
+              
+              <div class="form-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" formControlName="hasHistorique" />
+                  <span>Ajouter un historique</span>
+                </label>
+              </div>
+
+              @if (f['hasHistorique'].value) {
+                <div class="historique-list">
+                  @for (h of historiqueArray.controls; track $index; let i = $index) {
+                    <div class="historique-item">
+                      <div class="historique-header">
+                        <span class="historique-step">Étape {{ i + 1 }}</span>
+                        <button type="button" class="btn btn-sm btn-danger" (click)="removeHistorique(i)">
+                          <span class="material-symbols-outlined">delete</span>
+                        </button>
+                      </div>
+                      <div [formGroup]="getHistoriqueFormGroup(h)" class="form-grid grid-2">
+                        <div class="form-group">
+                          <label>Action *</label>
+                          <div class="select-wrapper">
+                            <select formControlName="action">
+                              <option *ngFor="let a of actions" [value]="a.value">{{ a.label }}</option>
+                            </select>
+                            <span class="material-symbols-outlined select-arrow">expand_more</span>
+                          </div>
+                        </div>
+                        <div class="form-group">
+                          <label>Date</label>
+                          <input type="datetime-local" formControlName="date" />
+                        </div>
+                        <div class="form-group span-2">
+                          <label>Commentaire</label>
+                          <input type="text" formControlName="commentaire" placeholder="Commentaire" />
+                        </div>
+                      </div>
+                    </div>
+                  }
+
+                  <button type="button" class="btn btn-outline" (click)="addHistorique()">
+                    <span class="material-symbols-outlined">add</span>
+                    Ajouter une étape
+                  </button>
+                </div>
+              }
+            </div>
+
+            <!-- SECTION 6 : RÉCAPITULATIF -->
+            <div class="form-section summary-section">
+              <div class="summary-bar">
+                <span class="material-symbols-outlined">check_circle</span>
+                <span><strong>Récapitulatif</strong></span>
+                <span class="summary-dot"></span>
+                <span>Numéro: {{ importForm.get('numeroOriginal')?.value || 'Non défini' }}</span>
+                <span class="summary-dot"></span>
+                <span>Objet: {{ importForm.get('objet')?.value || 'Non défini' }}</span>
+                <span class="summary-dot"></span>
+                <span>Employé: {{ getSelectedEmployeeName() }}</span>
+                @if (importForm.get('auteurIdentifier')?.value) {
+                  <span class="summary-dot"></span>
+                  <span>Auteur: {{ getSelectedAuthorName() }}</span>
+                }
+              </div>
+            </div>
+
+            <!-- ==================== ACTIONS ==================== -->
+            <div class="form-actions">
+              <button type="button" class="btn btn-ghost" (click)="goBack()">
+                <span class="material-symbols-outlined">close</span> Annuler
+              </button>
+              <button type="submit" class="btn btn-primary" [disabled]="isSubmitting || importForm.invalid">
+                @if (!isSubmitting) {
+                  <span class="material-symbols-outlined">upload</span>
+                  <span>Importer</span>
+                } @else {
+                  <span class="material-symbols-outlined spinning">refresh</span>
+                  <span>Import en cours...</span>
+                }
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- ========================================================== -->
+    <!-- ONGLET 2 : IMPORT CSV                                      -->
+    <!-- ========================================================== -->
+    <mat-tab label="Import CSV">
+      <div class="tab-content">
+        
+        <!-- Description -->
+        <div class="tab-description">
+          <span class="material-symbols-outlined">cloud_upload</span>
+          <span>Importez plusieurs demandes d'explication à partir d'un fichier CSV.</span>
+        </div>
+
+        <!-- Structure CSV -->
+        <div class="csv-info">
+          <h4>Structure du fichier CSV</h4>
+          <table class="csv-structure">
+            <thead>
+              <tr>
+                <th>Colonne</th>
+                <th>Description</th>
+                <th>Obligatoire</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>numeroOriginal</td><td>Numéro original de la demande</td><td><span class="badge-required">Oui</span></td></tr>
+              <tr><td>objet</td><td>Objet de la demande</td><td><span class="badge-required">Oui</span></td></tr>
+              <tr><td>motif</td><td>Motif de la demande</td><td><span class="badge-required">Oui</span></td></tr>
+              <tr><td>employeConcerneIdentifier</td><td>ID, email ou nom de l'employé</td><td><span class="badge-required">Oui</span></td></tr>
+              <tr><td>description</td><td>Description détaillée</td><td><span class="badge-optional">Non</span></td></tr>
+              <tr><td>auteurIdentifier</td><td>ID, email ou nom de l'auteur</td><td><span class="badge-optional">Non</span></td></tr>
+              <tr><td>dateCreation</td><td>Date de création (ISO)</td><td><span class="badge-optional">Non</span></td></tr>
+              <tr><td>dateLimiteReponse</td><td>Date limite de réponse</td><td><span class="badge-optional">Non</span></td></tr>
+              <tr><td>statut</td><td>EN_ATTENTE, REPONDUE, VALIDEE, REJETEE, ANNULEE</td><td><span class="badge-optional">Non</span></td></tr>
+            </tbody>
+          </table>
+
+          <div class="csv-actions">
+            <button class="btn btn-outline" (click)="downloadTemplate()">
+              <span class="material-symbols-outlined">download</span>
+              Télécharger le modèle
+            </button>
+          </div>
+        </div>
+
+        <!-- Upload -->
+        <div class="upload-area">
+          <div class="drop-zone" (dragover)="$event.preventDefault()" (drop)="$event.preventDefault()">
+            <input
+              type="file"
+              id="fileInput"
+              accept=".csv"
+              (change)="onFileSelected($event)"
+              hidden
+            />
+            <label for="fileInput" class="drop-label">
+              <span class="material-symbols-outlined">cloud_upload</span>
+              <p>Glissez-déposez votre fichier CSV ici</p>
+              <p class="hint-text">ou cliquez pour sélectionner un fichier</p>
+              @if (selectedFile) {
+                <span class="file-name">{{ selectedFile.name }}</span>
+              }
+            </label>
+          </div>
+
+          <button
+            class="btn btn-primary upload-btn"
+            (click)="uploadFile()"
+            [disabled]="!selectedFile || isSubmitting"
+          >
+            @if (!isSubmitting) {
+              <span class="material-symbols-outlined">upload_file</span>
+              <span>Importer le fichier</span>
+            } @else {
+              <span class="material-symbols-outlined spinning">refresh</span>
+              <span>Import en cours...</span>
+            }
+          </button>
+        </div>
+
+        <!-- Résultats -->
+        @if (importResults.length > 0) {
+          <div class="results-section">
+            <h4>Résultats de l'import</h4>
+            <div class="results-stats">
+              <span class="stat success"><span class="material-symbols-outlined">check_circle</span> Succès: {{ getSuccessCount() }}</span>
+              <span class="stat duplicate"><span class="material-symbols-outlined">warning</span> Doublons: {{ getDuplicateCount() }}</span>
+              <span class="stat failure"><span class="material-symbols-outlined">error</span> Échecs: {{ getFailureCount() }}</span>
+            </div>
+            <div class="results-list">
+              @for (r of importResults; track r.numeroOriginal) {
+                <div class="result-item" [class]="r.success ? 'success' : r.duplicate ? 'duplicate' : 'failure'">
+                  <span class="result-numero">{{ r.numeroOriginal }}</span>
+                  <span class="result-status">{{ getStatusLabel(r) }}</span>
+                  <span class="result-message">{{ r.errorMessage || 'Importé avec succès' }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+
+  <!-- ==================== AIDE ==================== -->
+  <div class="help-card">
+    <div class="help-content">
+      <span class="material-symbols-outlined">info</span>
+      <div>
+        <strong>À savoir :</strong>
+        <span>L'import des demandes d'explication permet de migrer les données historiques. Les demandes importées conserveront leur numéro d'origine et leur historique complet.</span>
+      </div>
+    </div>
+  </div>
+</div>

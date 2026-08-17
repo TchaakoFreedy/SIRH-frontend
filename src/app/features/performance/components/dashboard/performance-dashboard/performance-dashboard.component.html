@@ -1,0 +1,199 @@
+<!-- src/app/features/performance/components/dashboard/performance-dashboard/performance-dashboard.component.html -->
+
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">insights</span>
+      </div>
+      <div>
+        <h1>Tableau de bord Performance</h1>
+        <p>Analyse et suivi des performances des collaborateurs</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <span class="year-badge">{{ currentYear }}</span>
+      <button class="btn btn-secondary" (click)="refreshData()">
+        <span class="material-symbols-outlined">refresh</span>
+        Actualiser
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== LOADING ==================== -->
+  @if (isLoading) {
+    <div class="loading-shimmer">
+      <div class="shimmer-card" *ngFor="let i of [1,2,3,4]"></div>
+    </div>
+  }
+
+  <!-- ==================== DASHBOARD ==================== -->
+  @if (!isLoading && dashboardData) {
+    
+    <!-- ==================== STATS ==================== -->
+    <div class="stats-grid">
+      <div class="stat-card blue">
+        <div class="stat-icon">
+          <span class="material-symbols-outlined">assignment</span>
+        </div>
+        <div class="stat-content">
+          <h3>{{ dashboardData.totalEvaluations || 0 }}</h3>
+          <p>Évaluations totales</p>
+          <small>Cette année</small>
+        </div>
+      </div>
+
+      <div class="stat-card green">
+        <div class="stat-icon">
+          <span class="material-symbols-outlined">trending_up</span>
+        </div>
+        <div class="stat-content">
+          <h3>{{ dashboardData.moyenneGenerale | number:'1.1-1' }}%</h3>
+          <p>Moyenne générale</p>
+          <small>Score moyen</small>
+        </div>
+      </div>
+
+      @if (dashboardData.meilleurEmploye) {
+        <div class="stat-card gold">
+          <div class="stat-icon">
+            <span class="material-symbols-outlined">emoji_events</span>
+          </div>
+          <div class="stat-content">
+            <h3>{{ dashboardData.meilleurEmploye.employeNom }}</h3>
+            <p>Meilleur employé</p>
+            <small>Score: {{ getTotalScore(dashboardData.meilleurEmploye.scoreTotal) }}</small>
+          </div>
+        </div>
+      }
+
+      @if (dashboardData.meilleurDepartement) {
+        <div class="stat-card purple">
+          <div class="stat-icon">
+            <span class="material-symbols-outlined">business_center</span>
+          </div>
+          <div class="stat-content">
+            <h3>{{ meilleurDepartementNom || 'Chargement...' }}</h3>
+            <p>Meilleur département</p>
+            <small>Performance élevée</small>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- ==================== GRAPHIQUES ==================== -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>Répartition des mentions</h3>
+          <span class="chart-badge">Distribution</span>
+        </div>
+        <div class="chart-container">
+          <canvas #mentionChart id="mentionChart" width="400" height="300"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>Évolution des performances</h3>
+          <span class="chart-badge">Tendance</span>
+        </div>
+        <div class="chart-container">
+          <canvas #evolutionChart id="evolutionChart" width="400" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== CLASSEMENT ==================== -->
+    @if (dashboardData.meilleurEmploye) {
+      <div class="ranking-card">
+        <div class="ranking-header">
+          <div class="ranking-title">
+            <span class="material-symbols-outlined">leaderboard</span>
+            <h3>Classement des meilleurs employés</h3>
+          </div>
+          <span class="ranking-badge">Top Performers</span>
+        </div>
+        <div class="ranking-list">
+          @for (item of getTopEmployes(); track item.employeId; let i = $index) {
+            <div class="ranking-item" [class.first]="i === 0">
+              <div class="rank-container">
+                <span class="rank-number">{{ i + 1 }}</span>
+                @if (i === 0) {
+                  <span class="rank-medal material-symbols-outlined">workspace_premium</span>
+                } @else if (i === 1) {
+                  <span class="rank-medal material-symbols-outlined">workspace_premium</span>
+                } @else if (i === 2) {
+                  <span class="rank-medal material-symbols-outlined">workspace_premium</span>
+                }
+              </div>
+              <div class="ranking-info">
+                <span class="ranking-name">{{ item.employeNom }}</span>
+                <span class="ranking-department">{{ meilleurDepartementNom || 'N/A' }}</span>
+              </div>
+              <div class="ranking-score">
+                <span class="score-value">{{ getTotalScore(item.scoreTotal) }}</span>
+                <span class="score-label">points</span>
+              </div>
+              <span class="mention-badge" [class]="getMentionClass(item.mention || '')">
+                {{ getMentionLabel(item.mention || '') }}
+              </span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- ==================== STATISTIQUES DÉTAILLÉES ==================== -->
+    <div class="detail-stats">
+      <div class="detail-card">
+        <div class="detail-header">
+          <span class="material-symbols-outlined">info</span>
+          <h4>Répartition des mentions</h4>
+        </div>
+        <div class="mention-distribution">
+          @for (item of getMentionDistribution(); track item.name) {
+            <div class="mention-bar">
+              <span class="mention-label">
+                <!-- Cercle coloré devant le nom -->
+                <span class="mention-color-dot" [style.background-color]="item.color"></span>
+                {{ item.name }}
+              </span>
+              <div class="bar-container">
+                <div class="bar-fill" 
+                     [style.width.%]="item.percentage" 
+                     [style.background-color]="item.color">
+                </div>
+              </div>
+              <span class="mention-count">{{ item.count }}</span>
+              <span class="mention-percentage">{{ item.percentage | number:'1.0-0' }}%</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="detail-card">
+        <div class="detail-header">
+          <span class="material-symbols-outlined">trending_up</span>
+          <h4>Résumé des performances</h4>
+        </div>
+        <div class="summary-items">
+          <div class="summary-item">
+            <span class="summary-label">Total évaluations</span>
+            <span class="summary-value">{{ dashboardData.totalEvaluations || 0 }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Moyenne générale</span>
+            <span class="summary-value">{{ (dashboardData.moyenneGenerale || 0) | number:'1.1-1' }}%</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Meilleur score</span>
+            <span class="summary-value">{{ getBestScore() }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

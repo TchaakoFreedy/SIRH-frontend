@@ -1,0 +1,198 @@
+<!-- src/app/features/performance/components/evaluation/evaluation-edit/evaluation-edit.component.html -->
+
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">edit_note</span>
+      </div>
+      <div>
+        <h1>Modifier l'évaluation</h1>
+        <p>Mettez à jour l'évaluation de performance du collaborateur</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button type="button" class="btn btn-outline" (click)="cancel()">
+        <span class="material-symbols-outlined">arrow_back</span> Retour
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== STATS ==================== -->
+  <div class="stats-grid" *ngIf="!isLoading">
+    <div class="stat-card blue">
+      <div class="stat-icon"><span class="material-symbols-outlined">person</span></div>
+      <div class="stat-info">
+        <p>Employé</p>
+        <h3>{{ getEmployeeDisplayById(evaluationForm.get('employeId')?.value) }}</h3>
+      </div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-icon"><span class="material-symbols-outlined">calendar_month</span></div>
+      <div class="stat-info">
+        <p>Période</p>
+        <h3>{{ getPeriodeLabel(evaluationForm.get('periode')?.value) }}</h3>
+      </div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-icon"><span class="material-symbols-outlined">event</span></div>
+      <div class="stat-info">
+        <p>Année</p>
+        <h3>{{ evaluationForm.get('annee')?.value }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== CHARGEMENT ==================== -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Chargement de l'évaluation...</p>
+  </div>
+
+  <!-- ==================== FORMULAIRE ==================== -->
+  <div class="table-card" *ngIf="!isLoading">
+    <form [formGroup]="evaluationForm" (ngSubmit)="onSubmit()">
+      
+      <!-- SECTION 1 : INFORMATIONS GÉNÉRALES -->
+      <div class="form-section">
+        <div class="section-header">
+          <span class="material-symbols-outlined">info</span>
+          <h3>Informations générales</h3>
+        </div>
+        
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Employé <span class="required">*</span></label>
+            <div class="select-wrapper">
+              <select formControlName="employeId" [class.error]="evaluationForm.get('employeId')?.touched && evaluationForm.get('employeId')?.invalid">
+                <option value="" disabled>-- Sélectionner un employé --</option>
+                <option *ngFor="let emp of employees" [value]="emp.id">{{ getEmployeeDisplay(emp) }}</option>
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+            <div *ngIf="evaluationForm.get('employeId')?.touched && evaluationForm.get('employeId')?.invalid">
+              <small class="error-text">
+                <span class="material-symbols-outlined">error</span> L'employé est obligatoire
+              </small>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Période <span class="required">*</span></label>
+            <div class="select-wrapper">
+              <select formControlName="periode" [class.error]="evaluationForm.get('periode')?.touched && evaluationForm.get('periode')?.invalid">
+                <option value="" disabled>-- Sélectionner une période --</option>
+                <option *ngFor="let periode of periodeOptions" [value]="periode">{{ getPeriodeLabel(periode) }}</option>
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+            <div *ngIf="evaluationForm.get('periode')?.touched && evaluationForm.get('periode')?.invalid">
+              <small class="error-text">
+                <span class="material-symbols-outlined">error</span> La période est obligatoire
+              </small>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Année <span class="required">*</span></label>
+            <div class="select-wrapper">
+              <select formControlName="annee" [class.error]="evaluationForm.get('annee')?.touched && evaluationForm.get('annee')?.invalid">
+                <option value="" disabled>-- Sélectionner une année --</option>
+                <option *ngFor="let year of yearOptions" [value]="year">{{ year }}</option>
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+            <div *ngIf="evaluationForm.get('annee')?.touched && evaluationForm.get('annee')?.invalid">
+              <small class="error-text">
+                <span class="material-symbols-outlined">error</span> L'année est obligatoire
+              </small>
+            </div>
+          </div>
+
+          <div class="form-group span-2">
+            <label>Commentaires</label>
+            <textarea 
+              formControlName="commentaires" 
+              rows="3" 
+              placeholder="Ajoutez des commentaires pour contextualiser l'évaluation..."
+            ></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 2 : ÉVALUATION PAR CRITÈRE -->
+      <div class="form-section">
+        <div class="section-header">
+          <span class="material-symbols-outlined">stars</span>
+          <h3>Évaluation par critère</h3>
+          <span class="section-badge">{{ notesArray.length }} critères</span>
+        </div>
+        <p class="hint">Attribuez une note pour chaque critère sur la base des performances observées.</p>
+        
+        <div class="notes-grid">
+          <div *ngFor="let noteControl of notesArray.controls; let i = index" class="note-item">
+            <div class="note-header">
+              <span class="critere-name">{{ getCritereNom(i) }}</span>
+              <span class="critere-max">/ {{ getCritereNoteMax(getCritereId(i)) }}</span>
+            </div>
+            <div class="note-input-wrapper">
+              <input 
+                type="number" 
+                [formControl]="getNoteControl(i)" 
+                [min]="0" 
+                [max]="getCritereNoteMax(getCritereId(i))" 
+                step="0.5"
+                [class.error]="getNoteControl(i).touched && getNoteControl(i).invalid"
+                placeholder="0"
+              />
+              <div class="note-error" *ngIf="getNoteControl(i).touched && getNoteControl(i).invalid">
+                <small class="error-text" *ngIf="getNoteControl(i).hasError('required')">
+                  Note obligatoire
+                </small>
+                <small class="error-text" *ngIf="getNoteControl(i).hasError('min')">
+                  ≥ 0
+                </small>
+                <small class="error-text" *ngIf="getNoteControl(i).hasError('max')">
+                  ≤ {{ getCritereNoteMax(getCritereId(i)) }}
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== ACTIONS ==================== -->
+      <div class="form-actions">
+        <div class="action-left">
+          <span class="required-fields">* Champs obligatoires</span>
+        </div>
+        <div class="action-right">
+          <button type="button" class="btn btn-ghost" (click)="cancel()">
+            <span class="material-symbols-outlined">close</span> Annuler
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="submitting || evaluationForm.invalid">
+            <span *ngIf="!submitting">
+              <span class="material-symbols-outlined">save</span> Mettre à jour
+            </span>
+            <span *ngIf="submitting">
+              <span class="material-symbols-outlined spinning">refresh</span> Mise à jour...
+            </span>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ==================== INFO ==================== -->
+  <div class="info-card" *ngIf="!isLoading">
+    <div class="info-content">
+      <span class="material-symbols-outlined">info</span>
+      <div>
+        <strong>À savoir :</strong>
+        <span>La modification d'une évaluation affecte les statistiques et le classement du collaborateur.</span>
+      </div>
+    </div>
+  </div>
+</div>

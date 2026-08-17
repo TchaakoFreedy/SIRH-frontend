@@ -1,3 +1,5 @@
+// src/app/core/services/notification.service.ts
+
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, BehaviorSubject, Subject, interval, switchMap, Subscription } from 'rxjs';
@@ -14,14 +16,18 @@ export interface ToastMessage {
 export class NotificationService {
   private readonly apiUrl = `${environment.apiUrl}/notifications`;
 
-  // ========== Compteur de non lues ==========
+  // Compteur de non lues
   private unreadCountSubject = new BehaviorSubject<number>(0);
   public unreadCount$ = this.unreadCountSubject.asObservable();
 
-  // ========== Système de Toast ==========
+  // Système de Toast
   private toastSubject = new Subject<ToastMessage>();
   public toast$ = this.toastSubject.asObservable();
   public notifications$ = this.toast$; // alias pour compatibilité
+
+  // Rafraîchissement de la liste des notifications (déclenché manuellement)
+  private refreshNotificationsSubject = new Subject<void>();
+  public refreshNotifications$ = this.refreshNotificationsSubject.asObservable();
 
   private toastIdCounter = 0;
   private pollingSubscription: Subscription | null = null;
@@ -32,9 +38,6 @@ export class NotificationService {
   // API NOTIFICATIONS
   // =============================================
 
-  /**
-   * Récupère les notifications avec filtres et pagination
-   */
   getNotifications(filter?: NotificationFilter, page: number = 0, size: number = 20): Observable<NotificationPageResponse> {
     let params = new HttpParams()
       .set('page', page.toString())
@@ -55,16 +58,10 @@ export class NotificationService {
     return this.http.get<NotificationPageResponse>(this.apiUrl, { params });
   }
 
-  /**
-   * Récupère le nombre de notifications non lues
-   */
   getUnreadCount(): Observable<number> {
     return this.http.get<number>(`${this.apiUrl}/unread-count`);
   }
 
-  /**
-   * Récupère uniquement les notifications non lues
-   */
   getUnreadNotifications(page: number = 0, size: number = 20): Observable<NotificationPageResponse> {
     const params = new HttpParams()
       .set('page', page.toString())
@@ -72,9 +69,6 @@ export class NotificationService {
     return this.http.get<NotificationPageResponse>(`${this.apiUrl}/unread`, { params });
   }
 
-  /**
-   * Récupère l'historique des notifications (avec filtres)
-   */
   getHistory(filter?: NotificationFilter, page: number = 0, size: number = 20): Observable<NotificationPageResponse> {
     let params = new HttpParams()
       .set('page', page.toString())
@@ -91,42 +85,26 @@ export class NotificationService {
     return this.http.get<NotificationPageResponse>(`${this.apiUrl}/history`, { params });
   }
 
-  /**
-   * Marque une notification comme lue
-   */
   markAsRead(notificationId: string): Observable<void> {
     return this.http.put<void>(`${this.apiUrl}/${notificationId}/read`, {});
   }
 
-  /**
-   * Marque toutes les notifications comme lues
-   */
   markAllAsRead(): Observable<void> {
     return this.http.put<void>(`${this.apiUrl}/read-all`, {});
   }
 
-  /**
-   * Supprime une notification
-   */
   deleteNotification(notificationId: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${notificationId}`);
   }
 
-  /**
-   * Supprime toutes les notifications
-   */
   deleteAll(): Observable<void> {
     return this.http.delete<void>(this.apiUrl);
   }
 
   // =============================================
-  // POLLING (mise à jour automatique du compteur)
+  // POLLING
   // =============================================
 
-  /**
-   * Démarre le polling pour rafraîchir le compteur de non lues
-   * @param intervalMs intervalle en millisecondes (défaut : 60 secondes)
-   */
   startPolling(intervalMs: number = 60000): void {
     if (this.pollingSubscription) this.stopPolling();
     this.pollingSubscription = interval(intervalMs).pipe(
@@ -137,9 +115,6 @@ export class NotificationService {
     });
   }
 
-  /**
-   * Arrête le polling
-   */
   stopPolling(): void {
     if (this.pollingSubscription) {
       this.pollingSubscription.unsubscribe();
@@ -147,9 +122,6 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Rafraîchit manuellement le compteur de non lues
-   */
   refreshUnreadCount(): void {
     this.getUnreadCount().subscribe({
       next: (count) => this.unreadCountSubject.next(count),
@@ -157,8 +129,13 @@ export class NotificationService {
     });
   }
 
+  // Déclenche le rafraîchissement de la liste des notifications
+  triggerRefresh(): void {
+    this.refreshNotificationsSubject.next();
+  }
+
   // =============================================
-  // TOAST (messages de notification à l'écran)
+  // TOAST
   // =============================================
 
   private showToast(type: 'success' | 'error' | 'warning' | 'info', message: string): void {
@@ -172,20 +149,14 @@ export class NotificationService {
   warning(message: string): void { this.showToast('warning', message); }
   info(message: string): void { this.showToast('info', message); }
 
-  /**
-   * Supprime un toast (appelé automatiquement après 5s ou manuellement)
-   */
   remove(id: number): void {
     this.toastSubject.next({ id, type: 'info', message: '' });
   }
 
   // =============================================
-  // UTILITAIRES D'AFFICHAGE (pour le template)
+  // UTILITAIRES D'AFFICHAGE
   // =============================================
 
-  /**
-   * Retourne l'icône Material Symbols correspondant au type
-   */
   getIconForType(type: string): string {
     const icons: Record<string, string> = {
       'SUCCESS': 'check_circle',
@@ -196,22 +167,16 @@ export class NotificationService {
     return icons[type] || 'notifications';
   }
 
-  /**
-   * Retourne la classe CSS de couleur pour le type
-   */
   getColorForType(type: string): string {
     const colors: Record<string, string> = {
-      'SUCCESS': 'success',   // → icon-success
-      'INFO': 'primary',      // → icon-primary
-      'WARNING': 'warning',   // → icon-warning
-      'ERROR': 'danger'       // → icon-danger
+      'SUCCESS': 'success',
+      'INFO': 'primary',
+      'WARNING': 'warning',
+      'ERROR': 'danger'
     };
     return colors[type] || 'primary';
   }
 
-  /**
-   * Retourne le libellé en français de la priorité
-   */
   getPriorityLabel(priority: string): string {
     const labels: Record<string, string> = {
       'LOW': 'Basse',
@@ -222,48 +187,78 @@ export class NotificationService {
     return labels[priority] || priority;
   }
 
-  /**
-   * Retourne le libellé en français de l'événement
-   */
   getEventLabel(event: string): string {
     const labels: Record<string, string> = {
-      'EMPLOYEE_CREATED': 'Création employé',
-      'EMPLOYEE_UPDATED': 'Modification employé',
-      'EMPLOYEE_SUSPENDED': 'Suspension employé',
-      'DOCUMENT_UPLOADED': 'Document téléchargé',
-      'COMPANY_CREATED': 'Création entreprise',
+      // Employés
+      'EMPLOYEE_CREATED': 'Creation employe',
+      'EMPLOYEE_UPDATED': 'Modification employe',
+      'EMPLOYEE_SUSPENDED': 'Suspension employe',
+      'EMPLOYEE_REACTIVATED': 'Reactivation employe',
+      // Documents
+      'DOCUMENT_UPLOADED': 'Document telecharge',
+      'PAYSLIP_UPLOADED': 'Bulletin de paie telecharge',
+      // Entreprises
+      'COMPANY_CREATED': 'Creation entreprise',
       'COMPANY_UPDATED': 'Modification entreprise',
       'COMPANY_DELETED': 'Suppression entreprise',
-      'DEPARTMENT_CREATED': 'Création département',
-      'DEPARTMENT_UPDATED': 'Modification département',
-      'DEPARTMENT_DELETED': 'Suppression département',
-      'POSITION_CREATED': 'Création poste',
+      // Départements
+      'DEPARTMENT_CREATED': 'Creation departement',
+      'DEPARTMENT_UPDATED': 'Modification departement',
+      'DEPARTMENT_DELETED': 'Suppression departement',
+      // Postes
+      'POSITION_CREATED': 'Creation poste',
       'POSITION_UPDATED': 'Modification poste',
       'POSITION_DELETED': 'Suppression poste',
-      'LEAVE_REQUESTED': 'Demande de congé',
-      'LEAVE_APPROVED': 'Congé approuvé',
-      'LEAVE_REJECTED': 'Congé refusé',
-      'LEAVE_CANCELLED': 'Congé annulé',
-      'LEAVE_BALANCE_GLOBAL_UPDATED': 'Mise à jour globale des soldes',
-      'LEAVE_BALANCE_INDIVIDUAL_UPDATED': 'Mise à jour individuelle du solde',
-      'ROLE_CREATED': 'Création rôle',
-      'ROLE_UPDATED': 'Modification rôle',
-      'ROLE_DELETED': 'Suppression rôle',
-      'PERMISSION_UPDATED': 'Mise à jour permissions',
-      'SYSTEM': 'Système'
+      // Congés
+      'LEAVE_REQUESTED': 'Demande de conge',
+      'LEAVE_APPROVED': 'Conge approuve',
+      'LEAVE_REJECTED': 'Conge refuse',
+      'LEAVE_CANCELLED': 'Conge annule',
+      'LEAVE_BALANCE_GLOBAL_UPDATED': 'Mise a jour globale des soldes',
+      'LEAVE_BALANCE_INDIVIDUAL_UPDATED': 'Mise a jour individuelle du solde',
+      // Rôles et permissions
+      'ROLE_CREATED': 'Creation role',
+      'ROLE_UPDATED': 'Modification role',
+      'ROLE_DELETED': 'Suppression role',
+      'PERMISSION_UPDATED': 'Mise a jour permissions',
+      // Contrats (NOUVEAU)
+      'CONTRACT_CREATED': 'Creation contrat',
+      'CONTRACT_UPDATED': 'Modification contrat',
+      'CONTRACT_RENEWED': 'Renouvellement contrat',
+      'CONTRACT_EXPIRED': 'Contrat expire',
+      'CONTRACT_RESILIATED': 'Contrat resilie',
+      'CONTRACT_ARCHIVED': 'Contrat archive',
+      'CONTRACT_EXTENDED': 'Prolongation contrat',
+      'CONTRACT_EXPIRING_TWO_WEEKS': 'Contrat expire dans 2 semaines',
+      'CONTRACT_EXPIRING_DAILY': 'Rappel quotidien expiration',
+      'CONTRACT_EXPIRED_TODAY': 'Contrat expire aujourd\'hui',
+      // Discipline (NOUVEAU)
+      'DISCIPLINE_EXPLANATION_CREATED': 'Demande d\'explication creee',
+      'DISCIPLINE_EXPLANATION_RESPONDED': 'Reponse a demande d\'explication',
+      'DISCIPLINE_EXPLANATION_VALIDATED': 'Demande d\'explication validee',
+      'DISCIPLINE_EXPLANATION_REJECTED': 'Demande d\'explication rejetee',
+      'DISCIPLINE_SANCTION_CREATED': 'Sanction creee',
+      'DISCIPLINE_SANCTION_LIFTED': 'Sanction levee',
+      'DISCIPLINE_SANCTION_UPDATED': 'Sanction modifiee',
+      // Performance (NOUVEAU)
+      'PERFORMANCE_EVALUATION_CREATED': 'Evaluation de performance creee',
+      'PERFORMANCE_EVALUATION_UPDATED': 'Evaluation de performance modifiee',
+      'PERFORMANCE_EVALUATION_DELETED': 'Evaluation de performance supprimee',
+      'PERFORMANCE_CRITERE_CREATED': 'Critere de performance cree',
+      'PERFORMANCE_CRITERE_UPDATED': 'Critere de performance modifie',
+      'PERFORMANCE_CRITERE_DELETED': 'Critere de performance supprime',
+      // Système
+      'SYSTEM': 'Systeme'
     };
     return labels[event] || event;
   }
 
-  /**
-   * Formate une date en texte relatif (il y a X min, etc.)
-   */
   formatDate(dateString: string): string {
     const date = new Date(dateString);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
 
-    if (diff < 60000) return "À l'instant";
+    if (diff < 60000) return "A l'instant";
     if (diff < 3600000) return `Il y a ${Math.floor(diff / 60000)} min`;
     if (diff < 86400000) return `Il y a ${Math.floor(diff / 3600000)}h`;
     if (diff < 604800000) return `Il y a ${Math.floor(diff / 86400000)}j`;

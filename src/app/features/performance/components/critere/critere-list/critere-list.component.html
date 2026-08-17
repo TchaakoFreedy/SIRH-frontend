@@ -1,0 +1,165 @@
+<!-- src/app/features/performance/components/critere/critere-list/critere-list.component.html -->
+
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">checklist</span>
+      </div>
+      <div>
+        <h1>Critères de performance</h1>
+        <p>Définissez et gérez les critères d'évaluation des collaborateurs</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button type="button" class="btn btn-primary" routerLink="/app/performance/criteres/create">
+        <span class="material-symbols-outlined">add</span> Nouveau critère
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== STATS ==================== -->
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">format_list_bulleted</span>
+      </div>
+      <div class="stat-info">
+        <p>Total critères</p>
+        <h3>{{ criteres.length }}</h3>
+      </div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">check_circle</span>
+      </div>
+      <div class="stat-info">
+        <p>Critères actifs</p>
+        <h3>{{ getActiveCount() }}</h3>
+      </div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">trending_up</span>
+      </div>
+      <div class="stat-info">
+        <p>Note maximale moyenne</p>
+        <h3>{{ getMoyenneNote() }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TABLEAU ==================== -->
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">
+        <span class="material-symbols-outlined">table_rows</span>
+        <h2>Registre des critères</h2>
+      </div>
+      <div class="table-actions">
+        <span class="table-info">{{ totalItems }} critère(s)</span>
+        <span class="table-info" *ngIf="!isLoading && totalItems > 0">
+          Affichage {{ getCurrentRange() }}
+        </span>
+      </div>
+    </div>
+
+    <!-- ✅ CHARGEMENT -->
+    <div *ngIf="isLoading" class="loading-container">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Chargement des critères...</p>
+    </div>
+
+    <!-- ✅ TABLEAU -->
+    <div *ngIf="!isLoading" class="table-container">
+      <div class="responsive-wrapper" *ngIf="paginatedCriteres.length > 0; else emptyState">
+        <table class="up-table">
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th class="th-center">Note max</th>
+              <th class="th-center">Coefficient</th>
+              <th class="th-center">Actif</th>
+              <th class="th-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let critere of paginatedCriteres">
+              <td>
+                <div class="name-cell">
+                  <span class="material-symbols-outlined" style="font-size:20px; color:var(--primary);">description</span>
+                  <span class="name">{{ critere.nom }}</span>
+                </div>
+              </td>
+              <td class="td-center">
+                <span class="tag-matricule">{{ critere.noteMaximale }}</span>
+              </td>
+              <td class="td-center">
+                <span class="coefficient-badge">× {{ critere.coefficient }}</span>
+              </td>
+              <td class="td-center">
+                <span class="status-pill" [class.active]="critere.actif" [class.inactive]="!critere.actif">
+                  {{ critere.actif ? 'Oui' : 'Non' }}
+                </span>
+              </td>
+              <td class="td-center">
+                <div class="actions-cell">
+                  <button type="button" class="action-btn primary" (click)="editCritere(critere.id!)" title="Modifier">
+                    <span class="material-symbols-outlined">edit</span>
+                  </button>
+                  <button type="button" class="action-btn danger" (click)="deleteCritere(critere.id!)" title="Supprimer">
+                    <span class="material-symbols-outlined">delete</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ✅ PAGINATION -->
+      <div *ngIf="!isLoading && totalItems > 0" class="pagination-container">
+        <div class="pagination-info">
+          <span>
+            {{ paginatedCriteres.length }} élément(s) sur {{ totalItems }}
+            <span class="pagination-range">({{ getCurrentRange() }})</span>
+          </span>
+        </div>
+        <mat-paginator 
+          [length]="totalItems" 
+          [pageSize]="pageSize"
+          [pageSizeOptions]="pageSizeOptions"
+          [pageIndex]="pageIndex"
+          (page)="onPageChange($event)"
+          class="custom-paginator"
+          showFirstLastButtons>
+        </mat-paginator>
+      </div>
+
+      <!-- ✅ EMPTY STATE -->
+      <ng-template #emptyState>
+        <div class="empty-state">
+          <span class="material-symbols-outlined">inbox</span>
+          <p>Aucun critère trouvé</p>
+          <p class="empty-hint">Commencez par créer un nouveau critère de performance</p>
+          <button type="button" class="btn btn-primary" (click)="createCritere()" style="margin-top:16px;">
+            <span class="material-symbols-outlined">add</span> Créer un critère
+          </button>
+        </div>
+      </ng-template>
+    </div>
+  </div>
+
+  <!-- ==================== INFO ==================== -->
+  <div class="info-card">
+    <div class="info-content">
+      <span class="material-symbols-outlined">info</span>
+      <div>
+        <strong>À savoir :</strong>
+        <span>Les critères de performance sont utilisés pour évaluer les collaborateurs. Seuls les critères actifs apparaissent dans les formulaires d'évaluation.</span>
+      </div>
+    </div>
+  </div>
+</div>

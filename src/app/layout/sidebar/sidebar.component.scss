@@ -1,29 +1,19 @@
-// ============================================================
-//  Variables - Couleurs entreprise
-// ============================================================
-$primary-color: #019393;        // Couleur principale
-$primary-dark: #017a7a;         // Version plus foncée
-$primary-light: rgba(1, 147, 147, 0.12); // Version transparente
+$primary-color: #019393;
+$primary-dark: #017a7a;
+$primary-light: rgba(1, 147, 147, 0.12);
 $primary-gradient: #019393;
-
-$red-color: #7f0505;            // Rouge entreprise
-$red-dark: #660404;             // Rouge foncé
-
-$fade-gray: #EAF0F0;            // Gris clair
-$gray-color: #4A6867;           // Gris moyen
-
+$red-color: #7f0505;
+$red-dark: #660404;
+$fade-gray: #EAF0F0;
+$gray-color: #4A6867;
 $white: #ffffff;
 $sidebar-width: 264px;
 $sidebar-collapsed: 72px;
 $header-height: 64px;
 $header-height-mobile: 56px;
-
 $submenu-indent: 26px;
 $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-// ============================================================
-//  Sidebar
-// ============================================================
 .sidebar {
   width: $sidebar-width;
   background: linear-gradient(180deg, $primary-color 0%, #017a7a 55%, #016060 100%);
@@ -40,7 +30,6 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &.collapsed {
     width: $sidebar-collapsed;
-
     .sidebar-logo { justify-content: center; }
     .nav-link {
       justify-content: center;
@@ -57,17 +46,17 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: none;
     border-radius: 0;
     padding-top: $header-height-mobile;
+    visibility: hidden;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.3s;
 
     &.mobile-open {
       transform: translateX(0);
+      visibility: visible;
       box-shadow: 8px 0 32px rgba(0, 0, 0, 0.35);
     }
   }
 }
 
-// ============================================================
-//  En-tête / logo
-// ============================================================
 .sidebar-logo {
   display: flex;
   align-items: center;
@@ -178,9 +167,6 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-// ============================================================
-//  Navigation
-// ============================================================
 .sidebar-nav {
   flex: 1;
   overflow-y: auto;
@@ -428,9 +414,6 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-// ============================================================
-//  Pied : profil
-// ============================================================
 .sidebar-footer {
   padding: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.10);
@@ -498,15 +481,11 @@ $transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   color: rgba(255, 255, 255, 0.4);
 }
 
-// ============================================================
-//  Responsive
-// ============================================================
 @media (max-width: 1023px) {
   .sidebar {
     top: 0;
     padding-top: 56px;
   }
-  
   .sidebar-logo {
     min-height: 56px;
     padding: 12px 16px;

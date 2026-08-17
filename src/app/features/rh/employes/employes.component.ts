@@ -1,6 +1,4 @@
-// src/app/features/rh/employes/employes.component.ts
-
-import { Component, OnInit, signal, computed, effect, inject } from '@angular/core';
+import { Component, OnInit, signal, computed, effect, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
@@ -17,7 +15,10 @@ import { AuthService } from '../../../services/auth.service';
 import { EntrepriseService } from '../../../core/services/entreprise.service';
 import { Entreprise } from '../../../core/models/entreprise.model';
 import { Departement } from '../../../core/models/departement.model';
-import { catchError, of, switchMap } from 'rxjs';
+import { catchError, of, switchMap, takeUntil } from 'rxjs';
+import { TwoFactorAuthService } from '../../../core/services/two-factor-auth.service';
+import { Subject } from 'rxjs';
+import { TypeContrat, CONTRACT_TYPE_CONFIG, calculateTrialEndDate } from '../../../core/models/contrat.model';
 
 @Component({
   selector: 'app-employes',
@@ -30,12 +31,18 @@ import { catchError, of, switchMap } from 'rxjs';
   templateUrl: './employes.html',
   styleUrls: ['./employes.css']
 })
-export class EmployesComponent implements OnInit {
+export class EmployesComponent implements OnInit, OnDestroy {
 
   private apiUrl = environment.apiUrl;
   private readonly TOKEN_KEY = 'access_token';
   private permissionService = inject(PermissionService);
   private authService = inject(AuthService);
+  private twoFactorAuthService = inject(TwoFactorAuthService);
+
+  private destroy$ = new Subject<void>();
+  private twoFactorCheckQueue = new Set<string>();
+  private twoFactorCheckTimeout: any = null;
+  private isInitialLoadComplete = false;
 
   // Formulaires
   employeeForm!: FormGroup;
@@ -44,7 +51,7 @@ export class EmployesComponent implements OnInit {
   bulletinForm!: FormGroup;
   contratFormModal!: FormGroup;
 
-  // Données brutes (signaux)
+  // Donnees brutes (signaux)
   employees = signal<any[]>([]);
   entreprises = signal<Entreprise[]>([]);
   departements = signal<Departement[]>([]);
@@ -52,7 +59,7 @@ export class EmployesComponent implements OnInit {
   postes = signal<Poste[]>([]);
   contrats = signal<any[]>([]);
 
-  // Départements et postes filtrés pour les selects du formulaire
+  // Departements et postes filtres pour les selects du formulaire
   filteredDepartements = signal<Departement[]>([]);
   filteredPostes = signal<Poste[]>([]);
 
@@ -64,7 +71,6 @@ export class EmployesComponent implements OnInit {
   currentUserRole = signal<string>('');
   currentUserCompanyId = signal<string>('');
   currentUserCompanyName = signal<string>('');
-  isRHOrAdmin = signal<boolean>(false);
   isDirection = signal<boolean>(false);
   companyFilter = signal<string>('');
   
@@ -72,10 +78,30 @@ export class EmployesComponent implements OnInit {
   isLoading = signal<boolean>(false);
   loadingError = signal<string | null>(null);
 
-  // Cache des départements par entreprise
+  // Cache des departements par entreprise
   departementCache = new Map<string, string[]>();
 
-  // Computed : employés enrichis avec les BONS noms de champs
+  // Signaux pour le 2FA
+  twoFactorStatus = signal<Record<string, boolean>>({});
+  isToggling2FA = signal<Record<string, boolean>>({});
+  show2FAModal = signal(false);
+  selected2FAEmployee = signal<any | null>(null);
+  twoFASecret = signal<string>('');
+  twoFAQrCode = signal<string>('');
+  twoFABackupCodes = signal<string[]>([]);
+  twoFASetupStep = signal(1);
+  twoFAVerificationCode = signal<string>('');
+  twoFAError = signal<string | null>(null);
+
+  // Signal pour le type de contrat selectionne (modale contrat)
+  selectedContractType = signal<TypeContrat | null>(null);
+  contractTypeConfig = signal<any | null>(null);
+
+  // Signaux pour le contrat dans le wizard (étape 2)
+  selectedContractTypeStep2 = signal<TypeContrat | null>(null);
+  contractTypeConfigStep2 = signal<any | null>(null);
+
+  // Computed : employes enrichis avec les BONS noms de champs
   enrichedEmployees = computed(() => {
     const all = this.employees();
     const postes = this.postes();
@@ -84,10 +110,8 @@ export class EmployesComponent implements OnInit {
 
     return all.map(emp => ({
       ...emp,
-      // ✅ CORRECTION : Utiliser 'nom' et 'prenom' du backend
       nom: emp.nom || emp.name || '',
       prenom: emp.prenom || emp.prename || '',
-      // Pour la recherche et l'affichage
       fullName: `${emp.prenom || emp.prename || ''} ${emp.nom || emp.name || ''}`.trim(),
       posteName: this.getPosteName(emp.posteId, postes),
       roleName: this.getRoleName(emp.roleId || emp.role, roles),
@@ -96,7 +120,7 @@ export class EmployesComponent implements OnInit {
     }));
   });
 
-  // Computed avec filtrage - CORRIGÉ
+  // Computed avec filtrage
   filteredEmployees = computed(() => {
     let enriched = this.enrichedEmployees();
     const search = this.searchTerm().toLowerCase().trim();
@@ -124,7 +148,6 @@ export class EmployesComponent implements OnInit {
       let match = true;
 
       if (search) {
-        // ✅ CORRECTION : Utiliser les bons noms de champs
         const matricule = (emp.matriculeInterne || '').toLowerCase();
         const nom = (emp.nom || emp.name || '').toLowerCase();
         const prenom = (emp.prenom || emp.prename || '').toLowerCase();
@@ -191,7 +214,7 @@ export class EmployesComponent implements OnInit {
   currentStep = signal(1);
   totalSteps = 3;
   stepsLabels = [
-    { num: 1, label: 'Identité & Compte', icon: 'person' },
+    { num: 1, label: 'Identite & Compte', icon: 'person' },
     { num: 2, label: 'Contrat & Scans', icon: 'contract' },
     { num: 3, label: 'Documents RH', icon: 'folder_copy' }
   ];
@@ -233,22 +256,43 @@ export class EmployesComponent implements OnInit {
     this.initForms();
     this.initContratModalForm();
 
+    // Effet pour la pagination
     effect(() => {
       this.filteredEmployees();
       this.currentPage.set(1);
     });
+
+    // Effet pour verifier les statuts 2FA
+    effect(() => {
+      const employees = this.paginatedEmployees();
+      if (employees.length > 0 && this.canManage2FA() && this.isInitialLoadComplete) {
+        this.scheduleTwoFactorCheck(employees);
+      }
+    });
   }
 
   ngOnInit(): void {
-    console.log('🚀 Initialisation du composant Employés');
+    console.log('Initialisation du composant Employes');
 
     const user = this.authService.getCurrentUser();
-    console.log('👤 Utilisateur connecté:', user);
+    console.log('Utilisateur connecte:', user);
     
     this.initializeUserRole(user);
-    
+    this.loadPermissions();
     this.loadInitialData();
-    this.loadEmployeesBasedOnRole();
+    
+    setTimeout(() => {
+      this.loadEmployeesBasedOnRole();
+      this.isInitialLoadComplete = true;
+    }, 500);
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+    if (this.twoFactorCheckTimeout) {
+      clearTimeout(this.twoFactorCheckTimeout);
+    }
   }
 
   initForms(): void {
@@ -257,7 +301,6 @@ export class EmployesComponent implements OnInit {
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
       roleId: ['', Validators.required],
-      // ✅ CORRECTION : Utiliser 'nom' et 'prenom' comme dans le backend
       nom: ['', Validators.required],
       prenom: ['', Validators.required],
       matriculeInterne: ['', Validators.required],
@@ -272,12 +315,39 @@ export class EmployesComponent implements OnInit {
       entrepriseId: ['', Validators.required]
     });
 
+    // Formulaire contrat pour l'étape 2 du wizard - enrichi avec tous les champs
     this.contractForm = this.fb.group({
       typeContrat: ['CDI', Validators.required],
       dateDebut: ['', Validators.required],
       dateFin: [null],
-      statut: ['ACTIF', Validators.required]
+      statut: ['ACTIF', Validators.required],
+      salaireBrut: [null],
+      salaireNet: [null],
+      tauxHoraire: [null],
+      nombreHeuresSemaine: [null],
+      dateFinEssai: [null],
+      dureeEssaiMois: [null],
+      motifRecours: [''],
+      dureeMois: [null],
+      etablissement: [''],
+      tuteurNom: [''],
+      tuteurEmail: [''],
+      tuteurTelephone: [''],
+      objectifsStage: [''],
+      dureeSemaines: [null],
+      descriptionPrestation: [''],
+      modalitesPaiement: [''],
+      dureeMoisPrestation: [null],
+      estRenouvelable: [false],
+      renouvellementMax: [null],
+      observations: ['']
     });
+
+    // Initialiser les validateurs pour le formulaire contrat du wizard
+    const defaultType = 'CDI' as TypeContrat;
+    this.selectedContractTypeStep2.set(defaultType);
+    this.contractTypeConfigStep2.set(CONTRACT_TYPE_CONFIG[defaultType]);
+    this.updateContractFormValidatorsStep2(defaultType);
 
     this.avenantForm = this.fb.group({
       employeId: ['', Validators.required],
@@ -301,23 +371,318 @@ export class EmployesComponent implements OnInit {
       typeContrat: ['CDI', Validators.required],
       dateDebut: ['', Validators.required],
       dateFin: [''],
-      statut: ['ACTIF', Validators.required]
+      dateFinEssai: [''],
+      dureeEssaiMois: [null],
+      statut: ['ACTIF', Validators.required],
+      salaireBrut: [null],
+      salaireNet: [null],
+      tauxHoraire: [null],
+      nombreHeuresSemaine: [null],
+      motifRecours: [''],
+      dureeMois: [null],
+      etablissement: [''],
+      tuteurNom: [''],
+      tuteurEmail: ['', Validators.email],
+      tuteurTelephone: [''],
+      objectifsStage: [''],
+      dureeSemaines: [null],
+      descriptionPrestation: [''],
+      modalitesPaiement: [''],
+      dureeMoisPrestation: [null],
+      estRenouvelable: [false],
+      renouvellementMax: [null],
+      observations: ['']
     });
+
+    // Ecouter les changements de type
+    this.contratFormModal.get('typeContrat')?.valueChanges.subscribe((type: string) => {
+      this.updateContractFormValidators(type as TypeContrat);
+    });
+
+    // Ecouter les changements de duree d'essai pour calculer automatiquement la date de fin
+    this.contratFormModal.get('dureeEssaiMois')?.valueChanges.subscribe((dureeMois: number) => {
+      this.onDureeEssaiChange();
+    });
+
+    // Ecouter les changements de date de debut pour recalculer la date de fin d'essai
+    this.contratFormModal.get('dateDebut')?.valueChanges.subscribe(() => {
+      this.onDureeEssaiChange();
+    });
+
+    // Initialiser les validators par defaut
+    this.updateContractFormValidators('CDI');
   }
+
+  /**
+   * Calcule automatiquement la date de fin d'essai lorsque la durée ou la date de debut change
+   * (pour la modale contrat)
+   */
+  onDureeEssaiChange(): void {
+    const dureeMois = this.contratFormModal.get('dureeEssaiMois')?.value;
+    const dateDebut = this.contratFormModal.get('dateDebut')?.value;
+    
+    if (dateDebut && dureeMois && dureeMois > 0) {
+      const finEssai = calculateTrialEndDate(dateDebut, dureeMois);
+      if (finEssai) {
+        this.contratFormModal.patchValue({
+          dateFinEssai: finEssai
+        }, { emitEvent: false });
+      }
+    } else {
+      if (dureeMois === 0 || dureeMois === null) {
+        this.contratFormModal.patchValue({
+          dateFinEssai: ''
+        }, { emitEvent: false });
+      }
+    }
+  }
+
+  /**
+   * Calcule automatiquement la date de fin d'essai pour le formulaire de l'étape 2 du wizard
+   */
+  onDureeEssaiChangeStep2(): void {
+    const dureeMois = this.contractForm.get('dureeEssaiMois')?.value;
+    const dateDebut = this.contractForm.get('dateDebut')?.value;
+    
+    if (dateDebut && dureeMois && dureeMois > 0) {
+      const finEssai = calculateTrialEndDate(dateDebut, dureeMois);
+      if (finEssai) {
+        this.contractForm.patchValue({
+          dateFinEssai: finEssai
+        }, { emitEvent: false });
+      }
+    } else {
+      if (dureeMois === 0 || dureeMois === null) {
+        this.contractForm.patchValue({
+          dateFinEssai: ''
+        }, { emitEvent: false });
+      }
+    }
+  }
+
+  // ========================================================================
+  // Méthodes pour le formulaire de la modale contrat
+  // ========================================================================
+
+  private updateContractFormValidators(type: TypeContrat): void {
+    const config = CONTRACT_TYPE_CONFIG[type];
+    if (!config) return;
+
+    this.selectedContractType.set(type);
+    this.contractTypeConfig.set(config);
+
+    const form = this.contratFormModal;
+
+    // Gestion du statut
+    const statutControl = form.get('statut');
+    if (type === 'ESSAI') {
+      statutControl?.setValue('EN_ESSAI', { emitEvent: false });
+      statutControl?.disable({ emitEvent: false });
+    } else {
+      statutControl?.enable({ emitEvent: false });
+      if (statutControl?.value === 'EN_ESSAI') {
+        statutControl?.setValue('ACTIF', { emitEvent: false });
+      }
+    }
+
+    // Date de fin
+    const dateFinControl = form.get('dateFin');
+    if (config.hasEndDate) {
+      dateFinControl?.setValidators([Validators.required]);
+    } else {
+      dateFinControl?.clearValidators();
+    }
+    dateFinControl?.updateValueAndValidity();
+
+    // Periode d'essai
+    const dureeEssaiControl = form.get('dureeEssaiMois');
+    const dateFinEssaiControl = form.get('dateFinEssai');
+    if (config.requiresTrialPeriod) {
+      dureeEssaiControl?.setValidators([Validators.min(0), Validators.max(6)]);
+      dateFinEssaiControl?.clearValidators();
+      dureeEssaiControl?.enable({ emitEvent: false });
+    } else {
+      dureeEssaiControl?.clearValidators();
+      dateFinEssaiControl?.clearValidators();
+      dureeEssaiControl?.setValue(null);
+      dateFinEssaiControl?.setValue('');
+      dureeEssaiControl?.disable({ emitEvent: false });
+    }
+    dureeEssaiControl?.updateValueAndValidity();
+    dateFinEssaiControl?.updateValueAndValidity();
+
+    // Salaire
+    const salaireControl = form.get('salaireBrut');
+    if (config.requiresSalary) {
+      salaireControl?.setValidators([Validators.required, Validators.min(0)]);
+    } else {
+      salaireControl?.clearValidators();
+    }
+    salaireControl?.updateValueAndValidity();
+
+    // Motif de recours (CDD)
+    const motifControl = form.get('motifRecours');
+    if (config.requiresMotifRecours) {
+      motifControl?.setValidators([Validators.required]);
+    } else {
+      motifControl?.clearValidators();
+    }
+    motifControl?.updateValueAndValidity();
+
+    // Etablissement (Stage)
+    const etablissementControl = form.get('etablissement');
+    if (config.requiresEtablissement) {
+      etablissementControl?.setValidators([Validators.required]);
+    } else {
+      etablissementControl?.clearValidators();
+    }
+    etablissementControl?.updateValueAndValidity();
+
+    // Tuteur (Stage)
+    const tuteurControl = form.get('tuteurNom');
+    if (config.requiresTuteur) {
+      tuteurControl?.setValidators([Validators.required]);
+    } else {
+      tuteurControl?.clearValidators();
+    }
+    tuteurControl?.updateValueAndValidity();
+
+    // Description prestation (Freelance)
+    const prestationControl = form.get('descriptionPrestation');
+    if (config.requiresPrestationDescription) {
+      prestationControl?.setValidators([Validators.required]);
+    } else {
+      prestationControl?.clearValidators();
+    }
+    prestationControl?.updateValueAndValidity();
+  }
+
+  isContractType(type: string): boolean {
+    return this.contratFormModal.get('typeContrat')?.value === type;
+  }
+
+  onContractTypeChange(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    const type = select.value as TypeContrat;
+    this.updateContractFormValidators(type);
+  }
+
+  // ========================================================================
+  // Méthodes pour le formulaire de l'étape 2 du wizard
+  // ========================================================================
+
+  isContractTypeStep2(): any {
+    return this.contractTypeConfigStep2();
+  }
+
+  onContractTypeChangeStep2(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    const type = select.value as TypeContrat;
+    const config = CONTRACT_TYPE_CONFIG[type];
+    this.selectedContractTypeStep2.set(type);
+    this.contractTypeConfigStep2.set(config);
+    this.updateContractFormValidatorsStep2(type);
+  }
+
+  private updateContractFormValidatorsStep2(type: TypeContrat): void {
+    const config = CONTRACT_TYPE_CONFIG[type];
+    if (!config) return;
+
+    const form = this.contractForm;
+
+    // Gestion du statut
+    const statutControl = form.get('statut');
+    if (type === 'ESSAI') {
+      statutControl?.setValue('EN_ESSAI', { emitEvent: false });
+      statutControl?.disable({ emitEvent: false });
+    } else {
+      statutControl?.enable({ emitEvent: false });
+      if (statutControl?.value === 'EN_ESSAI') {
+        statutControl?.setValue('ACTIF', { emitEvent: false });
+      }
+    }
+
+    // Date de fin
+    const dateFinControl = form.get('dateFin');
+    if (config.hasEndDate) {
+      dateFinControl?.setValidators([Validators.required]);
+    } else {
+      dateFinControl?.clearValidators();
+    }
+    dateFinControl?.updateValueAndValidity();
+
+    // Periode d'essai
+    const dureeEssaiControl = form.get('dureeEssaiMois');
+    const dateFinEssaiControl = form.get('dateFinEssai');
+    if (config.requiresTrialPeriod) {
+      dureeEssaiControl?.setValidators([Validators.min(0), Validators.max(6)]);
+      dateFinEssaiControl?.clearValidators();
+      dureeEssaiControl?.enable({ emitEvent: false });
+    } else {
+      dureeEssaiControl?.clearValidators();
+      dateFinEssaiControl?.clearValidators();
+      dureeEssaiControl?.setValue(null);
+      dateFinEssaiControl?.setValue('');
+      dureeEssaiControl?.disable({ emitEvent: false });
+    }
+    dureeEssaiControl?.updateValueAndValidity();
+    dateFinEssaiControl?.updateValueAndValidity();
+
+    // Salaire
+    const salaireControl = form.get('salaireBrut');
+    if (config.requiresSalary) {
+      salaireControl?.setValidators([Validators.required, Validators.min(0)]);
+    } else {
+      salaireControl?.clearValidators();
+    }
+    salaireControl?.updateValueAndValidity();
+
+    // Motif de recours (CDD)
+    const motifControl = form.get('motifRecours');
+    if (config.requiresMotifRecours) {
+      motifControl?.setValidators([Validators.required]);
+    } else {
+      motifControl?.clearValidators();
+    }
+    motifControl?.updateValueAndValidity();
+
+    // Etablissement (Stage)
+    const etablissementControl = form.get('etablissement');
+    if (config.requiresEtablissement) {
+      etablissementControl?.setValidators([Validators.required]);
+    } else {
+      etablissementControl?.clearValidators();
+    }
+    etablissementControl?.updateValueAndValidity();
+
+    // Tuteur (Stage)
+    const tuteurControl = form.get('tuteurNom');
+    if (config.requiresTuteur) {
+      tuteurControl?.setValidators([Validators.required]);
+    } else {
+      tuteurControl?.clearValidators();
+    }
+    tuteurControl?.updateValueAndValidity();
+
+    // Description prestation (Freelance)
+    const prestationControl = form.get('descriptionPrestation');
+    if (config.requiresPrestationDescription) {
+      prestationControl?.setValidators([Validators.required]);
+    } else {
+      prestationControl?.clearValidators();
+    }
+    prestationControl?.updateValueAndValidity();
+  }
+
+  // ========================================================================
+  // Suite du code existant (inchangé)
+  // ========================================================================
 
   private initializeUserRole(user: any): void {
     const role = user?.role || '';
     const roles = user?.roles || [];
     
     this.currentUserRole.set(role);
-
-    const isRH = role === 'RH' ||
-                 role === 'SUPER_ADMIN' ||
-                 role === 'TOP_MANAGER' ||
-                 roles.includes('RH') ||
-                 roles.includes('SUPER_ADMIN') ||
-                 roles.includes('TOP_MANAGER') ||
-                 user?.permissions?.includes('*') === true;
 
     const isDirectionRole = role === 'DIRECTION' || 
                            roles.includes('DIRECTION') ||
@@ -326,7 +691,6 @@ export class EmployesComponent implements OnInit {
                            role === 'DIRECTOR' ||
                            roles.includes('DIRECTOR');
 
-    this.isRHOrAdmin.set(isRH);
     this.isDirection.set(isDirectionRole);
 
     const userCompanyId = user?.entrepriseId || 
@@ -339,10 +703,337 @@ export class EmployesComponent implements OnInit {
       this.companyFilter.set(userCompanyId);
     }
 
-    if (isRH) {
-      this.setFullPermissions(true);
-    } else {
-      this.loadPermissions();
+    console.log('Role utilisateur:', role);
+    console.log('isDirection:', isDirectionRole);
+  }
+
+  private loadPermissions(): void {
+    console.log('Chargement des permissions Employes...');
+    
+    const user = this.authService.getCurrentUser();
+    const hasWildcard = user?.permissions?.includes('*') === true;
+    const isSystemAdmin = this.permissionService.hasPermissionSync('SYSTEM_ADMIN');
+
+    this.canViewAllEmployees.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('EMPLOYEE_VIEW_ALL')
+    );
+    
+    this.canViewEmployee.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('EMPLOYEE_VIEW')
+    );
+    
+    this.canCreateEmployee.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('EMPLOYEE_CREATE')
+    );
+    
+    this.canUpdateEmployee.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('EMPLOYEE_UPDATE')
+    );
+    
+    this.canDeleteEmployee.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('EMPLOYEE_DELETE')
+    );
+    
+    this.canSuspendEmployee.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('EMPLOYEE_SUSPEND')
+    );
+    
+    this.canReactivateEmployee.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('EMPLOYEE_REACTIVATE')
+    );
+    
+    this.canUploadDocuments.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('DOC_UPLOAD')
+    );
+    
+    this.canViewDocuments.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('DOC_VIEW_ALL')
+    );
+    
+    this.canCreatePayroll.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('PAYSLIP_CREATE')
+    );
+    
+    this.canCreateAvenant.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('CONTRACT_CREATE')
+    );
+
+    console.log('Permissions Employes chargees');
+  }
+
+  canManage2FA(): boolean {
+    const user = this.authService.getCurrentUser();
+    const hasWildcard = user?.permissions?.includes('*') === true;
+    const isSystemAdmin = this.permissionService.hasPermissionSync('SYSTEM_ADMIN');
+    const has2FAAdmin = this.permissionService.hasPermissionSync('2FA_ADMIN');
+    
+    return hasWildcard || isSystemAdmin || has2FAAdmin;
+  }
+
+  private scheduleTwoFactorCheck(employees: any[]): void {
+    if (this.twoFactorCheckTimeout) {
+      clearTimeout(this.twoFactorCheckTimeout);
+    }
+
+    this.twoFactorCheckTimeout = setTimeout(() => {
+      const employeesToCheck = employees.filter(emp => {
+        const empId = emp.id || emp._id;
+        return empId && !this.twoFactorStatus()[empId] && !this.twoFactorCheckQueue.has(empId);
+      });
+
+      employeesToCheck.forEach(emp => {
+        const empId = emp.id || emp._id;
+        this.twoFactorCheckQueue.add(empId);
+      });
+
+      this.processTwoFactorCheckQueue();
+    }, 1000);
+  }
+
+  private processTwoFactorCheckQueue(): void {
+    const queueItems = Array.from(this.twoFactorCheckQueue);
+    
+    if (queueItems.length === 0) return;
+
+    const batchSize = 5;
+    const batch = queueItems.slice(0, batchSize);
+
+    batch.forEach((employeeId, index) => {
+      setTimeout(() => {
+        this.checkTwoFactorStatus(employeeId);
+        this.twoFactorCheckQueue.delete(employeeId);
+      }, index * 500);
+    });
+
+    if (queueItems.length > batchSize) {
+      setTimeout(() => {
+        this.processTwoFactorCheckQueue();
+      }, queueItems.length * 500);
+    }
+  }
+
+  checkTwoFactorStatus(employeeId: string): void {
+    if (!employeeId || !this.canManage2FA()) return;
+    
+    const employee = this.employees().find(e => e.id === employeeId || e._id === employeeId);
+    if (!employee) {
+      return;
+    }
+    
+    const userId = employee.userId || employee.user?.id || employee.user_id;
+    if (!userId) {
+      this.twoFactorStatus.update(status => ({
+        ...status,
+        [employeeId]: false
+      }));
+      return;
+    }
+    
+    this.twoFactorAuthService.getTwoFactorStatus(userId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (enabled) => {
+          this.twoFactorStatus.update(status => ({
+            ...status,
+            [employeeId]: enabled
+          }));
+        },
+        error: () => {
+          this.twoFactorStatus.update(status => ({
+            ...status,
+            [employeeId]: false
+          }));
+        }
+      });
+  }
+
+  open2FAModal(employee: any): void {
+    if (!this.canManage2FA()) {
+      alert('Vous n\'avez pas la permission de gerer le 2FA.');
+      return;
+    }
+
+    if (!employee || !employee.id) {
+      alert('Employe invalide.');
+      return;
+    }
+
+    const userId = employee.userId || employee.user?.id || employee.user_id;
+    if (!userId) {
+      alert('Cet employe n\'a pas de compte utilisateur associe. Veuillez d\'abord creer un compte utilisateur.');
+      return;
+    }
+
+    this.selected2FAEmployee.set(employee);
+    this.twoFASetupStep.set(1);
+    this.twoFAVerificationCode.set('');
+    this.twoFASecret.set('');
+    this.twoFAQrCode.set('');
+    this.twoFABackupCodes.set([]);
+    this.twoFAError.set(null);
+
+    this.twoFactorAuthService.getTwoFactorStatus(userId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (enabled) => {
+          if (enabled) {
+            this.twoFASetupStep.set(3);
+          } else {
+            this.generate2FASecret(userId);
+          }
+          this.show2FAModal.set(true);
+        },
+        error: () => {
+          this.generate2FASecret(userId);
+          this.show2FAModal.set(true);
+        }
+      });
+  }
+
+  generate2FASecret(userId: string): void {
+    this.twoFactorAuthService.generateTwoFactorSecret(userId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          this.twoFASecret.set(response.secret);
+          this.twoFAQrCode.set(response.qrCodeUrl);
+          this.twoFABackupCodes.set(response.backupCodes);
+          this.twoFASetupStep.set(2);
+          this.twoFAError.set(null);
+        },
+        error: (err) => {
+          console.error('Erreur generation secret 2FA:', err);
+          this.twoFAError.set('Erreur lors de la generation du code 2FA. Veuillez reessayer.');
+        }
+      });
+  }
+
+  enableTwoFactorForEmployee(userId: string): void {
+    const code = this.twoFAVerificationCode();
+    
+    if (!code || code.length !== 6) {
+      this.twoFAError.set('Veuillez entrer un code a 6 chiffres valide.');
+      return;
+    }
+
+    const otpCode = parseInt(code, 10);
+    if (isNaN(otpCode)) {
+      this.twoFAError.set('Veuillez entrer un code numerique valide.');
+      return;
+    }
+
+    const employeeId = this.selected2FAEmployee()?.id;
+    this.isToggling2FA.update(status => ({
+      ...status,
+      [employeeId]: true
+    }));
+
+    this.twoFactorAuthService.verifyAndEnableTwoFactor(userId, otpCode)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.twoFactorStatus.update(status => ({
+            ...status,
+            [employeeId]: true
+          }));
+          
+          this.isToggling2FA.update(status => ({
+            ...status,
+            [employeeId]: false
+          }));
+          
+          this.show2FAModal.set(false);
+          alert('2FA active avec succes pour ' + this.selected2FAEmployee()?.prenom + ' ' + this.selected2FAEmployee()?.nom);
+          this.selected2FAEmployee.set(null);
+        },
+        error: (err) => {
+          console.error('Erreur activation 2FA:', err);
+          this.twoFAError.set('Code invalide. Veuillez reessayer.');
+          this.isToggling2FA.update(status => ({
+            ...status,
+            [employeeId]: false
+          }));
+        }
+      });
+  }
+
+  disableTwoFactorForEmployee(userId: string): void {
+    const employee = this.selected2FAEmployee();
+    if (!confirm('Etes-vous sur de vouloir desactiver le 2FA pour ' + employee?.prenom + ' ' + employee?.nom + ' ?')) {
+      return;
+    }
+
+    const employeeId = employee?.id;
+    this.isToggling2FA.update(status => ({
+      ...status,
+      [employeeId]: true
+    }));
+
+    this.twoFactorAuthService.disableTwoFactor(userId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.twoFactorStatus.update(status => ({
+            ...status,
+            [employeeId]: false
+          }));
+          
+          this.isToggling2FA.update(status => ({
+            ...status,
+            [employeeId]: false
+          }));
+          
+          this.show2FAModal.set(false);
+          alert('2FA desactive avec succes pour ' + employee?.prenom + ' ' + employee?.nom);
+          this.selected2FAEmployee.set(null);
+        },
+        error: (err) => {
+          console.error('Erreur desactivation 2FA:', err);
+          this.twoFAError.set('Erreur lors de la desactivation du 2FA. Veuillez reessayer.');
+          this.isToggling2FA.update(status => ({
+            ...status,
+            [employeeId]: false
+          }));
+        }
+      });
+  }
+
+  close2FAModal(): void {
+    this.show2FAModal.set(false);
+    this.selected2FAEmployee.set(null);
+    this.twoFASecret.set('');
+    this.twoFAQrCode.set('');
+    this.twoFABackupCodes.set([]);
+    this.twoFAVerificationCode.set('');
+    this.twoFAError.set(null);
+  }
+
+  onlyNumbers(event: KeyboardEvent): void {
+    const charCode = event.which ? event.which : event.keyCode;
+    if (charCode < 48 || charCode > 57) {
+      event.preventDefault();
     }
   }
 
@@ -355,23 +1046,27 @@ export class EmployesComponent implements OnInit {
   }
 
   private loadRolesWithFallback(): void {
-    this.roleService.getAll().pipe(
-      catchError((error) => {
-        console.warn('⚠️ Erreur chargement des rôles, utilisation des rôles par défaut');
-        return of([
-          { id: '1', name: 'RH / Admin' },
-          { id: '2', name: 'Collaborateur' },
-          { id: '3', name: 'Manager' },
-          { id: '4', name: 'Direction' },
-          { id: '5', name: 'Super Admin' }
-        ]);
-      })
-    ).subscribe({
-      next: (data: any[]) => {
-        console.log('✅ Rôles chargés:', data.length);
-        this.roles.set(data);
-      }
-    });
+    this.roleService.getAll()
+      .pipe(
+        catchError((error) => {
+          console.warn('Erreur chargement des roles, utilisation des roles par defaut');
+          return of([
+            { id: '1', name: 'RH / Admin' },
+            { id: '2', name: 'Collaborateur' },
+            { id: '3', name: 'Manager' },
+            { id: '4', name: 'Direction' },
+            { id: '5', name: 'Super Admin' },
+            { id: '6', name: 'TOP_MANAGER' }
+          ]);
+        }),
+        takeUntil(this.destroy$)
+      )
+      .subscribe({
+        next: (data: any[]) => {
+          console.log('Roles charges:', data.length);
+          this.roles.set(data);
+        }
+      });
   }
 
   private loadEmployeesBasedOnRole(): void {
@@ -382,7 +1077,9 @@ export class EmployesComponent implements OnInit {
     this.isLoading.set(true);
     this.loadingError.set(null);
 
-    if (this.isRHOrAdmin()) {
+    const hasViewAll = this.canViewAllEmployees();
+
+    if (hasViewAll) {
       this.loadAllEmployees();
       return;
     }
@@ -397,37 +1094,42 @@ export class EmployesComponent implements OnInit {
       const userEmail = user?.email || user?.username;
       
       if (userId) {
-        this.entrepriseService.getMyEntreprise(userId).pipe(
-          catchError(error => {
-            if (userEmail) {
-              return this.findCompanyByUserEmail(userEmail);
-            }
-            return of(null);
-          })
-        ).subscribe({
-          next: (entreprise) => {
-            if (entreprise && entreprise.id) {
-              this.handleCompanyFound(entreprise);
-            } else {
-              this.loadAllEmployees();
-            }
-          },
-          error: () => this.loadAllEmployees()
-        });
+        this.entrepriseService.getMyEntreprise(userId)
+          .pipe(
+            catchError(error => {
+              if (userEmail) {
+                return this.findCompanyByUserEmail(userEmail);
+              }
+              return of(null);
+            }),
+            takeUntil(this.destroy$)
+          )
+          .subscribe({
+            next: (entreprise) => {
+              if (entreprise && entreprise.id) {
+                this.handleCompanyFound(entreprise);
+              } else {
+                this.loadAllEmployees();
+              }
+            },
+            error: () => this.loadAllEmployees()
+          });
         return;
       }
       
       if (userEmail) {
-        this.findCompanyByUserEmail(userEmail).subscribe({
-          next: (entreprise) => {
-            if (entreprise && entreprise.id) {
-              this.handleCompanyFound(entreprise);
-            } else {
-              this.loadAllEmployees();
-            }
-          },
-          error: () => this.loadAllEmployees()
-        });
+        this.findCompanyByUserEmail(userEmail)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: (entreprise) => {
+              if (entreprise && entreprise.id) {
+                this.handleCompanyFound(entreprise);
+              } else {
+                this.loadAllEmployees();
+              }
+            },
+            error: () => this.loadAllEmployees()
+          });
         return;
       }
     }
@@ -484,126 +1186,172 @@ export class EmployesComponent implements OnInit {
   }
 
   private loadEmployeesByCompanyId(companyId: string): void {
-    this.departementService.getByEntreprise(companyId).pipe(
-      catchError(() => of([]))
-    ).subscribe({
-      next: (departements: Departement[]) => {
-        if (departements.length === 0) {
-          this.employees.set([]);
-          this.isLoading.set(false);
-          return;
-        }
-
-        const deptIds = departements.map(d => d.id || (d as any).id).filter(id => id);
-        this.departementCache.set(companyId, deptIds);
-
-        this.employeService.getAll().pipe(
-          catchError(() => of([]))
-        ).subscribe({
-          next: (employees: any[]) => {
-            const filtered = employees.filter(emp => {
-              const empDeptId = emp.departementId || emp.departementid;
-              return deptIds.includes(empDeptId);
-            });
-            
-            const mapped = filtered.map(emp => ({
-              ...emp,
-              id: emp.id || emp.id,
-              departementId: emp.departementId || emp.departementid,
-              entrepriseId: companyId
-            }));
-            
-            this.employees.set(mapped);
+    this.departementService.getByEntreprise(companyId)
+      .pipe(
+        catchError(() => of([])),
+        takeUntil(this.destroy$)
+      )
+      .subscribe({
+        next: (departements: Departement[]) => {
+          if (departements.length === 0) {
+            this.employees.set([]);
             this.isLoading.set(false);
-          },
-          error: () => this.loadAllEmployees()
-        });
-      },
-      error: () => this.loadAllEmployees()
-    });
+            return;
+          }
+
+          const deptIds = departements.map(d => d.id || (d as any).id).filter(id => id);
+          this.departementCache.set(companyId, deptIds);
+
+          this.employeService.getAll()
+            .pipe(
+              catchError(() => of([])),
+              takeUntil(this.destroy$)
+            )
+            .subscribe({
+              next: (employees: any[]) => {
+                const filtered = employees.filter(emp => {
+                  const empDeptId = emp.departementId || emp.departementid;
+                  return deptIds.includes(empDeptId);
+                });
+                
+                const mapped = filtered.map(emp => ({
+                  ...emp,
+                  id: emp.id || emp.id,
+                  departementId: emp.departementId || emp.departementid,
+                  entrepriseId: companyId
+                }));
+                
+                this.employees.set(mapped);
+                this.isLoading.set(false);
+              },
+              error: () => this.loadAllEmployees()
+            });
+        },
+        error: () => this.loadAllEmployees()
+      });
   }
 
   private loadAllEmployees(): void {
-    this.employeService.getAll().subscribe({
-      next: (data: any[]) => {
-        const mapped = data.map(emp => ({
-          ...emp,
-          id: emp.id || emp.id,
-          departementId: emp.departementId || emp.departementid
-        }));
-        this.employees.set(mapped);
-        this.isLoading.set(false);
-        this.loadingError.set(null);
-      },
-      error: (err: any) => {
-        this.employees.set([]);
-        this.loadingError.set('Erreur lors du chargement des employés');
-        this.isLoading.set(false);
-      }
-    });
-  }
-
-  private setFullPermissions(hasAccess: boolean): void {
-    this.canViewAllEmployees.set(hasAccess);
-    this.canViewEmployee.set(hasAccess);
-    this.canCreateEmployee.set(hasAccess);
-    this.canUpdateEmployee.set(hasAccess);
-    this.canDeleteEmployee.set(hasAccess);
-    this.canSuspendEmployee.set(hasAccess);
-    this.canReactivateEmployee.set(hasAccess);
-    this.canUploadDocuments.set(hasAccess);
-    this.canViewDocuments.set(hasAccess);
-    this.canCreatePayroll.set(hasAccess);
-    this.canCreateAvenant.set(hasAccess);
-  }
-
-  private loadPermissions(): void {
-    this.canViewAllEmployees.set(!!this.permissionService.hasPermissionSync('EMPLOYEE_VIEW_ALL'));
-    this.canViewEmployee.set(!!this.permissionService.hasPermissionSync('EMPLOYEE_VIEW'));
-    this.canCreateEmployee.set(!!this.permissionService.hasPermissionSync('EMPLOYEE_CREATE'));
-    this.canUpdateEmployee.set(!!this.permissionService.hasPermissionSync('EMPLOYEE_UPDATE'));
-    this.canDeleteEmployee.set(!!this.permissionService.hasPermissionSync('EMPLOYEE_DELETE'));
-    this.canSuspendEmployee.set(!!this.permissionService.hasPermissionSync('EMPLOYEE_SUSPEND'));
-    this.canReactivateEmployee.set(!!this.permissionService.hasPermissionSync('EMPLOYEE_REACTIVATE'));
-    this.canUploadDocuments.set(!!this.permissionService.hasPermissionSync('DOC_UPLOAD'));
-    this.canViewDocuments.set(!!this.permissionService.hasPermissionSync('DOC_VIEW_ALL'));
-    this.canCreatePayroll.set(!!this.permissionService.hasPermissionSync('PAYSLIP_CREATE'));
-    this.canCreateAvenant.set(!!this.permissionService.hasPermissionSync('CONTRACT_CREATE'));
+    this.employeService.getAll()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (data: any[]) => {
+          const mapped = data.map(emp => ({
+            ...emp,
+            id: emp.id || emp.id,
+            departementId: emp.departementId || emp.departementid
+          }));
+          this.employees.set(mapped);
+          this.isLoading.set(false);
+          this.loadingError.set(null);
+        },
+        error: (err: any) => {
+          console.error('Erreur chargement employes:', err);
+          this.employees.set([]);
+          this.loadingError.set('Erreur lors du chargement des employes');
+          this.isLoading.set(false);
+        }
+      });
   }
 
   loadEntreprises(): void {
-    this.entrepriseService.getAll().subscribe({
-      next: (data: Entreprise[]) => {
-        this.entreprises.set(data);
-      },
-      error: () => this.entreprises.set([])
-    });
+    this.entrepriseService.getAll()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (data: Entreprise[]) => {
+          this.entreprises.set(data);
+        },
+        error: () => this.entreprises.set([])
+      });
   }
 
   loadDepartements(): void {
-    this.departementService.getAll().subscribe({
-      next: (data: Departement[]) => {
-        this.departements.set(data || []);
-        this.departementCache.clear();
-      },
-      error: () => this.departements.set([])
-    });
+    this.departementService.getAll()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (data: Departement[]) => {
+          this.departements.set(data || []);
+          this.departementCache.clear();
+          if (this.employeeForm?.get('entrepriseId')?.value) {
+            this.loadDepartementsByEntreprise(this.employeeForm.get('entrepriseId')?.value);
+          } else {
+            this.filteredDepartements.set(data);
+          }
+        },
+        error: () => this.departements.set([])
+      });
   }
 
   loadContrats(): void {
-    this.contratService.getAll().subscribe({
-      next: (data: any[]) => this.contrats.set(data || []),
-      error: () => this.contrats.set([])
-    });
+    this.contratService.getAll()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (data: any[]) => this.contrats.set(data || []),
+        error: () => this.contrats.set([])
+      });
   }
 
   loadPostes(): void {
-    this.postesService.getAll().subscribe({
-      next: (data: Poste[]) => {
-        this.postes.set(data);
-      },
-      error: () => this.postes.set([])
+    this.isLoading.set(true);
+    this.postesService.getAll()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (data: Poste[]) => {
+          console.log('Postes charges depuis le backend:', data.length);
+          this.postes.set(data);
+          this.filteredPostes.set(data);
+          this.isLoading.set(false);
+        },
+        error: (err) => {
+          console.error('Erreur chargement postes:', err);
+          this.postes.set([]);
+          this.filteredPostes.set([]);
+          this.isLoading.set(false);
+        }
+      });
+  }
+
+  filterPostesByDepartement(departementId: string): void {
+    if (!departementId) {
+      this.filteredPostes.set(this.postes());
+      return;
+    }
+
+    const filtered = this.postes().filter(p => {
+      const dept = (p as any).departement;
+      
+      if (dept && dept.id) {
+        return dept.id === departementId || dept.id.toString() === departementId;
+      }
+      
+      if (dept && dept.$id) {
+        return dept.$id === departementId || dept.$id.toString() === departementId;
+      }
+      
+      if ((p as any).departementId) {
+        return (p as any).departementId === departementId;
+      }
+      
+      if (dept && dept._id) {
+        return dept._id === departementId || dept._id.toString() === departementId;
+      }
+      
+      return false;
     });
+
+    if (filtered.length > 0) {
+      this.filteredPostes.set(filtered);
+    } else {
+      this.filteredPostes.set(this.postes());
+    }
+  }
+
+  loadPostesByDepartement(departementId: string): void {
+    this.filterPostesByDepartement(departementId);
+  }
+
+  loadAllPostes(): void {
+    this.filteredPostes.set(this.postes());
   }
 
   onSearchInput(event: Event): void {
@@ -630,7 +1378,7 @@ export class EmployesComponent implements OnInit {
   }
 
   applyFilters(): void {
-    // Les filtres sont réactifs
+    // Les filtres sont reactifs
   }
 
   onEntrepriseChange(event: Event): void {
@@ -638,13 +1386,15 @@ export class EmployesComponent implements OnInit {
     const entrepriseId = select.value;
     this.employeeForm.patchValue({ entrepriseId });
     this.loadDepartementsByEntreprise(entrepriseId);
+    this.employeeForm.patchValue({ departementId: '', posteId: '' });
+    this.filteredPostes.set(this.postes());
   }
 
   onDepartementChange(event: Event): void {
     const select = event.target as HTMLSelectElement;
     const departementId = select.value;
     this.employeeForm.patchValue({ departementId });
-    this.loadPostesByDepartement(departementId);
+    this.filterPostesByDepartement(departementId);
   }
 
   loadDepartementsByEntreprise(entrepriseId: string): void {
@@ -652,47 +1402,43 @@ export class EmployesComponent implements OnInit {
       this.filteredDepartements.set([]);
       return;
     }
-    this.departementService.getByEntreprise(entrepriseId).subscribe({
-      next: (data: Departement[]) => {
-        this.filteredDepartements.set(data);
-        this.employeeForm.patchValue({ departementId: '' });
-        this.filteredPostes.set([]);
-        this.employeeForm.patchValue({ posteId: '' });
-      },
-      error: () => this.filteredDepartements.set([])
-    });
-  }
-
-  loadPostesByDepartement(departementId: string): void {
-    if (!departementId) {
-      this.filteredPostes.set([]);
-      return;
-    }
-    this.postesService.getByDepartement(departementId).subscribe({
-      next: (data: Poste[]) => {
-        this.filteredPostes.set(data);
-        this.employeeForm.patchValue({ posteId: '' });
-      },
-      error: () => this.filteredPostes.set([])
-    });
+    this.isLoading.set(true);
+    this.departementService.getByEntreprise(entrepriseId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (data: Departement[]) => {
+          this.filteredDepartements.set(data);
+          if (!this.employeeForm.get('departementId')?.value) {
+            this.employeeForm.patchValue({ departementId: '' });
+          }
+          this.filteredPostes.set(this.postes());
+          this.employeeForm.patchValue({ posteId: '' });
+          this.isLoading.set(false);
+        },
+        error: (err) => {
+          console.error('Erreur chargement departements:', err);
+          this.filteredDepartements.set([]);
+          this.isLoading.set(false);
+        }
+      });
   }
 
   getPosteName(posteId: string, postesList: Poste[] = this.postes()): string {
-    if (!posteId) return 'Non défini';
+    if (!posteId) return 'Non defini';
     const poste = postesList.find((p: Poste) => p.id === posteId || p.code === posteId);
-    return poste ? (poste.libelle || poste.code || 'Poste non trouvé') : 'Poste non trouvé';
+    return poste ? (poste.libelle || poste.code || 'Poste non trouve') : 'Poste non trouve';
   }
 
   getRoleName(roleId: string, rolesList: any[] = this.roles()): string {
-    if (!roleId) return 'Non défini';
+    if (!roleId) return 'Non defini';
     const role = rolesList.find(r => r.id === roleId || r.id === roleId);
-    return role ? (role.name || role.nom || 'Rôle') : 'Non défini';
+    return role ? (role.name || role.nom || 'Role') : 'Non defini';
   }
 
   getDepartementName(deptId: string, deptsList: Departement[] = this.departements()): string {
-    if (!deptId) return 'Non Assigné';
+    if (!deptId) return 'Non Assigne';
     const dept = deptsList.find(d => d.id === deptId);
-    return dept ? (dept.name || 'Non Assigné') : 'Non Assigné';
+    return dept ? (dept.name || 'Non Assigne') : 'Non Assigne';
   }
 
   totalFiles(): number {
@@ -788,7 +1534,7 @@ export class EmployesComponent implements OnInit {
     const iframe = event.target as HTMLIFrameElement;
     iframe.style.display = 'none';
     const errorMsg = document.createElement('p');
-    errorMsg.textContent = 'Impossible d\'afficher ce document. Téléchargez-le pour le consulter.';
+    errorMsg.textContent = 'Impossible d\'afficher ce document. Telechargez-le pour le consulter.';
     errorMsg.style.color = '#94a3b8';
     errorMsg.style.padding = '40px';
     iframe.parentElement?.appendChild(errorMsg);
@@ -796,7 +1542,7 @@ export class EmployesComponent implements OnInit {
 
   viewDocument(documentId: string): void {
     if (!documentId) {
-      alert('ID du document non trouvé.');
+      alert('ID du document non trouve.');
       return;
     }
     const previewUrl = this.getDocumentPreviewUrlWithToken(documentId);
@@ -805,7 +1551,7 @@ export class EmployesComponent implements OnInit {
 
   downloadDocument(documentId: string, fileName?: string): void {
     if (!documentId) {
-      alert('ID du document non trouvé.');
+      alert('ID du document non trouve.');
       return;
     }
     const downloadUrl = this.getDocumentDownloadUrlWithToken(documentId);
@@ -832,12 +1578,14 @@ export class EmployesComponent implements OnInit {
 
   refreshEmployeeDocuments(employeeId: string): void {
     if (!employeeId) return;
-    this.documentService.getByEmployee(employeeId).subscribe({
-      next: (d: any[]) => {
-        this.employeeDocuments.set(d);
-      },
-      error: () => this.employeeDocuments.set([])
-    });
+    this.documentService.getByEmployee(employeeId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (d: any[]) => {
+          this.employeeDocuments.set(d);
+        },
+        error: () => this.employeeDocuments.set([])
+      });
   }
 
   nextStep(): void {
@@ -862,7 +1610,6 @@ export class EmployesComponent implements OnInit {
   }
 
   getStep1Fields(): string[] {
-    // ✅ CORRECTION : Utiliser 'nom' et 'prenom'
     const fields = ['nom', 'prenom', 'matriculeInterne', 'sexe', 'date_naissance', 'telephone', 'addresse', 'date_embauche', 'posteId', 'departementId', 'entrepriseId'];
     if (!this.isEditMode()) fields.push('email', 'password', 'roleId');
     return fields;
@@ -878,18 +1625,16 @@ export class EmployesComponent implements OnInit {
 
   openEmployeeModal(emp?: any): void {
     if (emp && !this.canUpdateEmployee()) {
-      alert('Vous n\'avez pas la permission de modifier un employé.');
+      alert('Vous n\'avez pas la permission de modifier un employe.');
       return;
     }
     if (!emp && !this.canCreateEmployee()) {
-      alert('Vous n\'avez pas la permission de créer un employé.');
+      alert('Vous n\'avez pas la permission de creer un employe.');
       return;
     }
 
     this.currentStep.set(1);
     this.resetAllFiles();
-    this.filteredDepartements.set([]);
-    this.filteredPostes.set([]);
 
     if (emp) {
       this.isEditMode.set(true);
@@ -898,7 +1643,6 @@ export class EmployesComponent implements OnInit {
       this.employeeForm.get('email')?.clearValidators();
       this.employeeForm.get('roleId')?.clearValidators();
 
-      // ✅ CORRECTION : Utiliser 'nom' et 'prenom'
       const patchData = { 
         ...emp,
         nom: emp.nom || emp.name || '',
@@ -919,20 +1663,42 @@ export class EmployesComponent implements OnInit {
 
       const deptId = emp.departementId || emp.departementid;
       if (deptId) {
-        this.departementService.getById(deptId).subscribe({
-          next: (dept: Departement) => {
-            const entrepriseId = dept.entrepriseId;
-            if (entrepriseId) {
-              this.employeeForm.patchValue({ entrepriseId });
-              this.loadDepartementsByEntreprise(entrepriseId);
-              setTimeout(() => {
-                this.employeeForm.patchValue({ departementId: deptId });
-                this.loadPostesByDepartement(deptId);
-              }, 300);
+        this.departementService.getById(deptId)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: (dept: Departement) => {
+              const entrepriseId = dept.entrepriseId || (dept as any).entrepriseid;
+              if (entrepriseId) {
+                this.employeeForm.patchValue({ entrepriseId });
+                this.departementService.getByEntreprise(entrepriseId)
+                  .pipe(takeUntil(this.destroy$))
+                  .subscribe({
+                    next: (departements: Departement[]) => {
+                      this.filteredDepartements.set(departements);
+                      setTimeout(() => {
+                        this.employeeForm.patchValue({ departementId: deptId });
+                        this.filterPostesByDepartement(deptId);
+                      }, 100);
+                    },
+                    error: (err) => {
+                      console.error('Erreur chargement departements:', err);
+                      this.filteredDepartements.set([]);
+                    }
+                  });
+              } else {
+                this.loadDepartements();
+                this.filteredPostes.set(this.postes());
+              }
+            },
+            error: (err) => {
+              console.error('Erreur recuperation departement:', err);
+              this.loadDepartements();
+              this.filteredPostes.set(this.postes());
             }
-          },
-          error: () => {}
-        });
+          });
+      } else {
+        this.loadDepartements();
+        this.filteredPostes.set(this.postes());
       }
     } else {
       this.isEditMode.set(false);
@@ -949,6 +1715,8 @@ export class EmployesComponent implements OnInit {
           entrepriseId: this.currentUserCompanyId() 
         });
         this.loadDepartementsByEntreprise(this.currentUserCompanyId());
+      } else {
+        this.filteredPostes.set(this.postes());
       }
     }
 
@@ -999,15 +1767,50 @@ export class EmployesComponent implements OnInit {
     }
   }
 
+  /**
+   * Supprime un fichier de la liste des documents du contrat
+   */
+  removeContratFile(index: number): void {
+    if (index >= 0 && index < this.contratFiles.length) {
+      this.contratFiles.splice(index, 1);
+    }
+  }
+
   openContratModal(): void {
+    if (!this.canCreateAvenant()) {
+      alert('Vous n\'avez pas la permission de creer un contrat.');
+      return;
+    }
     this.contratFormModal.reset({
       employeeId: '',
       typeContrat: 'CDI',
       dateDebut: '',
       dateFin: '',
-      statut: 'ACTIF'
+      dateFinEssai: '',
+      dureeEssaiMois: null,
+      statut: 'ACTIF',
+      salaireBrut: null,
+      salaireNet: null,
+      tauxHoraire: null,
+      nombreHeuresSemaine: null,
+      motifRecours: '',
+      dureeMois: null,
+      etablissement: '',
+      tuteurNom: '',
+      tuteurEmail: '',
+      tuteurTelephone: '',
+      objectifsStage: '',
+      dureeSemaines: null,
+      descriptionPrestation: '',
+      modalitesPaiement: '',
+      dureeMoisPrestation: null,
+      estRenouvelable: false,
+      renouvellementMax: null,
+      observations: ''
     });
     this.contratFiles = [];
+    this.selectedContractType.set('CDI');
+    this.contractTypeConfig.set(CONTRACT_TYPE_CONFIG['CDI']);
     this.showContratModal.set(true);
   }
 
@@ -1035,7 +1838,27 @@ export class EmployesComponent implements OnInit {
       typeContrat: formValues.typeContrat,
       dateDebut: formValues.dateDebut,
       dateFin: formValues.dateFin || null,
-      statut: formValues.statut
+      dateFinEssai: formValues.dateFinEssai || null,
+      dureeEssaiMois: formValues.dureeEssaiMois || null,
+      statut: formValues.statut,
+      salaireBrut: formValues.salaireBrut || null,
+      salaireNet: formValues.salaireNet || null,
+      tauxHoraire: formValues.tauxHoraire || null,
+      nombreHeuresSemaine: formValues.nombreHeuresSemaine || null,
+      motifRecours: formValues.motifRecours || null,
+      dureeMois: formValues.dureeMois || null,
+      etablissement: formValues.etablissement || null,
+      tuteurNom: formValues.tuteurNom || null,
+      tuteurEmail: formValues.tuteurEmail || null,
+      tuteurTelephone: formValues.tuteurTelephone || null,
+      objectifsStage: formValues.objectifsStage || null,
+      dureeSemaines: formValues.dureeSemaines || null,
+      descriptionPrestation: formValues.descriptionPrestation || null,
+      modalitesPaiement: formValues.modalitesPaiement || null,
+      dureeMoisPrestation: formValues.dureeMoisPrestation || null,
+      estRenouvelable: formValues.estRenouvelable || false,
+      renouvellementMax: formValues.renouvellementMax || null,
+      observations: formValues.observations || null
     };
 
     formData.append('contrat', new Blob([JSON.stringify(contratData)], { type: 'application/json' }));
@@ -1044,17 +1867,19 @@ export class EmployesComponent implements OnInit {
       formData.append('files', file);
     });
 
-    this.contratService.createContratWithImages(formData).subscribe({
-      next: () => {
-        this.closeContratModal();
-        this.loadContrats();
-        alert('✅ Contrat créé avec succès !');
-      },
-      error: (err) => {
-        console.error('Erreur création contrat:', err);
-        alert('❌ Erreur lors de la création du contrat : ' + (err.error?.message || err.message));
-      }
-    });
+    this.contratService.createContratWithImages(formData)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.closeContratModal();
+          this.loadContrats();
+          alert('Contrat cree avec succes !');
+        },
+        error: (err) => {
+          console.error('Erreur creation contrat:', err);
+          alert('Erreur lors de la creation du contrat : ' + (err.error?.message || err.message));
+        }
+      });
   }
 
   openDatePicker(event: Event): void {
@@ -1081,12 +1906,12 @@ export class EmployesComponent implements OnInit {
     }
 
     if (!this.canCreateEmployee()) {
-      alert('Vous n\'avez pas la permission de créer un employé.');
+      alert('Vous n\'avez pas la permission de creer un employe.');
       return;
     }
 
     if (!this.isStep1Valid() || this.contractForm.invalid) {
-      alert('Veuillez compléter toutes les étapes.');
+      alert('Veuillez completer toutes les etapes.');
       return;
     }
 
@@ -1094,7 +1919,7 @@ export class EmployesComponent implements OnInit {
     const rawContrat = this.contractForm.value;
     const { entrepriseId, ...employeePayload } = rawEmp;
 
-    // ✅ CORRECTION : Utiliser 'nom' et 'prenom'
+    // Construction du payload enrichi avec tous les champs du contrat
     const payload = {
       email: employeePayload.email,
       password: employeePayload.password,
@@ -1113,13 +1938,29 @@ export class EmployesComponent implements OnInit {
       entrepriseId: entrepriseId,
       typeContrat: rawContrat.typeContrat,
       dateDebutContrat: rawContrat.dateDebut,
-      dateFinContrat: rawContrat.dateFin,
-      cniUrls: [],
-      certificatUrls: [],
-      photoUrls: []
+      dateFinContrat: rawContrat.dateFin || null,
+      // Ajout des nouveaux champs
+      salaireBrut: rawContrat.salaireBrut || null,
+      salaireNet: rawContrat.salaireNet || null,
+      tauxHoraire: rawContrat.tauxHoraire || null,
+      nombreHeuresSemaine: rawContrat.nombreHeuresSemaine || null,
+      dateFinEssai: rawContrat.dateFinEssai || null,
+      dureeEssaiMois: rawContrat.dureeEssaiMois || null,
+      motifRecours: rawContrat.motifRecours || null,
+      dureeMois: rawContrat.dureeMois || null,
+      etablissement: rawContrat.etablissement || null,
+      tuteurNom: rawContrat.tuteurNom || null,
+      tuteurEmail: rawContrat.tuteurEmail || null,
+      tuteurTelephone: rawContrat.tuteurTelephone || null,
+      objectifsStage: rawContrat.objectifsStage || null,
+      dureeSemaines: rawContrat.dureeSemaines || null,
+      descriptionPrestation: rawContrat.descriptionPrestation || null,
+      modalitesPaiement: rawContrat.modalitesPaiement || null,
+      dureeMoisPrestation: rawContrat.dureeMoisPrestation || null,
+      estRenouvelable: rawContrat.estRenouvelable || false,
+      renouvellementMax: rawContrat.renouvellementMax || null,
+      observations: rawContrat.observations || null
     };
-
-    console.log('📤 Payload envoyé:', JSON.stringify(payload, null, 2));
 
     const totalFiles = this.contratScanFiles.length + this.cniFiles.length +
                        this.diplomeFiles.length + this.photoFiles.length +
@@ -1144,33 +1985,31 @@ export class EmployesComponent implements OnInit {
     photoRenamed.forEach(file => formData.append('photoFiles', file));
     certificatRenamed.forEach(file => formData.append('certificatFiles', file));
 
-    this.employeService.create(formData).subscribe({
-      next: () => {
-        this.loadEmployeesBasedOnRole();
-        this.loadContrats();
-        this.closeEmployeeModal();
-        alert('✅ Employé créé avec succès !');
-      },
-      error: (err: any) => {
-        console.error('❌ Erreur création employé :', err);
-        if (err.error && typeof err.error === 'object') {
-          console.error('📋 Détails de l\'erreur:', JSON.stringify(err.error, null, 2));
+    this.employeService.create(formData)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.loadEmployeesBasedOnRole();
+          this.loadContrats();
+          this.closeEmployeeModal();
+          alert('Employe cree avec succes !');
+        },
+        error: (err: any) => {
+          console.error('Erreur creation employe :', err);
+          alert('Erreur lors de la creation : ' + (err.error?.message || err.message));
         }
-        alert('❌ Erreur lors de la création : ' + (err.error?.message || err.message));
-      }
-    });
+      });
   }
 
   updateEmployee(): void {
     if (!this.canUpdateEmployee()) {
-      alert('Vous n\'avez pas la permission de modifier un employé.');
+      alert('Vous n\'avez pas la permission de modifier un employe.');
       return;
     }
 
     const raw = this.employeeForm.value;
     const { entrepriseId, id, email, password, roleId, matriculeInterne, ...updateData } = raw;
     
-    // ✅ CORRECTION : Utiliser 'nom' et 'prenom'
     const payload = {
       nom: updateData.nom,
       prenom: updateData.prenom,
@@ -1184,78 +2023,88 @@ export class EmployesComponent implements OnInit {
       departementId: updateData.departementId
     };
     
-    console.log('📤 Update payload:', JSON.stringify(payload, null, 2));
-    
-    this.employeService.update(raw.id, payload).subscribe({
-      next: () => {
-        this.loadEmployeesBasedOnRole();
-        this.closeEmployeeModal();
-        alert('✅ Employé mis à jour avec succès !');
-      },
-      error: (err: any) => {
-        console.error('❌ Erreur mise à jour:', err);
-        alert('❌ Erreur lors de la mise à jour : ' + (err.error?.message || err.message));
-      }
-    });
+    this.employeService.update(raw.id, payload)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.loadEmployeesBasedOnRole();
+          this.closeEmployeeModal();
+          alert('Employe mis a jour avec succes !');
+        },
+        error: (err: any) => {
+          console.error('Erreur mise a jour:', err);
+          alert('Erreur lors de la mise a jour : ' + (err.error?.message || err.message));
+        }
+      });
   }
 
   suspendEmployee(id: string): void {
     if (!this.canSuspendEmployee()) {
-      alert('Vous n\'avez pas la permission de suspendre un employé.');
+      alert('Vous n\'avez pas la permission de suspendre un employe.');
       return;
     }
     if (!id) {
-      alert('ID employé invalide.');
+      alert('ID employe invalide.');
       return;
     }
     if (!confirm('Suspendre ce collaborateur ?')) return;
-    this.employeService.suspendre(id).subscribe({
-      next: () => this.loadEmployeesBasedOnRole(),
-      error: (err: any) => console.error('Erreur suspension:', err)
-    });
+    this.employeService.suspendre(id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => this.loadEmployeesBasedOnRole(),
+        error: (err: any) => console.error('Erreur suspension:', err)
+      });
   }
 
   reactivateEmployee(id: string): void {
     if (!this.canReactivateEmployee()) {
-      alert('Vous n\'avez pas la permission de réactiver un employé.');
+      alert('Vous n\'avez pas la permission de reactiver un employe.');
       return;
     }
     if (!id) {
-      alert('ID employé invalide.');
+      alert('ID employe invalide.');
       return;
     }
-    this.employeService.reactiver(id).subscribe({
-      next: () => this.loadEmployeesBasedOnRole(),
-      error: (err: any) => console.error('Erreur réactivation:', err)
-    });
+    this.employeService.reactiver(id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => this.loadEmployeesBasedOnRole(),
+        error: (err: any) => console.error('Erreur reactivation:', err)
+      });
   }
 
   viewEmployeeDetails(id: string): void {
     if (!this.canViewAllEmployees() && !this.canViewEmployee()) {
-      alert('Vous n\'avez pas la permission de voir les détails d\'un employé.');
+      alert('Vous n\'avez pas la permission de voir les details d\'un employe.');
       return;
     }
     if (!id) {
-      alert('ID employé invalide.');
+      alert('ID employe invalide.');
       return;
     }
-    this.employeService.getById(id).subscribe({
-      next: (emp: any) => {
-        this.selectedEmployee.set(emp);
-        this.contratService.getByEmployee(id).subscribe({
-          next: (c: any[]) => this.activeEmployeeContracts.set(c),
-          error: () => this.activeEmployeeContracts.set([])
-        });
-        this.documentService.getByEmployee(id).subscribe({
-          next: (d: any[]) => {
-            this.employeeDocuments.set(d);
-          },
-          error: () => this.employeeDocuments.set([])
-        });
-        this.showDetailModal.set(true);
-      },
-      error: (err: any) => console.error('Erreur chargement détails:', err)
-    });
+    this.employeService.getById(id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (emp: any) => {
+          this.selectedEmployee.set(emp);
+          this.contratService.getByEmployee(id)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+              next: (c: any[]) => this.activeEmployeeContracts.set(c),
+              error: () => this.activeEmployeeContracts.set([])
+            });
+          this.documentService.getByEmployee(id)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+              next: (d: any[]) => {
+                this.employeeDocuments.set(d);
+              },
+              error: () => this.employeeDocuments.set([])
+            });
+          this.showDetailModal.set(true);
+        },
+        error: (err: any) => console.error('Erreur chargement details:', err)
+      });
   }
 
   closeDetailModal(): void {
@@ -1265,7 +2114,7 @@ export class EmployesComponent implements OnInit {
 
   openAvenantModal(empId?: string): void {
     if (!this.canCreateAvenant()) {
-      alert('Vous n\'avez pas la permission de créer un avenant.');
+      alert('Vous n\'avez pas la permission de creer un avenant.');
       return;
     }
     this.avenantForm.reset({ typeContrat: 'CDI', statut: 'ACTIF' });
@@ -1282,23 +2131,25 @@ export class EmployesComponent implements OnInit {
       this.avenantForm.markAllAsTouched();
       return;
     }
-    this.contratService.create(this.avenantForm.value).subscribe({
-      next: () => {
-        this.loadContrats();
-        this.closeAvenantModal();
-        alert('✅ Avenant créé avec succès !');
-      },
-      error: (err: any) => console.error('Erreur création avenant:', err)
-    });
+    this.contratService.createAvenant(this.avenantForm.value)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.loadContrats();
+          this.closeAvenantModal();
+          alert('Avenant cree avec succes !');
+        },
+        error: (err: any) => console.error('Erreur creation avenant:', err)
+      });
   }
 
   openDocModal(empId: string): void {
     if (!this.canUploadDocuments()) {
-      alert('Vous n\'avez pas la permission de téléverser des documents.');
+      alert('Vous n\'avez pas la permission de televerser des documents.');
       return;
     }
     if (!empId) {
-      alert('ID employé invalide.');
+      alert('ID employe invalide.');
       return;
     }
     this.employeeForm.patchValue({ id: empId });
@@ -1322,7 +2173,7 @@ export class EmployesComponent implements OnInit {
   submitEmployeeDocuments(): void {
     const empId = this.employeeForm.get('id')?.value;
     if (!empId || this.docFiles.length === 0) {
-      alert('Veuillez sélectionner au moins un fichier.');
+      alert('Veuillez selectionner au moins un fichier.');
       return;
     }
 
@@ -1331,29 +2182,31 @@ export class EmployesComponent implements OnInit {
     formData.append('name', `Document ${this.documentType}`);
     this.docFiles.forEach(f => formData.append('files', f));
 
-    this.documentService.uploadPiecesEmploye(empId, formData).subscribe({
-      next: () => {
-        this.closeDocModal();
-        alert('✅ Documents téléversés avec succès !');
-        if (this.showDetailModal()) {
-          this.viewEmployeeDetails(empId);
+    this.documentService.uploadPiecesEmploye(empId, formData)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.closeDocModal();
+          alert('Documents televerses avec succes !');
+          if (this.showDetailModal()) {
+            this.viewEmployeeDetails(empId);
+          }
+          this.loadEmployeesBasedOnRole();
+        },
+        error: (err: any) => {
+          console.error('Erreur upload documents:', err);
+          alert('Erreur lors du televersement des documents.');
         }
-        this.loadEmployeesBasedOnRole();
-      },
-      error: (err: any) => {
-        console.error('Erreur upload documents:', err);
-        alert('❌ Erreur lors du téléversement des documents.');
-      }
-    });
+      });
   }
 
   openBulletinModal(empId: string): void {
     if (!this.canCreatePayroll()) {
-      alert('Vous n\'avez pas la permission de créer un bulletin de paie.');
+      alert('Vous n\'avez pas la permission de creer un bulletin de paie.');
       return;
     }
     if (!empId) {
-      alert('ID employé invalide.');
+      alert('ID employe invalide.');
       return;
     }
     this.bulletinForm.reset({ employeId: empId, annee: new Date().getFullYear() });
@@ -1383,14 +2236,16 @@ export class EmployesComponent implements OnInit {
     formData.append('annee', raw.annee.toString());
     formData.append('montantNet', raw.montantNet.toString());
     this.bulletinFiles.forEach(f => formData.append('files', f));
-    this.documentService.uploadPiecesEmploye(empId, formData).subscribe({
-      next: () => {
-        this.closeBulletinModal();
-        alert('✅ Bulletin enregistré avec succès !');
-        if (this.showDetailModal()) this.viewEmployeeDetails(empId);
-      },
-      error: (err: any) => console.error('Erreur upload bulletin:', err)
-    });
+    this.documentService.uploadPiecesEmploye(empId, formData)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.closeBulletinModal();
+          alert('Bulletin enregistre avec succes !');
+          if (this.showDetailModal()) this.viewEmployeeDetails(empId);
+        },
+        error: (err: any) => console.error('Erreur upload bulletin:', err)
+      });
   }
 
   goToPage(page: number): void {
@@ -1428,7 +2283,8 @@ export class EmployesComponent implements OnInit {
   }
 
   canViewEmployeeDetails(employee: any): boolean {
-    if (this.isRHOrAdmin()) return true;
+    if (this.canViewAllEmployees()) return true;
+    if (this.canViewEmployee()) return true;
     if (this.isDirection()) {
       const empDeptId = employee.departementId || employee.departementid;
       const companyDeptIds = this.getDepartementIdsByEntreprise(this.currentUserCompanyId());
@@ -1445,6 +2301,6 @@ export class EmployesComponent implements OnInit {
     if (this.currentUserCompanyName()) {
       return this.currentUserCompanyName();
     }
-    return this.currentUserCompanyId() || 'Aucune entreprise associée';
+    return this.currentUserCompanyId() || 'Aucune entreprise associee';
   }
 }

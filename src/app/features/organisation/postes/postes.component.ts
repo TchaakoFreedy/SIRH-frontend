@@ -35,13 +35,13 @@ export class PostesComponent implements OnInit, OnDestroy {
   errorMessage = signal<string | null>(null);
   submitted = false;
 
-  // Permissions
-  canViewAllPositions = signal(true);
-  canViewPosition = signal(true);
-  canCreatePosition = signal(true);
-  canUpdatePosition = signal(true);
-  canDeletePosition = signal(true);
-  canTogglePosition = signal(true);
+  // ✅ PERMISSIONS - UNIQUEMENT BASÉES SUR LES PERMISSIONS
+  canViewAllPositions = signal(false);
+  canViewPosition = signal(false);
+  canCreatePosition = signal(false);
+  canUpdatePosition = signal(false);
+  canDeletePosition = signal(false);
+  canTogglePosition = signal(false);
 
   // Pagination
   currentPage = signal(1);
@@ -75,7 +75,6 @@ export class PostesComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadPermissions();
-    // Charger les départements avant les postes pour avoir les noms
     this.loadDepartementsAndPostes();
   }
 
@@ -84,35 +83,67 @@ export class PostesComponent implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // 🔐 PERMISSIONS
+  // 🔐 PERMISSIONS - 100% BASÉ SUR LES PERMISSIONS
   // ==========================================
 
   private loadPermissions(): void {
+    console.log('🔐 Chargement des permissions Postes...');
+    
     const user = this.authService.getCurrentUser();
-    const isAdmin = user?.role === 'RH' ||
-                    user?.role === 'SUPER_ADMIN' ||
-                    user?.role === 'TOP_MANAGER' ||
-                    user?.roles?.includes('RH') ||
-                    user?.roles?.includes('SUPER_ADMIN') ||
-                    user?.roles?.includes('TOP_MANAGER') ||
-                    user?.permissions?.includes('*');
+    console.log('👤 Utilisateur connecté:', user);
+    console.log('🔒 Rôle:', user?.role);
 
-    if (isAdmin) {
-      this.canViewAllPositions.set(true);
-      this.canViewPosition.set(true);
-      this.canCreatePosition.set(true);
-      this.canUpdatePosition.set(true);
-      this.canDeletePosition.set(true);
-      this.canTogglePosition.set(true);
-      return;
-    }
+    // ✅ Vérifier si l'utilisateur a la permission wildcard (accès total)
+    const hasWildcard = user?.permissions?.includes('*') === true;
 
-    this.canViewAllPositions.set(this.permissionService.hasPermissionSync('POSITION_VIEW_ALL'));
-    this.canViewPosition.set(this.permissionService.hasPermissionSync('POSITION_VIEW'));
-    this.canCreatePosition.set(this.permissionService.hasPermissionSync('POSITION_CREATE'));
-    this.canUpdatePosition.set(this.permissionService.hasPermissionSync('POSITION_UPDATE'));
-    this.canDeletePosition.set(this.permissionService.hasPermissionSync('POSITION_DELETE'));
-    this.canTogglePosition.set(this.permissionService.hasPermissionSync('POSITION_TOGGLE'));
+    // ✅ Vérifier si l'utilisateur a la permission SYSTEM_ADMIN
+    const isSystemAdmin = this.permissionService.hasPermissionSync('SYSTEM_ADMIN');
+
+    // ✅ Charger chaque permission individuellement via PermissionService
+    this.canViewAllPositions.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('POSITION_VIEW_ALL')
+    );
+    
+    this.canViewPosition.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('POSITION_VIEW')
+    );
+    
+    this.canCreatePosition.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('POSITION_CREATE')
+    );
+    
+    this.canUpdatePosition.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('POSITION_UPDATE')
+    );
+    
+    this.canDeletePosition.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('POSITION_DELETE')
+    );
+    
+    this.canTogglePosition.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('POSITION_TOGGLE')
+    );
+
+    console.log('🔐 Permissions Postes chargées:', {
+      canViewAllPositions: this.canViewAllPositions(),
+      canViewPosition: this.canViewPosition(),
+      canCreatePosition: this.canCreatePosition(),
+      canUpdatePosition: this.canUpdatePosition(),
+      canDeletePosition: this.canDeletePosition(),
+      canTogglePosition: this.canTogglePosition(),
+    });
   }
 
   // ==========================================
@@ -120,25 +151,21 @@ export class PostesComponent implements OnInit, OnDestroy {
   // ==========================================
 
   private loadDepartementsAndPostes(): void {
-    // Charger d'abord les départements, puis les postes
     this.loadingDepartements.set(true);
     const sub = this.departementService.getAll().subscribe({
       next: (data: Departement[]) => {
         this.departements.set(data);
         this.loadingDepartements.set(false);
-        // Une fois les départements chargés, charger les postes
         this.loadPostes();
       },
       error: (err) => {
         console.error('Erreur chargement départements:', err);
         this.loadingDepartements.set(false);
-        // Fallback
         this.departements.set([
           { id: '1', name: 'Informatique', entrepriseId: '1' },
           { id: '2', name: 'Ressources Humaines', entrepriseId: '1' },
           { id: '3', name: 'Finance', entrepriseId: '1' }
         ]);
-        // Même avec fallback, charger les postes
         this.loadPostes();
       }
     });
@@ -172,7 +199,6 @@ export class PostesComponent implements OnInit, OnDestroy {
 
     const sub = this.postesService.getAll().subscribe({
       next: (data: Poste[]) => {
-        // Enrichir avec le nom du département si nécessaire
         const enriched = data.map(p => ({
           ...p,
           departement: p.departement || { id: p.departementId || '', name: this.getDepartementName(p.departementId || ''), entrepriseId: '' }
@@ -186,7 +212,6 @@ export class PostesComponent implements OnInit, OnDestroy {
         console.error('Erreur chargement postes:', err);
         this.errorMessage.set(err.message || 'Erreur de chargement');
         this.loading.set(false);
-        // Mock data
         const now = new Date().toISOString();
         const mock = [
           { id: '1', code: 'DEV-001', libelle: 'Développeur Full Stack', description: 'Développement web', active: true, createdAt: now, createdBy: 'SYSTEM', updatedBy: null, updatedAt: now, departement: { id: '1', name: 'Informatique', entrepriseId: '1' } }
@@ -214,9 +239,10 @@ export class PostesComponent implements OnInit, OnDestroy {
   // 🪟 MODALE
   // ==========================================
 
+  // ✅ CORRIGÉ - BASÉ UNIQUEMENT SUR LES PERMISSIONS
   openModal(): void {
     if (!this.canCreatePosition()) {
-      this.showError('Permission refusée');
+      this.showError('❌ Vous n\'avez pas la permission de créer un poste');
       return;
     }
     this.posteForm = this.initPoste();
@@ -257,11 +283,11 @@ export class PostesComponent implements OnInit, OnDestroy {
     }
 
     if (this.isEditMode && !this.canUpdatePosition()) {
-      this.showError('Permission refusée');
+      this.showError('❌ Vous n\'avez pas la permission de modifier un poste');
       return;
     }
     if (!this.isEditMode && !this.canCreatePosition()) {
-      this.showError('Permission refusée');
+      this.showError('❌ Vous n\'avez pas la permission de créer un poste');
       return;
     }
 
@@ -307,9 +333,10 @@ export class PostesComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ✅ CORRIGÉ - BASÉ UNIQUEMENT SUR LES PERMISSIONS
   edit(poste: Poste): void {
     if (!this.canUpdatePosition()) {
-      this.showError('Permission refusée');
+      this.showError('❌ Vous n\'avez pas la permission de modifier un poste');
       return;
     }
     this.posteForm = {
@@ -324,9 +351,10 @@ export class PostesComponent implements OnInit, OnDestroy {
     document.body.style.overflow = 'hidden';
   }
 
+  // ✅ CORRIGÉ - BASÉ UNIQUEMENT SUR LES PERMISSIONS
   delete(id: string): void {
     if (!this.canDeletePosition()) {
-      this.showError('Permission refusée');
+      this.showError('❌ Vous n\'avez pas la permission de supprimer un poste');
       return;
     }
     if (!confirm('Supprimer ce poste ?')) return;
@@ -345,9 +373,10 @@ export class PostesComponent implements OnInit, OnDestroy {
     this.subscriptions.push(sub);
   }
 
+  // ✅ CORRIGÉ - BASÉ UNIQUEMENT SUR LES PERMISSIONS
   toggle(id: string): void {
     if (!this.canTogglePosition()) {
-      this.showError('Permission refusée');
+      this.showError('❌ Vous n\'avez pas la permission de modifier le statut d\'un poste');
       return;
     }
     this.loading.set(true);
@@ -444,6 +473,5 @@ export class PostesComponent implements OnInit, OnDestroy {
 
   private showSuccess(message: string): void {
     console.log('✅', message);
-    // Vous pouvez ajouter un toast ici si vous en avez un
   }
 }

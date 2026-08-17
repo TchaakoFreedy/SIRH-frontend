@@ -1,0 +1,241 @@
+<!-- src/app/features/discipline/components/sanction/sanction-detail/sanction-detail.component.html -->
+
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">gavel</span>
+      </div>
+      <div>
+        <h1>Détail de la sanction</h1>
+        <p>Consultez les informations complètes de la sanction</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-secondary" (click)="goBack()">
+        <span class="material-symbols-outlined">arrow_back</span> Retour à la liste
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== STATS ==================== -->
+  <div class="stats-grid">
+    <div class="stat-card red" *ngIf="sanction?.statut === StatutSanction.ACTIVE">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">warning</span>
+      </div>
+      <div class="stat-info">
+        <p>Statut actuel</p>
+        <h3>Active</h3>
+      </div>
+    </div>
+    <div class="stat-card green" *ngIf="sanction?.statut === StatutSanction.TERMINEE">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">check_circle</span>
+      </div>
+      <div class="stat-info">
+        <p>Statut actuel</p>
+        <h3>Terminée</h3>
+      </div>
+    </div>
+    <div class="stat-card gray" *ngIf="sanction?.statut === StatutSanction.ANNULEE">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">block</span>
+      </div>
+      <div class="stat-info">
+        <p>Statut actuel</p>
+        <h3>Annulée</h3>
+      </div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">calendar_month</span>
+      </div>
+      <div class="stat-info">
+        <p>Date de début</p>
+        <h3>{{ (sanction?.dateDebut | date:'dd/MM/yyyy') || '---' }}</h3>
+      </div>
+    </div>
+    <div class="stat-card orange" *ngIf="sanction?.dateFin">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">event</span>
+      </div>
+      <div class="stat-info">
+        <p>Date de fin</p>
+        <h3>{{ sanction.dateFin | date:'dd/MM/yyyy' }}</h3>
+      </div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-icon">
+        <span class="material-symbols-outlined">badge</span>
+      </div>
+      <div class="stat-info">
+        <p>Numéro</p>
+        <h3>{{ sanction?.numero || '---' }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SPINNER ==================== -->
+  <div class="loading-spinner" *ngIf="isLoading">
+    <mat-spinner diameter="50"></mat-spinner>
+  </div>
+
+  <!-- ==================== DÉTAIL ==================== -->
+  <div *ngIf="!isLoading && sanction?.id" class="detail-grid">
+    
+    <!-- CARTE PRINCIPALE -->
+    <div class="detail-card main-card">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="material-symbols-outlined">info</span>
+          <h3>Informations générales</h3>
+        </div>
+        <span class="type-badge" [class]="getTypeClass(sanction.type)">
+          <span class="material-symbols-outlined">{{ getTypeIcon(sanction.type) }}</span>
+          {{ getTypeLabel(sanction.type) }}
+        </span>
+      </div>
+
+      <div class="info-grid">
+        <div class="info-item">
+          <label>Numéro</label>
+          <span class="tag-numero">{{ sanction.numero }}</span>
+        </div>
+        <div class="info-item">
+          <label>Employé</label>
+          <div class="user-info">
+            <div class="avatar">{{ (sanction.employeNom || 'U')[0] }}</div>
+            <span class="name">{{ sanction.employeNom || 'Non défini' }}</span>
+          </div>
+        </div>
+        <div class="info-item">
+          <label>Type</label>
+          <span class="type-label">{{ getTypeLabel(sanction.type) }}</span>
+        </div>
+        <div class="info-item">
+          <label>Statut</label>
+          <span class="status-pill" [class]="getStatutClass(sanction.statut)">
+            {{ getStatutLabel(sanction.statut) }}
+          </span>
+        </div>
+        <div class="info-item">
+          <label>Date de début</label>
+          <span class="date-value">
+            <span class="material-symbols-outlined">event</span>
+            {{ sanction.dateDebut | date:'dd/MM/yyyy' }}
+          </span>
+        </div>
+        <div class="info-item" *ngIf="sanction.dateFin">
+          <label>Date de fin</label>
+          <span class="date-value">
+            <span class="material-symbols-outlined">event</span>
+            {{ sanction.dateFin | date:'dd/MM/yyyy' }}
+          </span>
+        </div>
+        <div class="info-item" *ngIf="sanction.duree">
+          <label>Durée</label>
+          <span class="duree-value">
+            <span class="material-symbols-outlined">timer</span>
+            {{ sanction.duree }} jours
+          </span>
+        </div>
+        <div class="info-item" *ngIf="sanction.demandeExplicationNumero">
+          <label>Demande liée</label>
+          <span class="demande-link">
+            <span class="material-symbols-outlined">link</span>
+            {{ sanction.demandeExplicationNumero }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARTES RÉDUITES : MOTIF, DESCRIPTION, HISTORIQUE -->
+    <div class="compact-cards">
+      
+      <!-- CARTE MOTIF -->
+      <div class="detail-card compact-card">
+        <div class="compact-header">
+          <span class="material-symbols-outlined">description</span>
+          <h4>Motif</h4>
+        </div>
+        <div class="compact-content">
+          <p>{{ sanction.motif || 'Aucun motif spécifié' }}</p>
+        </div>
+      </div>
+
+      <!-- CARTE DESCRIPTION -->
+      <div class="detail-card compact-card" *ngIf="sanction.description">
+        <div class="compact-header">
+          <span class="material-symbols-outlined">notes</span>
+          <h4>Description détaillée</h4>
+        </div>
+        <div class="compact-content">
+          <p>{{ sanction.description }}</p>
+        </div>
+      </div>
+
+      <!-- CARTE HISTORIQUE -->
+      <div class="detail-card compact-card" *ngIf="sanction.historique?.length">
+        <div class="compact-header">
+          <span class="material-symbols-outlined">history</span>
+          <h4>Historique <span class="badge-count">{{ sanction.historique.length }}</span></h4>
+        </div>
+        <div class="compact-historique">
+          <div *ngFor="let h of sanction.historique" class="compact-historique-item">
+            <div class="h-item-icon">
+              <span class="material-symbols-outlined">circle</span>
+            </div>
+            <div class="h-item-content">
+              <div class="h-item-header">
+                <span class="h-action">{{ h.action }}</span>
+                <span class="h-date">{{ h.date | date:'dd/MM/yyyy HH:mm' }}</span>
+              </div>
+              <div class="h-item-details">
+                <span class="h-user">{{ h.utilisateurNom }}</span>
+                <span class="h-comment" *ngIf="h.commentaire">- {{ h.commentaire }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ==================== ACTIONS AVEC PERMISSIONS ==================== -->
+    <div class="actions-card" *ngIf="hasDeletePermission() || hasLiftPermission()">
+      <div class="actions-buttons">
+        <!-- ✅ Bouton Lever la sanction - Nécessite SANCTION_UPDATE -->
+        <button class="btn btn-success" 
+                (click)="liftSanction()" 
+                *ngIf="hasLiftPermission()">
+          <span class="material-symbols-outlined">check_circle</span> Lever la sanction
+        </button>
+        
+        <!-- ✅ Bouton Supprimer - Nécessite SANCTION_DELETE -->
+        <button class="btn btn-danger" 
+                (click)="deleteSanction()" 
+                *ngIf="hasDeletePermission()">
+          <span class="material-symbols-outlined">delete</span> Supprimer
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ==================== ERREUR ==================== -->
+  <div *ngIf="!isLoading && (!sanction || !sanction.id)" class="error-card">
+    <div class="error-content">
+      <span class="material-symbols-outlined">error</span>
+      <h3>Sanction non trouvée</h3>
+      <p *ngIf="errorMessage">{{ errorMessage }}</p>
+      <p *ngIf="!errorMessage">La sanction que vous recherchez n'existe pas ou a été supprimée.</p>
+      <button class="btn btn-primary" (click)="goBack()">
+        <span class="material-symbols-outlined">arrow_back</span> Retour à la liste
+      </button>
+    </div>
+  </div>
+
+</div>

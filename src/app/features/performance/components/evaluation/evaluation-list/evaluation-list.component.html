@@ -1,0 +1,185 @@
+<!-- src/app/features/performance/components/evaluation/evaluation-list/evaluation-list.component.html -->
+
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">rate_review</span>
+      </div>
+      <div>
+        <h1>Évaluations de performance</h1>
+        <p>Suivez et gérez les évaluations des collaborateurs</p>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button type="button" class="btn btn-primary" [routerLink]="['/app/performance/evaluations/create']">
+        <span class="material-symbols-outlined">post_add</span> Nouvelle évaluation
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== STATS ==================== -->
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-icon"><span class="material-symbols-outlined">assessment</span></div>
+      <div class="stat-info">
+        <p>Total évaluations</p>
+        <h3>{{ totalElements }}</h3>
+      </div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-icon"><span class="material-symbols-outlined">trending_up</span></div>
+      <div class="stat-info">
+        <p>Moyenne générale</p>
+        <h3>{{ getMoyenneGenerale() }}</h3>
+      </div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-icon"><span class="material-symbols-outlined">star</span></div>
+      <div class="stat-info">
+        <p>Meilleure mention</p>
+        <h3>{{ getMeilleureMention() }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TABLEAU ==================== -->
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">
+        <span class="material-symbols-outlined">group</span>
+        <h2>Registre des évaluations</h2>
+      </div>
+      <div class="table-actions">
+        <span class="table-info">
+          {{ dataSource.data.length }} évaluation(s) 
+          <span *ngIf="totalElements > 0" class="text-muted">
+            sur {{ totalElements }} total
+          </span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Indicateur de chargement -->
+    <div class="loading-overlay" *ngIf="isLoading">
+      <div class="loading-spinner">
+        <mat-spinner diameter="32"></mat-spinner>
+        <span>Chargement...</span>
+      </div>
+    </div>
+
+    <div class="responsive-wrapper">
+      <table mat-table [dataSource]="dataSource" matSort (matSortChange)="onSortChange()" class="up-table">
+
+        <!-- ✅ Colonne Employé - TRI DÉSACTIVÉ -->
+        <ng-container matColumnDef="employeNom">
+          <th mat-header-cell *matHeaderCellDef> Collaborateur </th>
+          <!-- ✅ Supprimer mat-sort-header pour désactiver le tri -->
+          <td mat-cell *matCellDef="let evaluation">
+            <div class="user-cell">
+              <div class="avatar">{{ getInitials(evaluation.employeNom) }}</div>
+              <div>
+                <div class="name">{{ evaluation.employeNom }}</div>
+              </div>
+            </div>
+          </td>
+        </ng-container>
+
+        <!-- Colonne Période -->
+        <ng-container matColumnDef="periode">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header> Période </th>
+          <td mat-cell *matCellDef="let evaluation">
+            <span class="tag-matricule">{{ getPeriodeLabel(evaluation.periode) }}</span>
+          </td>
+        </ng-container>
+
+        <!-- Colonne Année -->
+        <ng-container matColumnDef="annee">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header> Année </th>
+          <td mat-cell *matCellDef="let evaluation">
+            <span class="name">{{ evaluation.annee }}</span>
+          </td>
+        </ng-container>
+
+        <!-- Colonne Score -->
+        <ng-container matColumnDef="pourcentage">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header> Score </th>
+          <td mat-cell *matCellDef="let evaluation">
+            <div class="score-cell">
+              <div class="score-bar">
+                <div class="score-fill" [style.width.%]="evaluation.pourcentage || 0"></div>
+              </div>
+              <span class="score-value">{{ getPourcentage(evaluation.pourcentage) }}</span>
+            </div>
+          </td>
+        </ng-container>
+
+        <!-- Colonne Mention -->
+        <ng-container matColumnDef="mention">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header> Mention </th>
+          <td mat-cell *matCellDef="let evaluation">
+            <span class="status-pill" [class]="'mention-' + getMentionColor(evaluation.mention)">
+              {{ getMentionLabel(evaluation.mention) }}
+            </span>
+          </td>
+        </ng-container>
+
+        <!-- Colonne Date -->
+        <ng-container matColumnDef="dateEvaluation">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header> Date </th>
+          <td mat-cell *matCellDef="let evaluation">
+            <div class="name">{{ evaluation.dateEvaluation | date:'dd/MM/yyyy' }}</div>
+            <div class="meta">{{ evaluation.dateEvaluation | date:'HH:mm' }}</div>
+          </td>
+        </ng-container>
+
+        <!-- Colonne Actions -->
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef class="th-center"> Actions </th>
+          <td mat-cell *matCellDef="let evaluation">
+            <div class="actions-cell">
+              <button type="button" class="action-btn info" (click)="viewEvaluation(evaluation.id!)" title="Voir">
+                <span class="material-symbols-outlined">visibility</span>
+              </button>
+              <button type="button" class="action-btn primary" (click)="editEvaluation(evaluation.id!)" title="Modifier">
+                <span class="material-symbols-outlined">edit</span>
+              </button>
+              <button type="button" class="action-btn danger" (click)="deleteEvaluation(evaluation.id!)" title="Supprimer">
+                <span class="material-symbols-outlined">delete</span>
+              </button>
+            </div>
+          </td>
+        </ng-container>
+
+        <!-- Header & Row -->
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+        <!-- Empty State -->
+        <tr class="mat-row" *matNoDataRow>
+          <td class="mat-cell" [attr.colspan]="displayedColumns.length">
+            <div class="empty-state">
+              <span class="material-symbols-outlined">sentiment_dissatisfied</span>
+              <p>Aucune évaluation trouvée</p>
+              <p class="empty-hint">Commencez par créer une nouvelle évaluation</p>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- ==================== PAGINATION ==================== -->
+    <div class="pagination-wrapper">
+      <mat-paginator 
+        [length]="totalElements" 
+        [pageSize]="pageSize" 
+        [pageSizeOptions]="pageSizeOptions"
+        (page)="onPageChange()" 
+        showFirstLastButtons
+        class="custom-paginator">
+      </mat-paginator>
+    </div>
+  </div>
+</div>

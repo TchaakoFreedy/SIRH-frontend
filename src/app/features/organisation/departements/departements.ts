@@ -29,13 +29,13 @@ export class DepartementsComponent implements OnInit {
   isErrorToast = signal(false);
 
   // === PERMISSIONS ===
-  canViewAllDepartements = signal(true);
-  canViewDepartement = signal(true);
-  canCreateDepartement = signal(true);
-  canUpdateDepartement = signal(true);
-  canDeleteDepartement = signal(true);
-  canSuspendDepartement = signal(true);
-  canReactivateDepartement = signal(true);
+  canViewAllDepartements = signal(false);
+  canViewDepartement = signal(false);
+  canCreateDepartement = signal(false);
+  canUpdateDepartement = signal(false);
+  canDeleteDepartement = signal(false);
+  canSuspendDepartement = signal(false);
+  canReactivateDepartement = signal(false);
 
   // === PAGINATION ===
   currentPage = 1;
@@ -90,7 +90,7 @@ export class DepartementsComponent implements OnInit {
   }
 
   // ==========================================
-  // 🔐 PERMISSIONS
+  // 🔐 PERMISSIONS - 100% BASÉ SUR LES PERMISSIONS
   // ==========================================
 
   private loadPermissions(): void {
@@ -99,39 +99,59 @@ export class DepartementsComponent implements OnInit {
     const user = this.authService.getCurrentUser();
     console.log('👤 Utilisateur connecté:', user);
     console.log('🔒 Rôle:', user?.role);
+
+    // ✅ Vérifier si l'utilisateur a la permission wildcard (accès total)
+    const hasWildcard = user?.permissions?.includes('*') === true;
+
+    // ✅ Vérifier si l'utilisateur a la permission SYSTEM_ADMIN
+    const isSystemAdmin = this.permissionService.hasPermissionSync('SYSTEM_ADMIN');
+
+    // ✅ Charger chaque permission individuellement via PermissionService
+    this.canViewAllDepartements.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('DEPARTMENT_VIEW_ALL')
+    );
     
-    // ✅ Si l'utilisateur est RH, SUPER_ADMIN ou TOP_MANAGER, activer toutes les permissions
-    const isAdmin = user?.role === 'RH' || 
-                    user?.role === 'SUPER_ADMIN' || 
-                    user?.role === 'TOP_MANAGER' ||
-                    user?.roles?.includes('RH') ||
-                    user?.roles?.includes('SUPER_ADMIN') ||
-                    user?.roles?.includes('TOP_MANAGER') ||
-                    user?.permissions?.includes('*');
-
-    if (isAdmin) {
-      console.log('✅ Admin détecté - Activation de toutes les permissions Départements');
-      this.canViewAllDepartements.set(true);
-      this.canViewDepartement.set(true);
-      this.canCreateDepartement.set(true);
-      this.canUpdateDepartement.set(true);
-      this.canDeleteDepartement.set(true);
-      this.canSuspendDepartement.set(true);
-      this.canReactivateDepartement.set(true);
-      return;
-    }
-
-    // Pour les autres rôles, charger les permissions normalement
-    this.canViewAllDepartements.set(this.permissionService.hasPermissionSync('DEPARTMENT_VIEW_ALL'));
-    this.canViewDepartement.set(this.permissionService.hasPermissionSync('DEPARTMENT_VIEW'));
-    this.canCreateDepartement.set(this.permissionService.hasPermissionSync('DEPARTMENT_CREATE'));
-    this.canUpdateDepartement.set(this.permissionService.hasPermissionSync('DEPARTMENT_UPDATE'));
-    this.canDeleteDepartement.set(this.permissionService.hasPermissionSync('DEPARTMENT_DELETE'));
-    this.canSuspendDepartement.set(this.permissionService.hasPermissionSync('DEPARTMENT_SUSPEND'));
-    this.canReactivateDepartement.set(this.permissionService.hasPermissionSync('DEPARTMENT_REACTIVATE'));
+    this.canViewDepartement.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('DEPARTMENT_VIEW')
+    );
+    
+    this.canCreateDepartement.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('DEPARTMENT_CREATE')
+    );
+    
+    this.canUpdateDepartement.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('DEPARTMENT_UPDATE')
+    );
+    
+    this.canDeleteDepartement.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('DEPARTMENT_DELETE')
+    );
+    
+    this.canSuspendDepartement.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('DEPARTMENT_SUSPEND')
+    );
+    
+    this.canReactivateDepartement.set(
+      hasWildcard || 
+      isSystemAdmin || 
+      this.permissionService.hasPermissionSync('DEPARTMENT_REACTIVATE')
+    );
 
     console.log('🔐 Permissions Départements chargées:', {
       canViewAllDepartements: this.canViewAllDepartements(),
+      canViewDepartement: this.canViewDepartement(),
       canCreateDepartement: this.canCreateDepartement(),
       canUpdateDepartement: this.canUpdateDepartement(),
       canSuspendDepartement: this.canSuspendDepartement(),
@@ -308,6 +328,7 @@ export class DepartementsComponent implements OnInit {
   // 🪟 MODALE
   // ==========================================
 
+  // ✅ CORRIGÉ - BASÉ UNIQUEMENT SUR LES PERMISSIONS
   openModal(): void {
     if (!this.canCreateDepartement()) {
       this.showToast('❌ Vous n\'avez pas la permission de créer un département', true);
@@ -319,6 +340,7 @@ export class DepartementsComponent implements OnInit {
     this.showModal.set(true);
   }
 
+  // ✅ CORRIGÉ - BASÉ UNIQUEMENT SUR LES PERMISSIONS
   edit(dep: any): void {
     if (!this.canUpdateDepartement()) {
       this.showToast('❌ Vous n\'avez pas la permission de modifier un département', true);
@@ -400,6 +422,7 @@ export class DepartementsComponent implements OnInit {
   // ⚡ ACTIONS
   // ==========================================
 
+  // ✅ CORRIGÉ - BASÉ UNIQUEMENT SUR LES PERMISSIONS
   suspendre(id: string): void {
     if (!this.canSuspendDepartement()) {
       this.showToast('❌ Vous n\'avez pas la permission de suspendre un département', true);
@@ -422,6 +445,7 @@ export class DepartementsComponent implements OnInit {
     });
   }
 
+  // ✅ CORRIGÉ - BASÉ UNIQUEMENT SUR LES PERMISSIONS
   reactiver(id: string): void {
     if (!this.canReactivateDepartement()) {
       this.showToast('❌ Vous n\'avez pas la permission de réactiver un département', true);

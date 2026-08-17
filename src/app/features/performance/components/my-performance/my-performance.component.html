@@ -1,0 +1,229 @@
+<!-- src/app/features/performance/components/my-performance/my-performance.component.html -->
+
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">person</span>
+      </div>
+      <div>
+        <h1>Mes performances</h1>
+        <p>Consultez vos évaluations et suivez votre progression</p>
+      </div>
+    </div>
+   
+  </div>
+
+  <!-- ==================== LOADING ==================== -->
+  <div class="loading-spinner" *ngIf="isLoading || isLoadingStats">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <!-- ==================== CONTENU ==================== -->
+  <div *ngIf="!isLoading && !isLoadingStats">
+    
+    <!-- ===== STATS GÉNÉRALES (compact) ===== -->
+    <div class="stats-grid" *ngIf="stats">
+      <div class="stat-card blue">
+        <div class="stat-icon"><span class="material-symbols-outlined">assessment</span></div>
+        <div class="stat-info">
+          <p>Moyenne</p>
+          <h3>{{ getPourcentage(stats.moyenneGenerale) }}</h3>
+        </div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-icon"><span class="material-symbols-outlined">star</span></div>
+        <div class="stat-info">
+          <p>Meilleure mention</p>
+          <h3>
+            <span class="status-pill small" [class]="'mention-' + getMentionClass(stats.meilleureMention)">
+              {{ getMentionLabel(stats.meilleureMention) }}
+            </span>
+          </h3>
+        </div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-icon"><span class="material-symbols-outlined">trending_up</span></div>
+        <div class="stat-info">
+          <p>Dernière mention</p>
+          <h3>
+            <span class="status-pill small" [class]="'mention-' + getMentionClass(stats.derniereMention)">
+              {{ getMentionLabel(stats.derniereMention) }}
+            </span>
+          </h3>
+        </div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-icon"><span class="material-symbols-outlined">format_list_bulleted</span></div>
+        <div class="stat-info">
+          <p>Total</p>
+          <h3>{{ stats.totalEvaluations || 0 }}</h3>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PROFIL + RANK (compact combiné) ===== -->
+    <div class="profile-rank-combo" *ngIf="stats && myRank">
+      <!-- Profil -->
+      <div class="profile-compact">
+        <div class="profile-avatar-compact">
+          <div class="avatar-small">{{ getInitials(stats.employeeName) }}</div>
+        </div>
+        <div class="profile-info-compact">
+          <h3>{{ stats.employeeName }}</h3>
+         
+        </div>
+      </div>
+
+      <!-- Rank -->
+      <div class="rank-compact">
+        <div class="rank-number-compact">
+          <span class="rank-value-compact">{{ myRank.rang }}</span>
+          <span class="rank-label-compact">/ {{ getTotalEmployes() }}</span>
+        </div>
+        <div class="rank-score-compact">
+          {{ myRank.scoreTotal?.toFixed(1) || '0' }}%
+        </div>
+        <div class="rank-annee-compact">
+          {{ currentYear }}
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== RÉPARTITION DES MENTIONS (compact) ===== -->
+    <div class="mentions-compact" *ngIf="stats?.repartitionMentions && stats.repartitionMentions.length > 0">
+      <div class="mentions-header">
+        <span class="material-symbols-outlined">pie_chart</span>
+        <span>Répartition</span>
+        <span class="mentions-total">{{ stats.totalEvaluations }} éval.</span>
+      </div>
+      <div class="mentions-bars-compact">
+        <div class="mention-bar-compact" *ngFor="let mention of stats.repartitionMentions">
+          <span class="mention-label-compact">{{ getMentionLabel(mention.mention) }}</span>
+          <div class="bar-container-compact">
+            <div class="bar-fill-compact" 
+                 [style.width.%]="mention.pourcentage"
+                 [style.background]="getMentionColor(mention.mention)">
+            </div>
+          </div>
+          <span class="mention-count-compact">{{ mention.pourcentage.toFixed(0) }}%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ÉVOLUTION (compact) ===== -->
+    <div class="evolution-compact" *ngIf="stats?.evolution && stats.evolution.length > 0">
+      <div class="evolution-header">
+        <span class="material-symbols-outlined">show_chart</span>
+        <span>Évolution</span>
+      </div>
+      <div class="chart-bars-compact">
+        <div class="chart-bar-compact" *ngFor="let evo of stats.evolution">
+          <div class="bar-wrapper-compact">
+            <div class="bar-value-compact">{{ evo.moyenne.toFixed(0) }}%</div>
+            <div class="bar-fill-evolution-compact" 
+                 [style.height.%]="evo.moyenne"
+                 [style.background]="evo.moyenne >= 80 ? '#10b981' : evo.moyenne >= 60 ? '#3b82f6' : evo.moyenne >= 40 ? '#f59e0b' : '#ef4444'">
+            </div>
+          </div>
+          <div class="bar-label-compact">{{ evo.mois }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== LISTE DES ÉVALUATIONS ===== -->
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title">
+          <span class="material-symbols-outlined">list_alt</span>
+          <h2>Mes évaluations</h2>
+        </div>
+        <div class="table-actions">
+          <span class="table-info">{{ totalElements }} évaluation(s)</span>
+        </div>
+      </div>
+
+      <div class="responsive-wrapper">
+        <table mat-table [dataSource]="dataSource" matSort class="up-table">
+
+          <ng-container matColumnDef="periode">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Période </th>
+            <td mat-cell *matCellDef="let evaluation">
+              <span class="tag-matricule">{{ evaluation.periode }}</span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="annee">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Année </th>
+            <td mat-cell *matCellDef="let evaluation">
+              <span>{{ evaluation.annee }}</span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="pourcentage">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Score </th>
+            <td mat-cell *matCellDef="let evaluation">
+              <div class="score-cell">
+                <div class="score-bar">
+                  <div class="score-fill" [style.width.%]="evaluation.pourcentage || 0"></div>
+                </div>
+                <span class="score-value">{{ getPourcentage(evaluation.pourcentage) }}</span>
+              </div>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="mention">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Mention </th>
+            <td mat-cell *matCellDef="let evaluation">
+              <span class="status-pill" [class]="'mention-' + getMentionClass(evaluation.mention || '')">
+                {{ getMentionLabel(evaluation.mention || '') }}
+              </span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="dateEvaluation">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Date </th>
+            <td mat-cell *matCellDef="let evaluation">
+              <div>{{ evaluation.dateEvaluation | date:'dd/MM/yyyy' }}</div>
+              <div class="meta">{{ evaluation.dateEvaluation | date:'HH:mm' }}</div>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef class="th-center"> Actions </th>
+            <td mat-cell *matCellDef="let evaluation">
+              <div class="actions-cell">
+                <button type="button" class="action-btn info" (click)="viewEvaluation(evaluation.id!)" title="Voir">
+                  <span class="material-symbols-outlined">visibility</span>
+                </button>
+              </div>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell" [attr.colspan]="displayedColumns.length">
+              <div class="empty-state">
+                <span class="material-symbols-outlined">sentiment_dissatisfied</span>
+                <p>Aucune évaluation trouvée</p>
+                <p class="empty-hint">Vous n'avez pas encore d'évaluations de performance</p>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <mat-paginator 
+        [length]="totalElements" 
+        [pageSize]="10" 
+        [pageSizeOptions]="[5, 10, 20, 50]"
+        showFirstLastButtons
+        class="pagination-container">
+      </mat-paginator>
+    </div>
+  </div>
+</div>

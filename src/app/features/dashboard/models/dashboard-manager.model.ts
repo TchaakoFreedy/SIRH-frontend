@@ -17,4 +17,12 @@ export interface DashboardManagerResponse {
     description: string;
     employeeName: string;
   }[];
+  
+  // Nouveaux indicateurs pour discipline, sanctions et performance (périmètre manager)
+  pendingExplanationRequests: number;
+  activeSanctions: number;
+  pendingEvaluations: number;
+  explanationRequestsEvolution: { month: string; count: number }[];
+  sanctionsByType: { type: string; count: number }[];
+  performanceEvolution: { month: string; averageScore: number }[];
 }

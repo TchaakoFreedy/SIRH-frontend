@@ -1,0 +1,284 @@
+<!-- src/app/features/discipline/components/demande-explication/mes-demandes/mes-demandes.component.html -->
+<div class="unity-container">
+  
+  <!-- ==================== HEADER ==================== -->
+  <div class="page-header-glass">
+    <div class="page-title">
+      <div class="title-icon">
+        <span class="material-symbols-outlined">folder_shared</span>
+      </div>
+      <div>
+        <h1>Mes demandes d'explication</h1>
+        <p>Consultez l'historique de vos demandes</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== STATS ==================== -->
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-icon"><span class="material-symbols-outlined">pending</span></div>
+      <div class="stat-info">
+        <p>En attente</p>
+        <h3>{{ getStatCount(StatutDemandeExplication.EN_ATTENTE) }}</h3>
+      </div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-icon"><span class="material-symbols-outlined">forum</span></div>
+      <div class="stat-info">
+        <p>Répondues</p>
+        <h3>{{ getStatCount(StatutDemandeExplication.REPONDUE) }}</h3>
+      </div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon"><span class="material-symbols-outlined">check_circle</span></div>
+      <div class="stat-info">
+        <p>Validées</p>
+        <h3>{{ getStatCount(StatutDemandeExplication.VALIDEE) }}</h3>
+      </div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-icon"><span class="material-symbols-outlined">cancel</span></div>
+      <div class="stat-info">
+        <p>Rejetées / Annulées</p>
+        <h3>{{ getStatCount(StatutDemandeExplication.REJETEE) + getStatCount(StatutDemandeExplication.ANNULEE) }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== RECHERCHE & FILTRES ==================== -->
+  <div class="search-filter-bar">
+    <div class="search-wrapper">
+      <span class="material-symbols-outlined search-icon">search</span>
+      <input 
+        type="text" 
+        class="search-input" 
+        [(ngModel)]="searchTerm" 
+        (input)="applyFilters()"
+        placeholder=" Rechercher par numéro, objet, auteur..."
+        autocomplete="off"
+      />
+      @if (searchTerm) {
+        <button class="clear-search" (click)="clearSearch()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      }
+    </div>
+
+    <div class="filter-wrapper">
+      <span class="material-symbols-outlined filter-icon">filter_list</span>
+      <select class="filter-select" [(ngModel)]="selectedStatut" (change)="applyFilters()">
+        <option value="">Tous les statuts</option>
+        @for (statut of statutOptions; track statut) {
+          <option [value]="statut">{{ getStatutLabel(statut) }}</option>
+        }
+      </select>
+      @if (selectedStatut) {
+        <button class="clear-filter" (click)="clearFilter()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      }
+    </div>
+
+    <div class="filter-results">
+      <span class="result-count">
+        <span class="material-symbols-outlined">description</span>
+        {{ filteredData().length }} demande(s)
+      </span>
+      @if (searchTerm || selectedStatut) {
+        <button class="btn-reset-filters" (click)="resetFilters()">
+          <span class="material-symbols-outlined">refresh</span>
+          Réinitialiser
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- ==================== TABLEAU ==================== -->
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">
+        <span class="material-symbols-outlined">list_alt</span>
+        <h2>Mes demandes</h2>
+      </div>
+      <div class="table-actions">
+        <span class="table-info">{{ filteredData().length }} sur {{ totalElements }} demandes</span>
+      </div>
+    </div>
+
+    <div class="responsive-wrapper">
+      <table class="up-table">
+        <thead>
+          <tr>
+            <th>Numéro</th>
+            <th>Objet</th>
+            <th>Auteur</th>
+            <th>Statut</th>
+            <th>Date création</th>
+            <th>Date limite</th>
+            <th class="th-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (demande of paginatedData; track demande.id) {
+            <tr>
+              <td><span class="tag-numero">{{ demande.numero }}</span></td>
+              <td>
+                <div class="objet-cell">
+                  <div class="objet">{{ demande.objet }}</div>
+                  <div class="meta">{{ demande.motif }}</div>
+                </div>
+              </td>
+              <td>
+                <div class="user-cell">
+                  <div class="avatar">{{ (demande.auteurNom || 'U')[0] }}</div>
+                  <div>
+                    <div class="name">{{ demande.auteurNom || 'N/A' }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="status-pill" [class]="getStatutClass(demande.statut)">
+                  {{ getStatutLabel(demande.statut) }}
+                </span>
+                <!-- Message de réponse par email pour les demandes en attente -->
+                @if (canMarkAsReplied(demande.statut)) {
+                  <div class="email-hint">
+                    <span class="material-symbols-outlined">mail</span>
+                    <span>Répondez par email</span>
+                  </div>
+                }
+              </td>
+              <td>
+                <div class="date-cell">
+                  <span class="material-symbols-outlined">event</span>
+                  {{ formatDate(demande.dateCreation) }}
+                </div>
+              </td>
+              <td>
+                <div class="date-cell" [class.urgent]="isUrgent(demande.dateLimiteReponse, demande.statut)">
+                  <span class="material-symbols-outlined">schedule</span>
+                  {{ formatDateShort(demande.dateLimiteReponse) }}
+                </div>
+              </td>
+              <td>
+                <div class="actions-cell">
+                  <button class="action-btn info" (click)="viewDemande(demande.id!)" title="Voir les détails">
+                    <span class="material-symbols-outlined">visibility</span>
+                  </button>
+                  <!-- ✅ Bouton "J'ai répondu" pour les demandes en attente -->
+                  @if (canMarkAsReplied(demande.statut)) {
+                    <button class="action-btn success" (click)="markAsReplied(demande.id!)" title="J'ai répondu par email">
+                      <span class="material-symbols-outlined">check_circle</span>
+                    </button>
+                  }
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7">
+                <div class="empty-state">
+                  <span class="material-symbols-outlined">inbox</span>
+                  <p>Aucune demande trouvée</p>
+                  @if (searchTerm || selectedStatut) {
+                    <p class="empty-hint">Essayez de modifier vos critères de recherche</p>
+                  } @else {
+                    <p class="empty-hint">Vous n'avez reçu aucune demande d'explication pour le moment.</p>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ==================== PAGINATION ==================== -->
+    @if (filteredData().length > 0) {
+      <div class="pagination-container">
+        <div class="pagination-info">
+          <span>
+            Affichage de 
+            <strong>{{ (currentPage - 1) * itemsPerPage + 1 }}</strong> 
+            à 
+            <strong>{{ Math.min(currentPage * itemsPerPage, filteredData().length) }}</strong> 
+            sur 
+            <strong>{{ filteredData().length }}</strong> 
+            demandes
+          </span>
+          
+          <div class="page-size-selector">
+            <label for="pageSize">Lignes par page :</label>
+            <select id="pageSize" [(ngModel)]="itemsPerPage" (change)="onPageSizeChange()">
+              <option [value]="5">5</option>
+              <option [value]="10">10</option>
+              <option [value]="25">25</option>
+              <option [value]="50">50</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pagination-controls">
+          <button class="pagination-btn" 
+                  (click)="previousPage()" 
+                  [disabled]="currentPage === 1"
+                  [class.disabled]="currentPage === 1">
+            <span class="material-symbols-outlined">chevron_left</span>
+            <span>Précédent</span>
+          </button>
+
+          <div class="page-numbers">
+            <button *ngIf="totalPages > 1" 
+                    class="page-number" 
+                    [class.active]="currentPage === 1"
+                    (click)="goToPage(1)">
+              1
+            </button>
+
+            <span *ngIf="currentPage > 3" class="ellipsis">…</span>
+
+            <button *ngFor="let page of getVisiblePages()" 
+                    class="page-number" 
+                    [class.active]="currentPage === page"
+                    (click)="goToPage(page)">
+              {{ page }}
+            </button>
+
+            <span *ngIf="currentPage < totalPages - 2" class="ellipsis">…</span>
+
+            <button *ngIf="totalPages > 1" 
+                    class="page-number" 
+                    [class.active]="currentPage === totalPages"
+                    (click)="goToPage(totalPages)">
+              {{ totalPages }}
+            </button>
+          </div>
+
+          <button class="pagination-btn" 
+                  (click)="nextPage()" 
+                  [disabled]="currentPage === totalPages"
+                  [class.disabled]="currentPage === totalPages">
+            <span>Suivant</span>
+            <span class="material-symbols-outlined">chevron_right</span>
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- ==================== NOTE IMPORTANTE ==================== -->
+  <div class="info-card">
+    <div class="info-content">
+      <span class="material-symbols-outlined">info</span>
+      <div>
+        <strong>Comment répondre ?</strong>
+        <span>
+          1. Envoyez votre réponse <strong>par email</strong> à l'auteur de la demande.<br>
+          2. Après l'envoi, cliquez sur le bouton <strong>"J'ai répondu"</strong> (✓) pour confirmer.<br>
+          3. L'équipe RH sera notifiée et traitera votre réponse.
+        </span>
+      </div>
+    </div>
+  </div>
+</div>

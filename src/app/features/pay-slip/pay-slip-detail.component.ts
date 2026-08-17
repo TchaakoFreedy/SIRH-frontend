@@ -268,7 +268,6 @@ export class PaySlipDetailComponent implements OnInit, OnDestroy {
     this.loadBulletinImage();
   }
 
-  // ✅ Méthode appelée par le bouton "Test"
   testImageDisplay(): void {
     console.log('Test: Reloading pay slip image');
     this.reloadImage();
@@ -278,12 +277,6 @@ export class PaySlipDetailComponent implements OnInit, OnDestroy {
   downloadPdf(): void {
     if (this.paySlip) {
       this.paySlipService.downloadPdf(this.paySlip.id);
-    }
-  }
-
-  downloadZip(): void {
-    if (this.paySlip) {
-      this.paySlipService.downloadZip(this.paySlip.id);
     }
   }
 

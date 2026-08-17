@@ -1,4 +1,5 @@
 // src/app/features/pay-slip/pay-slip-list.component.ts
+
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
@@ -106,9 +107,7 @@ export class PaySlipListComponent implements OnInit {
   }
 
   // === Statistiques ===
-  get totalNetSalary(): number {
-    return this.paySlips.reduce((sum, s) => sum + (s.netSalary || 0), 0);
-  }
+  // ✅ totalNetSalary SUPPRIMÉ
 
   get latestPeriod(): string {
     if (this.paySlips.length === 0) return '';
@@ -219,10 +218,6 @@ export class PaySlipListComponent implements OnInit {
 
   downloadPdf(id: string): void {
     this.paySlipService.downloadPdf(id);
-  }
-
-  downloadZip(id: string): void {
-    this.paySlipService.downloadZip(id);
   }
 
   viewPages(id: string): void {

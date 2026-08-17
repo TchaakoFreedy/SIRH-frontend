@@ -1,4 +1,5 @@
 <!-- src/app/features/pay-slip/pay-slip-list.component.html -->
+
 <div class="unity-container">
 
   <!-- HEADER -->
@@ -22,20 +23,13 @@
     </div>
   </div>
 
-  <!-- STATS -->
+  <!-- STATS - 4 colonnes uniformes -->
   <div class="stats-grid">
     <div class="stat-card blue">
       <div class="stat-icon"><span class="material-symbols-outlined">receipt</span></div>
       <div class="stat-info">
         <p>Total bulletins</p>
         <h3>{{ paySlips.length }}</h3>
-      </div>
-    </div>
-    <div class="stat-card purple">
-      <div class="stat-icon"><span class="material-symbols-outlined">payments</span></div>
-      <div class="stat-info">
-        <p>Masse salariale nette</p>
-        <h3>{{ totalNetSalary }}</h3>
       </div>
     </div>
     <div class="stat-card orange">
@@ -109,7 +103,6 @@
             <th>Employé</th>
             <th>Matricule</th>
             <th>Période</th>
-            <th>Salaire net</th>
             <th>Statut</th>
             <th>Pages</th>
             <th class="th-center">Actions</th>
@@ -127,7 +120,6 @@
             </td>
             <td><span class="tag-matricule">{{ slip.employeeMatricule || '-' }}</span></td>
             <td>{{ slip.period || '-' }}</td>
-            <td>{{ (slip.netSalary ?? 0) | currency:'XOF':'symbol':'1.0-0' }}</td>
             <td>
               <span class="badge" [class]="getStatusBadgeClass(slip.status)">
                 {{ getStatusLabel(slip.status) }}
@@ -137,7 +129,6 @@
               </span>
             </td>
             <td class="text-center">
-              <!-- ✅ CORRECTION: Utiliser imageUrls au lieu de imageIds -->
               <span class="page-count">{{ getPageCount(slip) }}</span>
             </td>
             <td>
@@ -147,10 +138,6 @@
                 </button>
                 <button *ngIf="canDownload" class="action-btn primary" (click)="downloadPdf(slip.id)" title="Télécharger PDF">
                   <span class="material-symbols-outlined">description</span>
-                </button>
-                <!-- ✅ CORRECTION: Utiliser imageUrls au lieu de imageIds -->
-                <button *ngIf="canDownload && getPageCount(slip) > 0" class="action-btn success" (click)="downloadZip(slip.id)" title="Télécharger ZIP">
-                  <span class="material-symbols-outlined">folder_zip</span>
                 </button>
                 <button *ngIf="canEdit" class="action-btn warning" (click)="edit(slip.id)" title="Modifier">
                   <span class="material-symbols-outlined">edit</span>
@@ -162,7 +149,7 @@
             </td>
           </tr>
           <tr *ngIf="filtered.length === 0">
-            <td colspan="7">
+            <td colspan="6">
               <div class="empty-state">
                 <span class="material-symbols-outlined">receipt_long</span>
                 <p>Aucun bulletin trouvé</p>

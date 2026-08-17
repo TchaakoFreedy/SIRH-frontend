@@ -1,5 +1,3 @@
-// src/app/layout/sidebar/sidebar.component.ts
-
 import {
   Component,
   signal,
@@ -17,7 +15,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { NavItem } from '../../core/models/nav-item.model';
 import { AuthService } from '../../services/auth.service';
 import { PermissionService } from '../../core/services/permission.service';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, merge, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-sidebar',
@@ -33,11 +31,9 @@ import { Subject, takeUntil } from 'rxjs';
   styleUrl: './sidebar.component.scss'
 })
 export class SidebarComponent implements OnInit, OnDestroy {
-  // ✅ Inputs
   @Input() isOpen = false;
   @Input() isMobile = false;
   
-  // ✅ Outputs
   @Output() closeSidebar = new EventEmitter<void>();
   @Output() collapseChange = new EventEmitter<boolean>();
 
@@ -53,7 +49,6 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   visibleNavItems = signal<NavItem[]>([]);
 
-  // Getters pour le template
   get currentUser() {
     return this.authService.getCurrentUser();
   }
@@ -77,7 +72,6 @@ export class SidebarComponent implements OnInit, OnDestroy {
     return user?.role || 'Rôle';
   }
 
-  // ✅ Tous les éléments du menu avec leurs permissions requises
   private allNavItems: NavItem[] = [
     {
       label: 'Dashboard',
@@ -86,14 +80,20 @@ export class SidebarComponent implements OnInit, OnDestroy {
     },
     {
       label: 'Mon espace',
-      icon: 'person',
-      route: '/app/mon-espace/profil'
+      icon: 'people',
+      route: '/app/mon-espace/profil',
     },
     {
       label: 'Employés',
       icon: 'people',
       route: '/app/rh/employes',
       requiredPermission: 'EMPLOYEE_VIEW_ALL'
+    },
+    {
+      label: 'Contrats',
+      icon: 'description',
+      route: '/app/contrats',
+      requiredPermission: 'CONTRACT_VIEW_ALL'
     },
     {
       label: 'Organisation',
@@ -141,9 +141,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
           label: 'Gestion des demandes',
           icon: 'event_busy',
           route: '/app/conges/gestion-rh',
-          // ✅ CHANGEMENT ICI : Utiliser LEAVE_VIEW_TEAM à la place de LEAVE_VIEW_ALL
-          requiredPermission: 'LEAVE_VIEW_TEAM'  // ← Modifié
-          // requiredPermission: 'LEAVE_VIEW_ALL'  // ← Ancien
+          requiredPermission: 'LEAVE_VIEW_ALL'
         },
         {
           label: 'Historique',
@@ -167,8 +165,101 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { 
           label: 'Certificat de travail', 
           icon: 'verified', 
-          route: '/app/rh/documents' 
+          route: '/app/rh/documents',
+          requiredPermission: 'DOC_VIEW'
         },
+      ]
+    },
+    {
+      label: 'Discipline',
+      icon: 'gavel',
+      expanded: false,
+      children: [
+        { 
+          label: 'Mes demandes',
+          icon: 'folder_shared',
+          route: '/app/discipline/mes-demandes',
+          requiredPermission: 'EXPLANATION_REQUEST_VIEW_OWN'
+        },
+        { 
+          label: 'Toutes les demandes',
+          icon: 'help_outline',
+          route: '/app/discipline/demandes',
+          requiredPermission: 'EXPLANATION_REQUEST_VIEW'
+        },
+        { 
+          label: 'Nouvelle demande',
+          icon: 'add_circle_outline',
+          route: '/app/discipline/demandes/create',
+          requiredPermission: 'EXPLANATION_REQUEST_CREATE'
+        },
+        { 
+          label: 'Importer des demandes',
+          icon: 'upload_file',
+          route: '/app/discipline/demandes/import',
+          requiredPermission: 'EXPLANATION_REQUEST_CREATE'
+        },
+        { 
+          label: 'Mes sanctions',
+          icon: 'shield_person',
+          route: '/app/discipline/mes-sanctions',
+          requiredPermission: 'SANCTION_VIEW_OWN'
+        },
+        { 
+          label: 'Toutes les sanctions',
+          icon: 'warning',
+          route: '/app/discipline/sanctions',
+          requiredPermission: 'SANCTION_VIEW'
+        },
+        { 
+          label: 'Nouvelle sanction',
+          icon: 'add_alert',
+          route: '/app/discipline/sanctions/create',
+          requiredPermission: 'SANCTION_CREATE'
+        }
+      ]
+    },
+    {
+      label: 'Performance',
+      icon: 'trending_up',
+      expanded: false,
+      children: [
+        { 
+          label: 'Dashboard Performance',
+          icon: 'insights',
+          route: '/app/performance/dashboard',
+          requiredPermission: 'PERFORMANCE_VIEW_ALL'  
+        },
+        { 
+          label: 'Mes performances',
+          icon: 'person',
+          route: '/app/performance/my-performance',
+          requiredPermission: 'PERFORMANCE_VIEW' 
+        },
+        { 
+          label: 'Évaluations',
+          icon: 'rate_review',
+          route: '/app/performance/evaluations',
+          requiredPermission: 'PERFORMANCE_VIEW_ALL'  
+        },
+        { 
+          label: 'Nouvelle évaluation',
+          icon: 'post_add',
+          route: '/app/performance/evaluations/create',
+          requiredPermission: 'PERFORMANCE_CREATE'  
+        },
+        { 
+          label: 'Critères',
+          icon: 'checklist',
+          route: '/app/performance/criteres',
+          requiredPermission: 'PERFORMANCE_CRITERIA_VIEW'  
+        },
+        { 
+          label: 'Classement',
+          icon: 'leaderboard',
+          route: '/app/performance/classement',
+          requiredPermission: 'RANKING_VIEW'  
+        }
       ]
     },
     {
@@ -226,13 +317,23 @@ export class SidebarComponent implements OnInit, OnDestroy {
   constructor() {}
 
   ngOnInit(): void {
-    this.autoExpandActiveGroup();
-    this.filterMenuItems();
+    const user = this.authService.getCurrentUser();
+    console.log('Utilisateur au chargement:', user);
+    console.log('Permissions au chargement:', user?.permissions);
 
-    this.authService.currentUser$
+    this.filterMenuItems();
+    this.autoExpandActiveGroup();
+
+    const permissionsStream$ = (this.permissionService as any).permissions$ 
+      ? (this.permissionService as any).permissions$ 
+      : this.authService.currentUser$;
+
+    merge(this.authService.currentUser$, permissionsStream$)
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
+        console.log('Rafraichissement du menu Sidebar avec les permissions:', this.currentUser?.permissions);
         this.filterMenuItems();
+        this.autoExpandActiveGroup();
       });
   }
 
@@ -255,7 +356,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
                 children: filteredChildren
               };
             }
-            return this.isItemVisible(item, isAdmin) ? { ...item, children: [] } : null;
+            return null;
           }
           return this.isItemVisible(item, isAdmin) ? item : null;
         })
@@ -270,15 +371,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
     if (isAdmin) return true;
 
     if (item.requiredPermission) {
-      return this.permissionService.hasPermissionSync(item.requiredPermission);
+      const hasPerm = this.permissionService.hasPermissionSync(item.requiredPermission);
+      console.log(`Verification: ${item.requiredPermission} -> ${hasPerm}`);
+      return hasPerm;
     }
 
     if (item.requiredPermissions && item.requiredPermissions.length > 0) {
       return this.permissionService.hasAnyPermissionSync(item.requiredPermissions);
-    }
-
-    if (item.children && item.children.length > 0) {
-      return item.children.some(child => this.isItemVisible(child, isAdmin));
     }
 
     return true;
@@ -286,8 +385,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   private autoExpandActiveGroup(): void {
     const url = this.router.url;
-    this.closeAllGroups();
-    this.allNavItems.forEach(item => {
+    const items = this.visibleNavItems();
+    items.forEach(item => {
       if (item.children?.some(c => c.route && url.startsWith(c.route))) {
         item.expanded = true;
       }
@@ -316,7 +415,6 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   closeMobile(): void {
-    console.log('📱 Fermeture mobile demandée');
     this.closeSidebar.emit();
   }
 
@@ -343,7 +441,6 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   onLinkClick(): void {
     if (this.isMobile) {
-      console.log('📱 Fermeture après clic sur lien');
       this.closeMobile();
     }
     this.flyoutItem = null;

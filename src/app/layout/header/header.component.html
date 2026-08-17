@@ -1,5 +1,5 @@
 <header class="app-header" (click)="$event.stopPropagation()">
-  
+
   <!-- Logo et Brand -->
   <a class="header-brand" routerLink="/app/dashboard">
     <div class="logo-icon">
@@ -7,7 +7,7 @@
            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
       <span class="logo-fallback" style="display:none;">🏢</span>
     </div>
-    
+
     <div class="brand-info">
       <span class="app-title">@fric SIRH</span>
       <span class="app-subtitle">Gestion des Ressources Humaines</span>
@@ -17,7 +17,18 @@
   <!-- Séparateur -->
   <div class="header-divider"></div>
 
- 
+  <!-- Bouton hamburger (mobile) -->
+  @if (showMenuButton) {
+    <button
+      class="menu-btn"
+      (click)="onMenuToggle()"
+      aria-label="Ouvrir le menu"
+      type="button"
+    >
+      <mat-icon>menu</mat-icon>
+    </button>
+  }
+
   <!-- Espaceur -->
   <div class="spacer"></div>
 
@@ -112,7 +123,6 @@
             </div>
           }
 
-          <!-- ✅ Nouveau : Footer avec lien vers toutes les notifications -->
           <div class="notif-footer">
             <a routerLink="/app/notifications" (click)="closeDropdowns()" class="notif-view-all">
               Voir toutes les notifications
@@ -142,12 +152,12 @@
             <mat-spinner diameter="20"></mat-spinner>
           }
         </div>
-        
+
         <div class="user-info">
           <span class="user-name">{{ currentUser().nom }}</span>
           <span class="user-role">{{ currentUser().roleLabel }}</span>
         </div>
-        
+
         <span class="chevron">
           <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
