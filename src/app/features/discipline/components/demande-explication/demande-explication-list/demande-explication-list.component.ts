@@ -68,9 +68,9 @@ export class DemandeExplicationListComponent implements OnInit {
         this.applyFilters();
         this.isLoading = false;
         
-        // ✅ Log pour vérifier les données importées
-        console.log('📊 Demandes chargées:', this.allData.length);
-        console.log('📊 Détails des demandes:', this.allData.map(d => ({
+        // Log pour vérifier les données importées
+        console.log('Demandes chargees:', this.allData.length);
+        console.log('Details des demandes:', this.allData.map(d => ({
           numero: d.numero,
           objet: d.objet,
           statut: d.statut,
@@ -105,6 +105,14 @@ export class DemandeExplicationListComponent implements OnInit {
     if (this.selectedStatut) {
       data = data.filter(d => d.statut === this.selectedStatut);
     }
+
+    // Tri du plus récent au plus ancien selon la date de création (createdAt)
+    // Gestion du cas où createdAt est undefined : on utilise une date très ancienne (0) pour ces éléments
+    data.sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA; // décroissant (récent en premier)
+    });
 
     this.filteredData.set(data);
     this.currentPage = 1;
@@ -209,7 +217,7 @@ export class DemandeExplicationListComponent implements OnInit {
   }
 
   /**
-   * ✅ Naviguer vers la page d'import
+   * Naviguer vers la page d'import
    */
   goToImport(): void {
     this.router.navigate(['/app/discipline/demandes/import']);

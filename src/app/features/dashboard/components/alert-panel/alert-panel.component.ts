@@ -1,20 +1,8 @@
+// src/app/features/dashboard/components/alert-panel/alert-panel.component.ts
+
 import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-
-export interface Alert {
-  type: string;
-  severity: 'INFO' | 'WARNING' | 'CRITICAL';
-  message: string;
-  details?: number; // Gardé pour compatibilité avec les anciennes alertes
-  contractDetails?: {
-    employeeName: string;
-    contractType: string;
-    startDate: string;
-    endDate: string;
-    status: string;
-    daysRemaining: number;
-  };
-}
+import { Alert } from '../../models/alert.model';
 
 @Component({
   selector: 'app-alert-panel',
@@ -43,7 +31,7 @@ export interface Alert {
               <div class="content">
                 <p class="message">{{ alert.message }}</p>
 
-                <!-- Affichage des détails du contrat si présents -->
+                <!-- Détails du contrat si présents -->
                 @if (alert.contractDetails) {
                   <div class="contract-details">
                     <div class="contract-row">
@@ -73,7 +61,7 @@ export interface Alert {
                   </div>
                 }
 
-                <!-- Détails numériques génériques (legacy) -->
+                <!-- Détails génériques -->
                 @if (alert.details !== undefined && alert.details !== null && !alert.contractDetails) {
                   <div class="meta">
                     <span class="type">{{ alert.type }}</span>
@@ -212,7 +200,6 @@ export interface Alert {
       border-radius: 1rem;
     }
 
-    /* --- Contract details styles --- */
     .contract-details {
       margin-top: 0.5rem;
       padding-top: 0.5rem;
@@ -242,7 +229,6 @@ export interface Alert {
       font-size: 1.1rem;
     }
 
-    /* === SEVERITY STYLES === */
     .severity-info { 
       border-left-color: #006972; 
     }
@@ -273,7 +259,6 @@ export interface Alert {
       color: #ba1a1a;
     }
 
-    /* === RESPONSIVE === */
     @media (max-width: 768px) {
       .alert-panel {
         padding: 1rem;

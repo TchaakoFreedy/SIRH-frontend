@@ -18,17 +18,18 @@ export class ContratService {
 
   constructor(private http: HttpClient) {}
 
-  // Création avec fichiers
-  createContrat(request: CreateContratRequest, files?: File[]): Observable<Contrat> {
+  // Création avec fichiers + flag replaceActive
+  createContrat(request: CreateContratRequest, files?: File[], replaceActive: boolean = false): Observable<Contrat> {
+    const requestWithFlag = { ...request, replaceActive };
     const formData = new FormData();
-    formData.append('contrat', JSON.stringify(request));
+    formData.append('contrat', JSON.stringify(requestWithFlag));
     if (files) {
       files.forEach(file => formData.append('files', file));
     }
     return this.http.post<Contrat>(this.baseUrl, formData);
   }
 
-  // Alias pour compatibilité
+  // Alias pour compatibilité (utilisé dans le wizard employé)
   createContratWithImages(formData: FormData): Observable<Contrat> {
     return this.http.post<Contrat>(this.baseUrl, formData);
   }

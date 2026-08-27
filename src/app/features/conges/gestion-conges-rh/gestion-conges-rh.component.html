@@ -1,9 +1,13 @@
+<!-- src/app/features/rh/gestion-conges-rh/gestion-conges-rh.component.html -->
+
 <div class="page">
   <!-- Header -->
   <div class="header-section">
     <div class="header-content">
       <div>
-        <h1><i class="fas fa-users-cog"></i> Gestion des congés</h1>
+        <h1>
+          <i class="fas fa-users-cog"></i> Gestion des congés
+        </h1>
         <p class="subtitle">Gérez toutes les demandes de congé des employés</p>
       </div>
       <button class="btn-refresh" (click)="loadData()" [disabled]="loading()">
@@ -101,10 +105,10 @@
         <label for="searchTerm">
           <i class="fas fa-search"></i> Recherche
         </label>
-        <input 
-          id="searchTerm" 
-          type="text" 
-          [(ngModel)]="searchTerm" 
+        <input
+          id="searchTerm"
+          type="text"
+          [(ngModel)]="searchTerm"
           (input)="onFilterChange()"
           placeholder="Nom ou matricule..."
         />
@@ -142,18 +146,18 @@
   <!-- Liste des congés -->
   @if (!loading() && filteredConges().length > 0) {
     <div class="conge-grid">
-      @for (c of paginatedConges(); track c.id) {
+      @for (conge of paginatedConges(); track conge.id) {
         <div class="conge-card">
           <div class="card-header">
             <div class="card-title">
-              <h3><i class="fas fa-user-circle"></i> {{ getEmployeeName(c.employee) }}</h3>
+              <h3><i class="fas fa-user-circle"></i> {{ getEmployeeName(conge.employee) }}</h3>
               <span class="card-subtitle">
-                <i class="fas fa-id-badge"></i> {{ c.employee?.matriculeInterne || c.employee?.matricule_interne || 'N/A' }}
+                <i class="fas fa-id-badge"></i> {{ getEmployeeMatricule(conge.employee) }}
               </span>
             </div>
-            <span class="status-badge {{ statutClass(c.statut) }}">
-              <span class="status-icon">{{ getStatusIcon(c.statut) }}</span>
-              {{ statutLabel(c.statut) }}
+            <span class="status-badge {{ statutClass(conge.statut) }}">
+              <span class="status-icon">{{ getStatusIcon(conge.statut) }}</span>
+              {{ statutLabel(conge.statut) }}
             </span>
           </div>
 
@@ -163,48 +167,47 @@
                 <span class="info-label">
                   <i class="fas fa-tag"></i> Type
                 </span>
-                <span class="info-value">{{ getTypeLabel(c.typeConge) }}</span>
+                <span class="info-value">{{ getTypeLabel(conge.typeConge) }}</span>
               </div>
               <div class="info-item">
                 <span class="info-label">
                   <i class="far fa-clock"></i> Durée
                 </span>
-                <span class="info-value">{{ c.nbJour }} jour(s)</span>
+                <span class="info-value">{{ conge.nbJour || 0 }} jour(s)</span>
               </div>
               <div class="info-item">
                 <span class="info-label">
                   <i class="fas fa-calendar-day"></i> Du
                 </span>
-                <span class="info-value">{{ formatDate(c.jourDebut) }}</span>
+                <span class="info-value">{{ formatDate(conge.jourDebut) }}</span>
               </div>
               <div class="info-item">
                 <span class="info-label">
                   <i class="fas fa-calendar-day"></i> Au
                 </span>
-                <span class="info-value">{{ formatDate(c.jourFin) }}</span>
+                <span class="info-value">{{ formatDate(conge.jourFin) }}</span>
               </div>
             </div>
 
-            @if (c.commentaireManager) {
+            @if (conge.commentaireManager) {
               <div class="card-meta">
                 <span class="meta-label">
                   <i class="fas fa-comment"></i> Commentaire manager :
                 </span>
-                <span class="meta-value">{{ c.commentaireManager }}</span>
+                <span class="meta-value">{{ conge.commentaireManager }}</span>
               </div>
             }
 
-            @if (c.dateValidation) {
+            @if (conge.dateValidation) {
               <div class="card-meta">
                 <span class="meta-label">
                   <i class="fas fa-check-circle"></i> Validé le :
                 </span>
-                <span class="meta-value">{{ formatDate(c.dateValidation) }}</span>
+                <span class="meta-value">{{ formatDate(conge.dateValidation) }}</span>
               </div>
             }
 
-            <!-- Indicateur pour les permissions en attente -->
-            @if (c.typeConge === 'PERMISSION' && c.statut === 'EN_ATTENTE') {
+            @if (conge.typeConge === 'PERMISSION' && conge.statut === 'EN_ATTENTE') {
               <div class="card-meta permission-pending">
                 <span class="meta-label">
                   <i class="fas fa-hourglass-half"></i> Statut :
@@ -214,35 +217,26 @@
             }
           </div>
 
-          <!-- ============================================ -->
-          <!-- ✅ BOUTONS D'ACTION BASÉS UNIQUEMENT SUR LES PERMISSIONS -->
-          <!-- ============================================ -->
-          
-          <!-- ✅ Cas 1 : L'utilisateur a au moins une permission d'action -->
-          @if (isActionAllowed(c)) {
+          <!-- Actions -->
+          @if (isActionAllowed(conge)) {
             <div class="card-actions">
-              <!-- ✅ Approuver - UNIQUEMENT basé sur la permission LEAVE_APPROVE -->
               @if (canApproveLeave()) {
-                <button class="btn-approve" (click)="openValidationModal(c, 'approve')">
+                <button class="btn-approve" (click)="openValidationModal(conge, 'approve')">
                   <i class="fas fa-check"></i> Approuver
                 </button>
               }
-              
-              <!-- ✅ Rejeter - UNIQUEMENT basé sur la permission LEAVE_REJECT -->
               @if (canRejectLeave()) {
-                <button class="btn-reject" (click)="openValidationModal(c, 'reject')">
+                <button class="btn-reject" (click)="openValidationModal(conge, 'reject')">
                   <i class="fas fa-times"></i> Rejeter
                 </button>
               }
             </div>
           }
 
-          <!-- ✅ Cas 2 : L'utilisateur n'a PAS de permission d'action -->
-          @if (!isActionAllowed(c) && c.statut === 'EN_ATTENTE') {
+          @if (!isActionAllowed(conge) && conge.statut === 'EN_ATTENTE') {
             <div class="card-actions view-only">
               <span class="view-only-message">
-                <i class="fas fa-eye"></i> 
-                <!-- ✅ Message dynamique basé sur les permissions disponibles -->
+                <i class="fas fa-eye"></i>
                 @if (!canApproveLeave() && !canRejectLeave()) {
                   Consultation uniquement - Vous n'avez pas les permissions nécessaires
                 } @else {
@@ -252,16 +246,15 @@
             </div>
           }
 
-          <!-- ✅ Cas 3 : Message pour les congés déjà traités -->
-          @if (c.statut !== 'EN_ATTENTE') {
+          @if (conge.statut !== 'EN_ATTENTE') {
             <div class="card-actions view-only">
               <span class="view-only-message">
-                <i class="fas fa-check-circle"></i> 
-                @if (c.statut === 'APPROUVE') {
+                <i class="fas fa-check-circle"></i>
+                @if (conge.statut === 'APPROUVE') {
                   Demande déjà approuvée
-                } @else if (c.statut === 'REJETE') {
+                } @else if (conge.statut === 'REJETE') {
                   Demande déjà rejetée
-                } @else if (c.statut === 'ANNULE') {
+                } @else if (conge.statut === 'ANNULE') {
                   Demande annulée
                 }
               </span>
@@ -276,18 +269,23 @@
       <div class="pagination-container">
         <div class="pagination-info">
           <span>
-            Affichage de 
-            <strong>{{ (currentPage() - 1) * itemsPerPage + 1 }}</strong> 
-            à 
-            <strong>{{ Math.min(currentPage() * itemsPerPage, filteredConges().length) }}</strong> 
-            sur 
-            <strong>{{ filteredConges().length }}</strong> 
+            Affichage de
+            <strong>{{ (currentPage() - 1) * itemsPerPage() + 1 }}</strong>
+            à
+            <strong>{{ Math.min(currentPage() * itemsPerPage(), filteredConges().length) }}</strong>
+            sur
+            <strong>{{ filteredConges().length }}</strong>
             demandes
           </span>
-          
+
           <div class="page-size-selector">
             <label for="pageSize">Lignes par page :</label>
-            <select id="pageSize" [(ngModel)]="itemsPerPage" (change)="onPageSizeChange()">
+            <!-- Liaison réactive avec le signal itemsPerPage -->
+            <select
+              id="pageSize"
+              [ngModel]="itemsPerPage()"
+              (ngModelChange)="onPageSizeChange($event)"
+            >
               <option [value]="5">5</option>
               <option [value]="10">10</option>
               <option [value]="20">20</option>
@@ -297,8 +295,8 @@
         </div>
 
         <div class="pagination-controls">
-          <button class="pagination-btn" 
-                  (click)="previousPage()" 
+          <button class="pagination-btn"
+                  (click)="previousPage()"
                   [disabled]="currentPage() === 1"
                   [class.disabled]="currentPage() === 1">
             <i class="fas fa-chevron-left"></i>
@@ -306,8 +304,8 @@
           </button>
 
           <div class="page-numbers">
-            <button *ngIf="totalPages() > 1" 
-                    class="page-number" 
+            <button *ngIf="totalPages() > 1"
+                    class="page-number"
                     [class.active]="currentPage() === 1"
                     (click)="goToPage(1)">
               1
@@ -315,8 +313,8 @@
 
             <span *ngIf="currentPage() > 3" class="ellipsis">…</span>
 
-            <button *ngFor="let page of getVisiblePages()" 
-                    class="page-number" 
+            <button *ngFor="let page of getVisiblePages()"
+                    class="page-number"
                     [class.active]="currentPage() === page"
                     (click)="goToPage(page)">
               {{ page }}
@@ -324,16 +322,16 @@
 
             <span *ngIf="currentPage() < totalPages() - 2" class="ellipsis">…</span>
 
-            <button *ngIf="totalPages() > 1" 
-                    class="page-number" 
+            <button *ngIf="totalPages() > 1"
+                    class="page-number"
                     [class.active]="currentPage() === totalPages()"
                     (click)="goToPage(totalPages())">
               {{ totalPages() }}
             </button>
           </div>
 
-          <button class="pagination-btn" 
-                  (click)="nextPage()" 
+          <button class="pagination-btn"
+                  (click)="nextPage()"
                   [disabled]="currentPage() === totalPages()"
                   [class.disabled]="currentPage() === totalPages()">
             <span>Suivant</span>
@@ -374,9 +372,9 @@
             <label for="comment">
               <i class="fas fa-comment"></i> Commentaire (optionnel)
             </label>
-            <textarea 
-              id="comment" 
-              [(ngModel)]="validationComment" 
+            <textarea
+              id="comment"
+              [(ngModel)]="validationComment"
               placeholder="Ajouter un commentaire..."
               rows="3"
             ></textarea>
@@ -386,8 +384,8 @@
           <button class="btn-secondary" (click)="closeValidationModal()">
             <i class="fas fa-times"></i> Annuler
           </button>
-          <button 
-            class="btn-primary" 
+          <button
+            class="btn-primary"
             (click)="confirmValidation()"
             [disabled]="loading()"
           >

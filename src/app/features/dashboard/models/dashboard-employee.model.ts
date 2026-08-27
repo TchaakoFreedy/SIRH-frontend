@@ -1,3 +1,7 @@
+// src/app/features/dashboard/models/dashboard-employee.model.ts
+
+import { Alert } from './alert.model';
+
 export interface DashboardEmployeeResponse {
   leaveBalance: number;
   takenLeaves: number;
@@ -16,14 +20,9 @@ export interface DashboardEmployeeResponse {
     imageUrls: string[];
     uploadDate: string;
   }[];
-  notifications: {
-    type: string;
-    severity: 'INFO' | 'WARNING' | 'CRITICAL';
-    message: string;
-    details: any;
-  }[];
-  
-  // Nouveaux champs pour discipline, sanctions et performance
+  notifications: Alert[];
+
+  // Indicateurs discipline, sanctions, performance
   pendingExplanationRequests: number;
   activeSanctions: number;
   pendingEvaluations: number;

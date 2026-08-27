@@ -36,7 +36,6 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Check if already authenticated
     if (this.authService.isAuthenticated()) {
       this.router.navigate(['/app/dashboard']);
     }
@@ -72,7 +71,7 @@ export class LoginComponent implements OnInit, OnDestroy {
 
     const { email, password } = this.loginForm.value;
 
-    console.log('🔐 Attempting login with:', { email, password: '***' });
+    console.log('Tentative de login avec:', { email, password: '***' });
 
     this.authService.login(email, password)
       .pipe(takeUntil(this.destroy$))
@@ -80,60 +79,63 @@ export class LoginComponent implements OnInit, OnDestroy {
         next: (response: LoginResponse) => {
           this.isLoading.set(false);
           
-          console.log('🔄 Full login response:', JSON.stringify(response, null, 2));
+          console.log('Reponse login complete:', JSON.stringify(response, null, 2));
           
-          // ✅ IMPORTANT: Check 2FA requirements FIRST
-          // The backend uses 'twoFactorRequired' when 2FA is needed
+          // 1. 2FA déjà activé (code OTP requis)
           if (response.twoFactorRequired === true || 
               response.requiresTwoFactor === true || 
               response.requires_2fa === true) {
             
-            console.log('🔐 2FA required for user:', email);
+            console.log('2FA requis pour l\'utilisateur:', email);
             this.is2FARequired.set(true);
             
-            // Get userId from response
             const userId = response.userId || response.user?.id || response.user?._id;
             const userEmail = response.email || response.user?.email || email;
             
             if (userId) {
-              // Store session for 2FA
               this.authService.setTwoFactorSession(userId, userEmail);
-              
-              // Show the 2FA message briefly before redirect
+              this.authService.handleLoginResponse(response);
               setTimeout(() => {
                 this.router.navigate(['/login/two-factor']);
               }, 500);
             } else {
-              console.error('❌ No userId provided for 2FA flow');
+              console.error('Aucun userId fourni pour le flux 2FA');
               this.errorMessage.set('Erreur lors de la configuration 2FA');
             }
-            return; // ✅ IMPORTANT: Stop execution here
+            return;
           }
-          
-          // ✅ Check if login failed (incorrect password, user not found, etc.)
+
+          // 2. Secret en attente (initié par RH) -> activation 2FA
+          if (response.twoFactorPending === true) {
+            console.log('2FA en attente d\'activation pour:', email);
+            this.authService.handleLoginResponse(response);
+            setTimeout(() => {
+              this.router.navigate(['/2fa-activation']);
+            }, 500);
+            return;
+          }
+
+          // 3. Login échoué
           if (response.success === false) {
-            console.error('❌ Login failed:', response.message);
-            
-            const errorMsg = response.message || 
-                           response.error || 
-                           'Email ou mot de passe incorrect';
-            
+            console.error('Login echoue:', response.message);
+            const errorMsg = response.message || response.error || 'Email ou mot de passe incorrect';
             this.errorMessage.set(errorMsg);
             return;
           }
-          
-          // ✅ Check if token is present (successful login)
+
+          // 4. Login réussi avec token
           if (response.accessToken) {
-            console.log('✅ Login successful, redirecting to dashboard');
+            console.log('Login reussi, redirection vers dashboard');
+            this.authService.handleLoginResponse(response);
             this.router.navigate(['/app/dashboard']);
           } else {
-            console.error('❌ No token and no 2FA requirement');
+            console.error('Aucun token et pas de 2FA');
             this.errorMessage.set('Erreur de connexion. Veuillez réessayer.');
           }
         },
         error: (err: any) => {
           this.isLoading.set(false);
-          console.error('❌ Login error:', err);
+          console.error('Erreur login:', err);
           
           if (err.status === 401) {
             this.errorMessage.set('Email ou mot de passe incorrect');

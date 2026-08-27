@@ -1,4 +1,6 @@
-import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
+// src/app/features/dashboard/components/employee-dashboard/employee-dashboard.component.ts
+
+import { Component, Input, ChangeDetectionStrategy, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DashboardEmployeeResponse } from '../../models/dashboard-employee.model';
 import { StatsCardComponent } from '../stats-card/stats-card.component';
@@ -36,48 +38,26 @@ import { AlertPanelComponent } from '../alert-panel/alert-panel.component';
         [value]="data.pendingLeaves"
       />
 
-      <!-- Nouvelles cartes pour discipline, sanctions et performance -->
       <app-stats-card
         icon="help"
         color="#e67e22"
         title="Demandes d'explication en attente"
-        [value]="data.pendingExplanationRequests"
+        [value]="data.pendingExplanationRequests || 0"
       />
       <app-stats-card
         icon="gavel"
         color="#c0392b"
         title="Sanctions actives"
-        [value]="data.activeSanctions"
+        [value]="data.activeSanctions || 0"
       />
       <app-stats-card
         icon="assessment"
         color="#2980b9"
         title="Évaluations en attente"
-        [value]="data.pendingEvaluations"
+        [value]="data.pendingEvaluations || 0"
       />
     </div>
 
-    <!-- Charts -->
-    <div class="charts-grid">
-      <app-chart-card
-        title="Évolution de mes demandes d'explication"
-        [labels]="data.explanationRequestsEvolution.map(e => e.month)"
-        [datasets]="[{ label: 'Demandes', data: data.explanationRequestsEvolution.map(e => e.count), backgroundColor: '#e67e22' }]"
-        type="line"
-      />
-      <app-chart-card
-        title="Mes sanctions par type"
-        [labels]="data.sanctionsByType.map(s => s.type)"
-        [datasets]="[{ label: 'Sanctions', data: data.sanctionsByType.map(s => s.count), backgroundColor: ['#c0392b', '#e74c3c', '#f39c12', '#8e44ad'] }]"
-        type="doughnut"
-      />
-      <app-chart-card
-        title="Évolution de mes notes de performance"
-        [labels]="data.performanceEvolution.map(p => p.month)"
-        [datasets]="[{ label: 'Note moyenne', data: data.performanceEvolution.map(p => p.averageScore), backgroundColor: '#2980b9', borderColor: '#2980b9' }]"
-        type="line"
-      />
-    </div>
 
     <!-- Contrat et documents -->
     <div class="contract-documents">
@@ -97,7 +77,7 @@ import { AlertPanelComponent } from '../alert-panel/alert-panel.component';
 
       <div class="card">
         <h3>Mes documents</h3>
-        @if (data.documents.length > 0) {
+        @if (data.documents && data.documents.length > 0) {
           <ul>
             @for (doc of data.documents; track doc.id) {
               <li>
@@ -113,7 +93,8 @@ import { AlertPanelComponent } from '../alert-panel/alert-panel.component';
       </div>
     </div>
 
-    <app-alert-panel [alerts]="data.notifications" />
+    <!-- Alerte panel -->
+    <app-alert-panel [alerts]="data.notifications || []" />
   `,
   styles: [`
     .stats-grid {
@@ -144,6 +125,7 @@ import { AlertPanelComponent } from '../alert-panel/alert-panel.component';
     .card h3 {
       margin-bottom: 0.5rem;
       font-weight: 600;
+      margin-top: 0;
     }
     .contract-info p {
       margin: 0.25rem 0;
@@ -174,6 +156,80 @@ import { AlertPanelComponent } from '../alert-panel/alert-panel.component';
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class EmployeeDashboardComponent {
+export class EmployeeDashboardComponent implements OnChanges {
   @Input({ required: true }) data!: DashboardEmployeeResponse;
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['data']) {
+      console.log('📊 EmployeeDashboard - Données reçues:', this.data);
+      console.log('📊 Explanation evolution:', this.data.explanationRequestsEvolution);
+      console.log('📊 Sanctions by type:', this.data.sanctionsByType);
+      console.log('📊 Performance evolution:', this.data.performanceEvolution);
+    }
+  }
+
+  // ============================================================
+  // DEMANDES D'EXPLICATION - Graphique
+  // ============================================================
+
+  getExplanationLabels(): string[] {
+    const data = this.data.explanationRequestsEvolution || [];
+    return data.map(e => e.month);
+  }
+
+  getExplanationDatasets(): any[] {
+    const data = this.data.explanationRequestsEvolution || [];
+    const values = data.map(e => e.count);
+    return [{
+      label: 'Demandes',
+      data: values,
+      backgroundColor: '#e67e22',
+      borderColor: '#e67e22',
+      fill: false,
+      tension: 0.3,
+    }];
+  }
+
+  // ============================================================
+  // SANCTIONS PAR TYPE - Graphique
+  // ============================================================
+
+  getSanctionsLabels(): string[] {
+    const data = this.data.sanctionsByType || [];
+    return data.map(s => s.type);
+  }
+
+  getSanctionsDatasets(): any[] {
+    const data = this.data.sanctionsByType || [];
+    const values = data.map(s => s.count);
+    const colors = ['#c0392b', '#e74c3c', '#f39c12', '#8e44ad', '#2980b9', '#2ecc71'];
+    return [{
+      label: 'Sanctions',
+      data: values,
+      backgroundColor: colors.slice(0, values.length),
+      borderWidth: 2,
+    }];
+  }
+
+  // ============================================================
+  // PERFORMANCE - Graphique
+  // ============================================================
+
+  getPerformanceLabels(): string[] {
+    const data = this.data.performanceEvolution || [];
+    return data.map(p => p.month);
+  }
+
+  getPerformanceDatasets(): any[] {
+    const data = this.data.performanceEvolution || [];
+    const values = data.map(p => p.averageScore);
+    return [{
+      label: 'Note moyenne',
+      data: values,
+      backgroundColor: '#2980b9',
+      borderColor: '#2980b9',
+      fill: false,
+      tension: 0.3,
+    }];
+  }
 }

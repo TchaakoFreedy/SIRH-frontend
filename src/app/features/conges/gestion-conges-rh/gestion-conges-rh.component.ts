@@ -26,17 +26,17 @@ export class GestionCongesRhComponent implements OnInit {
   loading = signal(false);
   errorMessage = signal('');
   successMessage = signal('');
-  
+
   // Filtres
   selectedStatut: string = 'TOUS';
   selectedType: string = 'TOUS';
   searchTerm: string = '';
   dateDebut: string = '';
   dateFin: string = '';
-  
+
   statutOptions = ['TOUS', 'EN_ATTENTE', 'APPROUVE', 'REJETE', 'ANNULE'];
   typeOptions = ['TOUS', 'ANNUEL', 'PERMISSION', 'ABSENCE'];
-  
+
   stats = signal({
     total: 0,
     enAttente: 0,
@@ -50,7 +50,6 @@ export class GestionCongesRhComponent implements OnInit {
   });
 
   // ============ PERMISSIONS ============
-  // ✅ Toutes les permissions sont chargées dynamiquement
   canViewAllLeaves = signal(false);
   canApproveLeave = signal(false);
   canRejectLeave = signal(false);
@@ -58,18 +57,19 @@ export class GestionCongesRhComponent implements OnInit {
 
   // ============ PAGINATION ============
   currentPage = signal(1);
-  itemsPerPage = 10;
+  // itemsPerPage devient un signal pour la réactivité
+  itemsPerPage = signal<number>(10);
   Math = Math;
 
   // ============ COMPUTED ============
   totalPages = computed(() => {
     const total = this.filteredConges().length;
-    return Math.ceil(total / this.itemsPerPage);
+    return Math.ceil(total / this.itemsPerPage());
   });
 
   paginatedConges = computed(() => {
-    const startIndex = (this.currentPage() - 1) * this.itemsPerPage;
-    const endIndex = startIndex + this.itemsPerPage;
+    const startIndex = (this.currentPage() - 1) * this.itemsPerPage();
+    const endIndex = startIndex + this.itemsPerPage();
     return this.filteredConges().slice(startIndex, endIndex);
   });
 
@@ -91,49 +91,44 @@ export class GestionCongesRhComponent implements OnInit {
   }
 
   // ==========================================
-  // 🔐 PERMISSIONS UNIQUEMENT BASÉES SUR LES PERMISSIONS
+  // PERMISSIONS
   // ==========================================
 
   private loadPermissions(): void {
-    console.log('🔐 Chargement des permissions Gestion des congés RH...');
-    
+    console.log('Chargement des permissions Gestion des congés RH...');
+
     const user = this.authService.getCurrentUser();
-    console.log('👤 Utilisateur connecté:', user);
-    console.log('🔒 Rôle:', user?.role);
+    console.log('Utilisateur connecté:', user);
+    console.log('Rôle:', user?.role);
 
-    // ✅ Vérifier si l'utilisateur a la permission wildcard (accès total)
     const hasWildcard = user?.permissions?.includes('*') === true;
-
-    // ✅ Vérifier si l'utilisateur a la permission SYSTEM_ADMIN
     const isSystemAdmin = this.permissionService.hasPermissionSync('SYSTEM_ADMIN');
 
-    // ✅ Charger chaque permission individuellement via PermissionService
-    // Cela permet de donner n'importe quelle permission à n'importe quel rôle
     this.canViewAllLeaves.set(
-      hasWildcard || 
-      isSystemAdmin || 
+      hasWildcard ||
+      isSystemAdmin ||
       this.permissionService.hasPermissionSync('LEAVE_VIEW_ALL')
     );
-    
+
     this.canApproveLeave.set(
-      hasWildcard || 
-      isSystemAdmin || 
+      hasWildcard ||
+      isSystemAdmin ||
       this.permissionService.hasPermissionSync('LEAVE_APPROVE')
     );
-    
+
     this.canRejectLeave.set(
-      hasWildcard || 
-      isSystemAdmin || 
+      hasWildcard ||
+      isSystemAdmin ||
       this.permissionService.hasPermissionSync('LEAVE_REJECT')
     );
-    
+
     this.canViewTeam.set(
-      hasWildcard || 
-      isSystemAdmin || 
+      hasWildcard ||
+      isSystemAdmin ||
       this.permissionService.hasPermissionSync('LEAVE_VIEW_TEAM')
     );
 
-    console.log('🔐 Permissions Congés RH chargées:', {
+    console.log('Permissions Congés RH chargées:', {
       canViewAllLeaves: this.canViewAllLeaves(),
       canApproveLeave: this.canApproveLeave(),
       canRejectLeave: this.canRejectLeave(),
@@ -171,7 +166,7 @@ export class GestionCongesRhComponent implements OnInit {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const allConges = this.conges();
-    
+
     this.stats.set({
       total: allConges.length,
       enAttente: allConges.filter(c => c.statut === StatutConge.EN_ATTENTE).length,
@@ -196,38 +191,38 @@ export class GestionCongesRhComponent implements OnInit {
 
   applyFilters(): void {
     const allConges = this.conges();
-    
+
     const filtered = allConges.filter(c => {
       let match = true;
-      
+
       if (this.selectedStatut !== 'TOUS' && c.statut !== this.selectedStatut) {
         match = false;
       }
-      
+
       if (this.selectedType !== 'TOUS' && c.typeConge !== this.selectedType) {
         match = false;
       }
-      
+
       if (this.searchTerm && c.employee) {
         const employee = c.employee as any;
         const prenom = employee.prenom || '';
         const nom = employee.nom || '';
         const employeeName = `${prenom} ${nom}`.toLowerCase();
-        
+
         const matricule1 = employee.matriculeInterne || '';
         const matricule2 = employee.matricule_interne || '';
         const matricule = matricule1 || matricule2;
-        
+
         const search = this.searchTerm.toLowerCase();
-        
+
         const matchName = employeeName.includes(search);
         const matchMatricule = matricule.toLowerCase().includes(search);
-        
+
         if (!matchName && !matchMatricule) {
           match = false;
         }
       }
-      
+
       if (this.dateDebut) {
         const dateDebut = new Date(this.dateDebut);
         const congeFin = new Date(c.jourFin);
@@ -235,7 +230,7 @@ export class GestionCongesRhComponent implements OnInit {
           match = false;
         }
       }
-      
+
       if (this.dateFin) {
         const dateFin = new Date(this.dateFin);
         const congeDebut = new Date(c.jourDebut);
@@ -243,16 +238,19 @@ export class GestionCongesRhComponent implements OnInit {
           match = false;
         }
       }
-      
+
       return match;
     });
-    
+
+    // Tri du plus récent au plus ancien
+    filtered.sort((a, b) => new Date(b.jourDebut).getTime() - new Date(a.jourDebut).getTime());
+
     this.filteredConges.set(filtered);
     this.currentPage.set(1);
   }
 
   // ============ PAGINATION METHODS ============
-  
+
   goToPage(page: number): void {
     if (page >= 1 && page <= this.totalPages()) {
       this.currentPage.set(page);
@@ -272,7 +270,9 @@ export class GestionCongesRhComponent implements OnInit {
     }
   }
 
-  onPageSizeChange(): void {
+  // Méthode appelée quand la taille de page change
+  onPageSizeChange(newSize: number): void {
+    this.itemsPerPage.set(newSize);
     this.currentPage.set(1);
   }
 
@@ -307,13 +307,12 @@ export class GestionCongesRhComponent implements OnInit {
   // ==========================================
 
   openValidationModal(conge: Conge, action: 'approve' | 'reject'): void {
-    // ✅ Vérification basée UNIQUEMENT sur les permissions
     if (action === 'approve' && !this.canApproveLeave()) {
       this.errorMessage.set('Vous n\'avez pas la permission d\'approuver des congés.');
       setTimeout(() => this.errorMessage.set(''), 3000);
       return;
     }
-    
+
     if (action === 'reject' && !this.canRejectLeave()) {
       this.errorMessage.set('Vous n\'avez pas la permission de rejeter des congés.');
       setTimeout(() => this.errorMessage.set(''), 3000);
@@ -325,7 +324,7 @@ export class GestionCongesRhComponent implements OnInit {
       setTimeout(() => this.errorMessage.set(''), 3000);
       return;
     }
-    
+
     this.selectedConge.set(conge);
     this.validationAction = action;
     this.validationComment = '';
@@ -344,16 +343,16 @@ export class GestionCongesRhComponent implements OnInit {
       this.errorMessage.set('Aucun congé sélectionné.');
       return;
     }
-    
+
     const id = selectedConge.id;
-    
+
     this.loading.set(true);
     this.errorMessage.set('');
-    
+
     if (this.validationAction === 'approve') {
       this.congeService.approve(id, this.validationComment).subscribe({
         next: () => {
-          this.successMessage.set('✅ Demande approuvée avec succès !');
+          this.successMessage.set('Demande approuvée avec succès !');
           this.closeValidationModal();
           setTimeout(() => this.successMessage.set(''), 3000);
           this.loadData();
@@ -367,7 +366,7 @@ export class GestionCongesRhComponent implements OnInit {
     } else {
       this.congeService.reject(id, this.validationComment).subscribe({
         next: () => {
-          this.successMessage.set('✅ Demande rejetée avec succès !');
+          this.successMessage.set('Demande rejetée avec succès !');
           this.closeValidationModal();
           setTimeout(() => this.successMessage.set(''), 3000);
           this.loadData();
@@ -425,13 +424,13 @@ export class GestionCongesRhComponent implements OnInit {
 
   getEmployeeName(employee: any): string {
     if (!employee) return 'N/A';
-    
+
     const prenom = employee.prenom || '';
     const nom = employee.nom || '';
     const name = `${prenom} ${nom}`.trim();
-    
+
     if (name) return name;
-    
+
     return this.getEmployeeMatricule(employee) || 'N/A';
   }
 
@@ -449,18 +448,14 @@ export class GestionCongesRhComponent implements OnInit {
     return labels[type] || type;
   }
 
-  // ✅ MÉTHODE UNIQUEMENT BASÉE SUR LES PERMISSIONS
   isActionAllowed(conge: Conge): boolean {
-    // ✅ Vérifier si l'utilisateur a au moins une permission d'action
     const hasActionPermission = this.canApproveLeave() || this.canRejectLeave();
-    
-    // Si l'utilisateur n'a aucune permission d'action, ne pas montrer les boutons
+
     if (!hasActionPermission) {
       return false;
     }
-    
-    // Sinon, vérifier les conditions normales
-    return conge.statut === StatutConge.EN_ATTENTE && 
+
+    return conge.statut === StatutConge.EN_ATTENTE &&
            (conge.typeConge === TypeConge.ANNUEL || conge.typeConge === TypeConge.PERMISSION);
   }
 }

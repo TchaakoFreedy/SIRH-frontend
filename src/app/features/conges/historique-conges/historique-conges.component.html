@@ -144,7 +144,7 @@
           <div class="timeline-content">
             <div class="timeline-header">
               <div class="timeline-title">
-                <!-- ✅ Affichage du nom de l'employé -->
+                <!-- Affichage du nom de l'employé -->
                 <span class="employee-name">
                   <i class="fas fa-user-circle"></i>
                   {{ getEmployeeNameById(c.employee?.id) }}
@@ -207,9 +207,9 @@
         <div class="pagination-info">
           <span>
             Affichage de 
-            <strong>{{ (currentPage() - 1) * itemsPerPage + 1 }}</strong> 
+            <strong>{{ (currentPage() - 1) * itemsPerPage() + 1 }}</strong> 
             à 
-            <strong>{{ Math.min(currentPage() * itemsPerPage, filteredConges().length) }}</strong> 
+            <strong>{{ Math.min(currentPage() * itemsPerPage(), filteredConges().length) }}</strong> 
             sur 
             <strong>{{ filteredConges().length }}</strong> 
             demandes
@@ -217,7 +217,12 @@
           
           <div class="page-size-selector">
             <label for="pageSize">Lignes par page :</label>
-            <select id="pageSize" [(ngModel)]="itemsPerPage" (change)="onPageSizeChange()">
+            <!-- Liaison réactive avec le signal itemsPerPage -->
+            <select 
+              id="pageSize" 
+              [ngModel]="itemsPerPage()" 
+              (ngModelChange)="onPageSizeChange($event)"
+            >
               <option [value]="5">5</option>
               <option [value]="10">10</option>
               <option [value]="20">20</option>

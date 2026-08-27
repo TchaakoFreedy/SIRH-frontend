@@ -1,3 +1,4 @@
+// src/app/features/rh/contrats/contrats.component.ts
 import { Component, signal, computed, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
@@ -6,6 +7,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { Subject, takeUntil } from 'rxjs';
 import { ContratService } from '../../core/services/contrat.service';
 import { EmployeService } from '../../core/services/employe.service';
+import { ContractAlertConfigService } from '../../core/services/contract-alert-config.service';
 import {
   Contrat,
   TypeContrat,
@@ -14,7 +16,9 @@ import {
   contractRequiresTrialPeriod,
   getTypeContratLibelle,
   getStatutLibelle,
-  CONTRACT_TYPE_CONFIG
+  CONTRACT_TYPE_CONFIG,
+  ContractAlertConfig,
+  UpdateContractAlertConfigRequest
 } from '../../core/models/contrat.model';
 import { Employee } from '../../core/models/employee.model';
 import { PermissionService } from '../../core/services/permission.service';
@@ -37,6 +41,7 @@ export class ContratsComponent implements OnInit, OnDestroy {
   private employeeService = inject(EmployeService);
   private permissionService = inject(PermissionService);
   private fb = inject(FormBuilder);
+  private alertConfigService = inject(ContractAlertConfigService);
 
   private destroy$ = new Subject<void>();
 
@@ -60,16 +65,29 @@ export class ContratsComponent implements OnInit, OnDestroy {
   showDetailModal = signal(false);
   selectedContratForDetail = signal<any | null>(null);
 
+  // Propriétés pour la configuration des alertes (globale)
+  showAlertConfigPanel = signal(false);
+  alertConfig: ContractAlertConfig | null = null;
+  alertConfigForm: FormGroup;
+  isAlertConfigLoading = signal(false);
+
+  // Computed enrichi avec tri décroissant par createdAt
   enrichedContrats = computed(() => {
-    return this.contrats().map(contrat => {
-      const employeeName = this.getEmployeeName(contrat);
-      const employeeInitials = this.getEmployeeInitials(contrat);
-      return {
-        ...contrat,
-        employeeName,
-        employeeInitials
-      };
-    });
+    return this.contrats()
+      .map(contrat => {
+        const employeeName = this.getEmployeeName(contrat);
+        const employeeInitials = this.getEmployeeInitials(contrat);
+        return {
+          ...contrat,
+          employeeName,
+          employeeInitials
+        };
+      })
+      .sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
   });
 
   stats = computed(() => {
@@ -138,6 +156,13 @@ export class ContratsComponent implements OnInit, OnDestroy {
     return statut === 'EN_ATTENTE';
   }
 
+  isRenewable(contrat: any): boolean {
+    if (!contrat) return false;
+    const renewableStatus = contrat.statut === 'ACTIF' || contrat.statut === 'EN_ESSAI';
+    const excludedStatus = contrat.statut === 'RESILIE' || contrat.statut === 'ARCHIVE' || contrat.statut === 'EXPIRE';
+    return renewableStatus && !excludedStatus;
+  }
+
   getEmployeeName(contrat: any): string {
     if (!contrat) return 'Inconnu';
 
@@ -182,6 +207,24 @@ export class ContratsComponent implements OnInit, OnDestroy {
     return null;
   }
 
+  isContractExpiring(contrat: any): boolean {
+    if (!contrat || !contrat.dateFin) {
+      return false;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endDate = new Date(contrat.dateFin);
+    endDate.setHours(0, 0, 0, 0);
+
+    const diffTime = endDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0 || diffDays > 14) {
+      return false;
+    }
+    return true;
+  }
+
   constructor() {
     this.form = this.fb.group({
       employeeId: ['', Validators.required],
@@ -209,6 +252,16 @@ export class ContratsComponent implements OnInit, OnDestroy {
       estRenouvelable: [false],
       renouvellementMax: [null],
       observations: ['']
+    });
+
+    // Formulaire de configuration d'alerte globale
+    this.alertConfigForm = this.fb.group({
+      enabled: [true],
+      daysBefore: [14, [Validators.required, Validators.min(1), Validators.max(365)]],
+      emailRecipients: [''],
+      emailCc: [''],
+      emailSubject: ['Alerte expiration de contrat'],
+      emailBodyTemplate: ['Le contrat de l\'employé {employeeName} (type {typeContrat}) arrive à expiration le {endDate}. Veuillez prendre les mesures nécessaires.']
     });
 
     this.form.get('typeContrat')?.valueChanges.subscribe(type => {
@@ -264,12 +317,82 @@ export class ContratsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadData();
+    this.loadAlertConfig();
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
   }
+
+  // Méthodes de chargement et de sauvegarde de la config (globale)
+  private loadAlertConfig(): void {
+    this.isAlertConfigLoading.set(true);
+    this.alertConfigService.getConfig()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (config) => {
+          this.alertConfig = config;
+          this.alertConfigForm.patchValue({
+            enabled: config.enabled,
+            daysBefore: config.daysBefore,
+            emailRecipients: config.emailRecipients ? config.emailRecipients.join(', ') : '',
+            emailCc: config.emailCc ? config.emailCc.join(', ') : '',
+            emailSubject: config.emailSubject,
+            emailBodyTemplate: config.emailBodyTemplate
+          });
+          this.isAlertConfigLoading.set(false);
+        },
+        error: (err) => {
+          console.error('Erreur chargement config alerte:', err);
+          this.isAlertConfigLoading.set(false);
+          this.showToast('Erreur lors du chargement de la configuration des alertes', true);
+        }
+      });
+  }
+
+  saveAlertConfig(): void {
+    if (this.alertConfigForm.invalid) {
+      this.showToast('Veuillez corriger les erreurs du formulaire', true);
+      return;
+    }
+
+    const values = this.alertConfigForm.value;
+    const request: UpdateContractAlertConfigRequest = {
+      enabled: values.enabled,
+      daysBefore: values.daysBefore,
+      emailRecipients: values.emailRecipients ? values.emailRecipients.split(',').map((s: string) => s.trim()).filter((s: string) => s) : [],
+      emailCc: values.emailCc ? values.emailCc.split(',').map((s: string) => s.trim()).filter((s: string) => s) : [],
+      emailSubject: values.emailSubject,
+      emailBodyTemplate: values.emailBodyTemplate
+    };
+
+    this.isAlertConfigLoading.set(true);
+    this.alertConfigService.updateConfig(request)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (updated) => {
+          this.alertConfig = updated;
+          this.isAlertConfigLoading.set(false);
+          this.showToast('Configuration des alertes mise à jour avec succès');
+          this.showAlertConfigPanel.set(false);
+        },
+        error: (err) => {
+          console.error('Erreur mise à jour config:', err);
+          this.isAlertConfigLoading.set(false);
+          this.showToast('Erreur lors de la mise à jour de la configuration', true);
+        }
+      });
+  }
+
+  toggleAlertConfigPanel(): void {
+    if (!this.showAlertConfigPanel()) {
+      this.loadAlertConfig();
+    }
+    this.showAlertConfigPanel.set(!this.showAlertConfigPanel());
+  }
+
+  // Fin des méthodes de configuration
 
   private loadData(): void {
     this.isLoading.set(true);
@@ -433,6 +556,7 @@ export class ContratsComponent implements OnInit, OnDestroy {
     this.form.reset({ statut: 'ACTIF', estRenouvelable: false });
     this.selectedFiles = [];
     this.selectedContratId = null;
+    this.editMode.set(false);
   }
 
   openDetail(contrat: any): void {
@@ -460,6 +584,10 @@ export class ContratsComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.submitContrat(false);
+  }
+
+  private submitContrat(replaceActive: boolean): void {
     const values = this.form.value;
     const request: any = {
       employeeId: values.employeeId,
@@ -491,33 +619,52 @@ export class ContratsComponent implements OnInit, OnDestroy {
 
     this.isLoading.set(true);
 
-    if (this.selectedContratId) {
-      this.contratService.update(this.selectedContratId, request).pipe(takeUntil(this.destroy$)).subscribe({
-        next: (updated: Contrat) => {
-          this.updateContratInList(updated);
-          this.isLoading.set(false);
-          this.closeModal();
-          this.showToast('Contrat mis à jour avec succès');
-        },
-        error: () => {
-          this.isLoading.set(false);
-          this.showToast('Erreur lors de la mise à jour', true);
-        }
-      });
+    // CORRECTION : si on est en mode édition, on appelle update()
+    if (this.editMode() && this.selectedContratId) {
+      this.contratService.update(this.selectedContratId, request)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (updated: Contrat) => {
+            this.updateContratInList(updated);
+            this.isLoading.set(false);
+            this.closeModal();
+            this.showToast('Contrat modifié avec succès');
+          },
+          error: (err) => {
+            this.isLoading.set(false);
+            console.error('Erreur mise à jour:', err);
+            this.showToast('Erreur lors de la modification du contrat', true);
+          }
+        });
     } else {
-      this.contratService.createContrat(request, this.selectedFiles).pipe(takeUntil(this.destroy$)).subscribe({
-        next: (created: Contrat) => {
-          this.contrats.update(list => [...list, created]);
-          this.applyFilters();
-          this.isLoading.set(false);
-          this.closeModal();
-          this.showToast('Contrat créé avec succès');
-        },
-        error: () => {
-          this.isLoading.set(false);
-          this.showToast('Erreur lors de la création', true);
-        }
-      });
+      // Création
+      this.contratService.createContrat(request, this.selectedFiles, replaceActive)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (created: Contrat) => {
+            this.contrats.update(list => [...list, created]);
+            this.applyFilters();
+            this.isLoading.set(false);
+            this.closeModal();
+            this.showToast('Contrat créé avec succès');
+          },
+          error: (err) => {
+            if (err.status === 409) {
+              this.isLoading.set(false);
+              const confirmReplace = confirm(
+                'Cet employé possède déjà un contrat actif. Voulez-vous le remplacer par ce nouveau contrat ?'
+              );
+              if (confirmReplace) {
+                this.submitContrat(true);
+              } else {
+                this.showToast('Opération annulée', true);
+              }
+            } else {
+              this.isLoading.set(false);
+              this.showToast('Erreur lors de la création du contrat', true);
+            }
+          }
+        });
     }
   }
 
@@ -599,7 +746,6 @@ export class ContratsComponent implements OnInit, OnDestroy {
     }, 4000);
   }
 
-  // ========== OUVRIR UNE IMAGE DANS UN NOUVEL ONGLET ==========
   openImage(url: string): void {
     window.open(url, '_blank');
   }

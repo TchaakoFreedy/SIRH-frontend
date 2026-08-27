@@ -91,18 +91,6 @@ import { AlertPanelComponent } from '../alert-panel/alert-panel.component';
         [datasets]="[{ label: 'Demandes', data: data.explanationRequestsEvolution.map(e => e.count), backgroundColor: '#e67e22' }]"
         type="line"
       />
-      <app-chart-card
-        title="Répartition des sanctions"
-        [labels]="data.sanctionsByType.map(s => s.type)"
-        [datasets]="[{ label: 'Sanctions', data: data.sanctionsByType.map(s => s.count), backgroundColor: ['#c0392b', '#e74c3c', '#f39c12', '#8e44ad'] }]"
-        type="doughnut"
-      />
-      <app-chart-card
-        title="Évolution des notes de performance"
-        [labels]="data.performanceEvolution.map(p => p.month)"
-        [datasets]="[{ label: 'Note moyenne', data: data.performanceEvolution.map(p => p.averageScore), backgroundColor: '#2980b9', borderColor: '#2980b9' }]"
-        type="line"
-      />
     </div>
 
     <!-- Alertes -->

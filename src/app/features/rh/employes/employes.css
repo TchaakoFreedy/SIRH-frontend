@@ -2181,3 +2181,560 @@
     padding: 3px 6px;
   }
 }
+/* ==========================================================
+   STYLES POUR L'HISTORIQUE
+   ========================================================== */
+
+.history-section {
+  margin-top: 0;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.history-header h4 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--primary-dark);
+  text-transform: uppercase;
+}
+
+.history-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.format-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.format-select {
+  padding: 6px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  outline: none;
+}
+
+.format-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(1, 147, 147, 0.15);
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-sm.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-sm.btn-primary:hover:not(:disabled) {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(1, 147, 147, 0.25);
+}
+
+.btn-sm.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px 0;
+  color: var(--muted);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Timeline */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 16px;
+  padding: 16px 20px;
+  background: white;
+  border-radius: 14px;
+  border-left: 4px solid var(--border);
+  box-shadow: 0 2px 8px rgba(74, 104, 103, 0.06);
+  transition: all 0.2s ease;
+}
+
+.timeline-item:hover {
+  box-shadow: 0 4px 16px rgba(74, 104, 103, 0.12);
+  transform: translateX(4px);
+}
+
+.timeline-item.timeline-success {
+  border-left-color: var(--green);
+}
+.timeline-item.timeline-primary {
+  border-left-color: var(--primary);
+}
+.timeline-item.timeline-danger {
+  border-left-color: var(--red);
+}
+.timeline-item.timeline-warning {
+  border-left-color: var(--orange);
+}
+.timeline-item.timeline-info {
+  border-left-color: var(--blue);
+}
+.timeline-item.timeline-secondary {
+  border-left-color: var(--gray);
+}
+
+.timeline-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--gray-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--gray);
+}
+
+.timeline-item.timeline-success .timeline-icon {
+  background: var(--green-light);
+  color: var(--green);
+}
+.timeline-item.timeline-primary .timeline-icon {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+.timeline-item.timeline-danger .timeline-icon {
+  background: var(--red-light);
+  color: var(--red);
+}
+.timeline-item.timeline-warning .timeline-icon {
+  background: var(--orange-light);
+  color: var(--orange);
+}
+.timeline-item.timeline-info .timeline-icon {
+  background: var(--blue-light);
+  color: var(--blue);
+}
+.timeline-item.timeline-secondary .timeline-icon {
+  background: var(--gray-light);
+  color: var(--gray);
+}
+
+.timeline-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.timeline-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.timeline-type {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--gray-light);
+  color: var(--gray);
+}
+
+.timeline-item.timeline-success .timeline-type {
+  background: var(--green-light);
+  color: #047857;
+}
+.timeline-item.timeline-primary .timeline-type {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+}
+.timeline-item.timeline-danger .timeline-type {
+  background: var(--red-light);
+  color: var(--red-dark);
+}
+.timeline-item.timeline-warning .timeline-type {
+  background: var(--orange-light);
+  color: #b45309;
+}
+.timeline-item.timeline-info .timeline-type {
+  background: var(--blue-light);
+  color: var(--blue);
+}
+.timeline-item.timeline-secondary .timeline-type {
+  background: var(--gray-light);
+  color: var(--gray-dark);
+}
+
+.timeline-description {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.timeline-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.detail-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--gray-light);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.detail-tag strong {
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Responsive pour l'historique */
+@media (max-width: 640px) {
+  .history-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .format-selector {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .format-selector .btn-sm {
+    justify-content: center;
+  }
+
+  .timeline-item {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 14px;
+  }
+
+  .timeline-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .timeline-details {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .detail-tag {
+    display: block;
+    width: 100%;
+  }
+}
+/* ==========================================================
+   ONGLETS - MODALE DÉTAILS EMPLOYÉ
+   ========================================================== */
+
+.detail-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  margin: 0 24px 20px;
+  background: #eef4f4;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.tab-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  min-height: 44px;
+  padding: 10px 18px;
+
+  border: none;
+  border-radius: 12px;
+
+  background: transparent;
+  color: var(--muted);
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+  white-space: nowrap;
+
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.tab-btn .material-symbols-outlined {
+  font-size: 20px;
+  transition: transform 0.2s ease;
+}
+
+/* Survol */
+.tab-btn:hover {
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--primary-dark);
+}
+
+.tab-btn:hover .material-symbols-outlined {
+  transform: translateY(-1px);
+}
+
+/* Onglet actif */
+.tab-btn.active {
+  background: white;
+  color: var(--primary-dark);
+
+  box-shadow:
+    0 4px 12px rgba(74, 104, 103, 0.10),
+    0 1px 3px rgba(74, 104, 103, 0.08);
+}
+
+/* Petite barre sous l'onglet actif */
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+
+  left: 18px;
+  right: 18px;
+  bottom: 3px;
+
+  height: 3px;
+  border-radius: 999px;
+
+  background: var(--primary);
+}
+
+/* Icône de l'onglet actif */
+.tab-btn.active .material-symbols-outlined {
+  color: var(--primary);
+}
+
+/* Focus clavier */
+.tab-btn:focus-visible {
+  outline: 3px solid rgba(20, 184, 166, 0.25);
+  outline-offset: 2px;
+}
+
+/* Clic */
+.tab-btn:active {
+  transform: scale(0.98);
+}
+
+
+/* ==========================================================
+   RESPONSIVE - ONGLETS
+   ========================================================== */
+
+@media (max-width: 700px) {
+  .detail-tabs {
+    margin: 0 16px 18px;
+    padding: 6px;
+    gap: 4px;
+  }
+
+  .tab-btn {
+    min-height: 40px;
+    padding: 9px 13px;
+    font-size: 12px;
+  }
+
+  .tab-btn .material-symbols-outlined {
+    font-size: 18px;
+  }
+
+  .tab-btn.active::after {
+    left: 13px;
+    right: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .detail-tabs {
+    margin: 0 12px 16px;
+  }
+
+  .tab-btn {
+    flex: 0 0 auto;
+  }
+}
+/* Contrats en expiration */
+.list-row.expiring {
+  background-color: #fef2f2;
+  border-left: 4px solid #dc2626;
+  padding-left: 12px;
+  transition: background-color 0.2s;
+}
+
+.list-row.expiring .list-title {
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.expiring-badge {
+  background-color: #dc2626;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 20px;
+  margin-left: 10px;
+  display: inline-block;
+  vertical-align: middle;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.expiring-date {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.employee-name {
+  color: #475569;
+  font-weight: 500;
+  margin-left: 6px;
+}
+/* src/app/features/rh/employes/employes.css */
+
+/* Ligne expirante dans le tableau principal */
+tr.expiring-row {
+  background-color: #fef2f2 !important;
+  border-left: 4px solid #dc2626;
+  transition: background-color 0.2s;
+}
+
+tr.expiring-row:hover {
+  background-color: #fee2e2 !important;
+}
+
+tr.expiring-row .tag-matricule {
+  background-color: #dc2626;
+  color: white;
+  font-weight: 600;
+}
+
+tr.expiring-row .name {
+  color: #991b1b;
+  font-weight: 600;
+}
+
+/* Petit indicateur visuel en plus (optionnel) */
+tr.expiring-row td:first-child {
+  position: relative;
+}
+
+tr.expiring-row td:first-child::before {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+}
+
+/* Dans la modale de détails (déjà existant) */
+.list-row.expiring {
+  background-color: #fef2f2;
+  border-left: 4px solid #dc2626;
+  padding-left: 12px;
+  transition: background-color 0.2s;
+}
+
+.list-row.expiring .list-title {
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.expiring-badge {
+  background-color: #dc2626;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 20px;
+  margin-left: 10px;
+  display: inline-block;
+  vertical-align: middle;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.expiring-date {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.employee-name {
+  color: #475569;
+  font-weight: 500;
+  margin-left: 6px;
+}

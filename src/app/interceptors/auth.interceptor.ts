@@ -20,6 +20,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     console.log(`[AuthInterceptor] Token preview: ${token.substring(0, 30)}...`);
   }
 
+  // Liste des endpoints publics (ne nécessitent pas de token)
   const isPublic = req.url.includes('/auth/login') ||
                    req.url.includes('/auth/refresh-token') ||
                    req.url.includes('/auth/logout') ||
@@ -27,6 +28,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
                    req.url.includes('/auth/reset-password') ||
                    req.url.includes('/auth/register') ||
                    req.url.includes('/auth/verify-2fa') ||
+                   req.url.includes('/2fa/pending') ||          // ✅ Ajouté
+                   req.url.includes('/2fa/verify') ||           // ✅ Ajouté
                    req.url.includes('/uploads/') ||
                    req.method === 'OPTIONS';
 
@@ -71,7 +74,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       }
 
       // Seulement les 401 (Unauthorized) déclenchent un refresh token
-      if (error.status === 401 && !req.url.includes('/auth/refresh-token') && !req.url.includes('/auth/login')) {
+      // Exclure les endpoints publics (déjà traités) et les endpoints 2FA publics
+      if (error.status === 401 && 
+          !req.url.includes('/auth/refresh-token') && 
+          !req.url.includes('/auth/login') &&
+          !req.url.includes('/2fa/pending') &&
+          !req.url.includes('/2fa/verify')) {
         console.log('[AuthInterceptor] Attempting token refresh for 401...');
         
         const refreshToken = authService.getRefreshToken();

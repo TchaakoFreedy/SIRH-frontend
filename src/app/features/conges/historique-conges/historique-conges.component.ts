@@ -1,3 +1,5 @@
+// src/app/features/rh/historique-conges/historique-conges.component.ts
+
 import { Component, OnInit, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -33,17 +35,18 @@ export class HistoriqueCongesComponent implements OnInit {
   
   // ============ PAGINATION ============
   currentPage = signal(1);
-  itemsPerPage = 10;
+  // itemsPerPage devient un signal pour la réactivité
+  itemsPerPage = signal<number>(10);
   Math = Math;
 
   totalPages = computed(() => {
     const total = this.filteredConges().length;
-    return Math.ceil(total / this.itemsPerPage);
+    return Math.ceil(total / this.itemsPerPage());
   });
 
   paginatedConges = computed(() => {
-    const startIndex = (this.currentPage() - 1) * this.itemsPerPage;
-    const endIndex = startIndex + this.itemsPerPage;
+    const startIndex = (this.currentPage() - 1) * this.itemsPerPage();
+    const endIndex = startIndex + this.itemsPerPage();
     return this.filteredConges().slice(startIndex, endIndex);
   });
 
@@ -161,7 +164,6 @@ export class HistoriqueCongesComponent implements OnInit {
       if (this.searchTerm) {
         const type = this.getTypeLabel(c.typeConge).toLowerCase();
         const statut = this.statutLabel(c.statut).toLowerCase();
-        // Récupérer l'ID de l'employé de manière sécurisée
         const employeeId = c.employee?.id;
         const employeeName = employeeId ? this.getEmployeeNameById(employeeId).toLowerCase() : '';
         const search = this.searchTerm.toLowerCase();
@@ -171,6 +173,10 @@ export class HistoriqueCongesComponent implements OnInit {
       }
       return match;
     });
+
+    // Tri du plus récent au plus ancien selon la date de début
+    filtered.sort((a, b) => new Date(b.jourDebut).getTime() - new Date(a.jourDebut).getTime());
+
     this.filteredConges.set(filtered);
     this.currentPage.set(1);
   }
@@ -210,7 +216,9 @@ export class HistoriqueCongesComponent implements OnInit {
     if (this.currentPage() < this.totalPages()) this.currentPage.set(this.currentPage() + 1);
   }
 
-  onPageSizeChange(): void {
+  // Méthode appelée quand la taille de page change
+  onPageSizeChange(newSize: number): void {
+    this.itemsPerPage.set(newSize);
     this.currentPage.set(1);
   }
 
@@ -299,7 +307,6 @@ export class HistoriqueCongesComponent implements OnInit {
     }
     const headers = ['Employé', 'Type', 'Du', 'Au', 'Durée', 'Statut', 'Validé par', 'Commentaire'];
     const rows = filtered.map(c => {
-      // Récupérer l'ID de l'employé de manière sécurisée
       const employeeId = c.employee?.id;
       const empName = employeeId ? this.getEmployeeNameById(employeeId) : 'N/A';
       return [

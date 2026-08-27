@@ -11,230 +11,158 @@ import { Document } from '../models/document.model';
 export class EmployeService {
   private url = `${environment.apiUrl}/employees`;
   private docUrl = `${environment.apiUrl}/documents-management`;
-  private profileUrl = `${environment.apiUrl}/profile`; // ✅ Nouvel endpoint
+  private profileUrl = `${environment.apiUrl}/profile`;
 
   constructor(private http: HttpClient) {}
 
   // ============================================
-  // 👤 GESTION DES EMPLOYÉS (CRUD)
+  // GESTION DES EMPLOYÉS (CRUD)
   // ============================================
 
-  /**
-   * Récupère tous les employés
-   */
   getAll(): Observable<Employee[]> {
     return this.http.get<Employee[]>(this.url);
   }
 
-  /**
-   * Récupère un employé par son ID
-   */
   getById(id: string): Observable<Employee> {
     return this.http.get<Employee>(`${this.url}/${id}`);
   }
 
-  /**
-   * ✅ Récupère un employé par son ID utilisateur
-   */
   getByUserId(userId: string): Observable<Employee> {
     return this.http.get<Employee>(`${this.url}/user/${userId}`);
   }
 
-  /**
-   * ✅ Récupère un employé par son matricule interne
-   */
   findByMatricule(matricule: string): Observable<Employee> {
     return this.http.get<Employee>(`${this.url}/matricule/${matricule}`);
   }
 
-  /**
-   * ✅ Récupère l'employé connecté via le token (méthode pratique)
-   */
   getCurrentEmployee(): Observable<Employee> {
     return this.http.get<Employee>(`${this.url}/me`);
   }
 
-  /**
-   * ✅ Récupère les employés d'une entreprise spécifique
-   */
   getByEntreprise(entrepriseId: string): Observable<Employee[]> {
     return this.http.get<Employee[]>(`${this.url}/entreprise/${entrepriseId}`);
   }
 
-  /**
-   * ✅ Récupère les employés de l'entreprise de l'utilisateur connecté
-   */
   getMyCompanyEmployees(): Observable<Employee[]> {
     return this.http.get<Employee[]>(`${this.url}/my-company/employees`);
   }
 
-  /**
-   * Crée un nouvel employé (avec fichiers)
-   */
   create(data: FormData): Observable<Employee> {
     return this.http.post<Employee>(this.url, data);
   }
 
-  /**
-   * Met à jour un employé (générique)
-   */
   update(id: string, data: Partial<Employee>): Observable<Employee> {
     return this.http.patch<Employee>(`${this.url}/${id}`, data);
   }
 
-  /**
-   * Met à jour un employé par un admin (tous les champs)
-   */
   updateByAdmin(id: string, data: any): Observable<Employee> {
     return this.http.patch<Employee>(`${this.url}/${id}/admin`, data);
   }
 
-  /**
-   * Met à jour le profil d'un employé (lui-même - champs limités)
-   * @deprecated Utiliser updateMyProfile() à la place
-   */
   updateSelfProfile(id: string, data: { telephone: string; addresse: string }): Observable<Employee> {
     return this.http.patch<Employee>(`${this.url}/${id}/profile`, data);
   }
 
-  /**
-   * ✅ NOUVEAU : Met à jour le profil de l'utilisateur connecté
-   * Plus besoin de passer l'ID, le backend détermine automatiquement l'utilisateur
-   */
-  updateMyProfile(data: { telephone: string; addresse: string }): Observable<Employee> {
-    return this.http.patch<Employee>(`${this.profileUrl}`, data);
-  }
+updateMyProfile(data: { telephone: string; addresse: string; numeroContactUrgence?: string }): Observable<Employee> {
+  return this.http.patch<Employee>(`${this.profileUrl}`, data);
+}
 
-  /**
-   * ✅ NOUVEAU : Récupère le profil de l'utilisateur connecté
-   */
   getMyProfile(): Observable<Employee> {
     return this.http.get<Employee>(`${this.profileUrl}`);
   }
 
-  /**
-   * Supprime un employé
-   */
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.url}/${id}`);
   }
 
   // ============================================
-  // 🔄 ACTIONS STATUT
+  // ACTIONS STATUT
   // ============================================
 
-  /**
-   * Suspend un employé
-   */
   suspendre(id: string): Observable<Employee> {
     return this.http.post<Employee>(`${this.url}/${id}/suspendre`, {});
   }
 
-  /**
-   * Réactive un employé suspendu
-   */
   reactiver(id: string): Observable<Employee> {
     return this.http.post<Employee>(`${this.url}/${id}/reactiver`, {});
   }
 
   // ============================================
-  // 🔍 RECHERCHE ET FILTRES
+  // RECHERCHE ET FILTRES
   // ============================================
 
-  /**
-   * Recherche des employés par terme
-   */
   search(term: string): Observable<Employee[]> {
     return this.http.get<Employee[]>(
       `${this.url}/search?term=${encodeURIComponent(term)}`
     );
   }
 
-  /**
-   * Récupère les employés par département
-   */
   getByDepartement(departementId: string): Observable<Employee[]> {
     return this.http.get<Employee[]>(`${this.url}/departement/${departementId}`);
   }
 
-  /**
-   * Récupère les employés par poste
-   */
   getByPoste(posteId: string): Observable<Employee[]> {
     return this.http.get<Employee[]>(`${this.url}/poste/${posteId}`);
   }
 
-  /**
-   * Récupère les employés par statut
-   */
   getByStatut(statut: string): Observable<Employee[]> {
     return this.http.get<Employee[]>(`${this.url}/statut/${statut}`);
   }
 
   // ============================================
-  // 🔐 SÉCURITÉ
+  // SÉCURITÉ
   // ============================================
 
-  /**
-   * Change le mot de passe d'un employé
-   */
   changePassword(id: string, data: { ancienMotDePasse: string; nouveauMotDePasse: string }): Observable<any> {
     return this.http.post(`${this.url}/${id}/change-password`, data);
   }
 
-  /**
-   * Récupère la photo de profil
-   */
   getPhoto(id: string): Observable<Blob> {
     return this.http.get(`${this.url}/${id}/photo`, { responseType: 'blob' });
   }
 
-  /**
-   * Upload la photo de profil
-   */
   uploadPhoto(id: string, formData: FormData): Observable<Employee> {
     return this.http.post<Employee>(`${this.url}/${id}/photo`, formData);
   }
 
   // ============================================
-  // 📊 STATISTIQUES
+  // STATISTIQUES
   // ============================================
 
-  /**
-   * Récupère les statistiques d'un employé
-   */
   getStats(id: string): Observable<any> {
     return this.http.get(`${this.url}/${id}/stats`);
   }
 
   /**
-   * Récupère l'historique d'un employé
+   * Récupère l'historique d'un employé (liste des événements)
    */
-  getHistory(id: string): Observable<any[]> {
-    return this.http.get<any[]>(`${this.url}/${id}/history`);
+  getHistory(id: string): Observable<any> {
+    return this.http.get<any>(`${this.url}/${id}/history`);
+  }
+
+  /**
+   * Télécharge l'historique d'un employé au format CSV ou PDF
+   * @param employeeId - ID de l'employé
+   * @param format - 'csv' ou 'pdf'
+   */
+  downloadHistory(employeeId: string, format: 'csv' | 'pdf' = 'csv'): Observable<Blob> {
+    return this.http.get(`${this.url}/${employeeId}/history/download?format=${format}`, {
+      responseType: 'blob'
+    });
   }
 
   // ============================================
-  // 📄 GESTION DES DOCUMENTS
+  // GESTION DES DOCUMENTS
   // ============================================
 
-  /**
-   * Récupère les documents d'un employé
-   */
   getEmployeeDocuments(employeeId: string): Observable<Document[]> {
     return this.http.get<Document[]>(`${this.url}/${employeeId}/documents`);
   }
 
-  /**
-   * Récupère les contrats d'un employé
-   */
   getEmployeeContracts(employeeId: string): Observable<any[]> {
     return this.http.get<any[]>(`${this.url}/${employeeId}/contracts`);
   }
 
-  /**
-   * Upload un document pour un employé
-   */
   uploadEmployeeDocument(
     employeeId: string,
     file: File,
@@ -252,9 +180,6 @@ export class EmployeService {
     );
   }
 
-  /**
-   * Upload multiples documents pour un employé
-   */
   uploadEmployeeDocuments(
     employeeId: string,
     files: File[],
@@ -274,34 +199,22 @@ export class EmployeService {
     );
   }
 
-  /**
-   * Télécharger un document
-   */
   downloadDocument(documentId: string): Observable<Blob> {
     return this.http.get(`${this.docUrl}/pieces/${documentId}/file`, {
       responseType: 'blob'
     });
   }
 
-  /**
-   * Supprimer un document
-   */
   deleteDocument(documentId: string): Observable<void> {
     return this.http.delete<void>(`${this.docUrl}/pieces/${documentId}`);
   }
 
-  /**
-   * Récupérer les URLs des documents d'un employé
-   */
   getEmployeeDocumentUrls(employeeId: string): Observable<{url: string, name: string}[]> {
     return this.http.get<{url: string, name: string}[]>(
       `${this.docUrl}/pieces/employe/${employeeId}/urls`
     );
   }
 
-  /**
-   * Upload document pour un contrat
-   */
   uploadContractDocument(
     contratId: string,
     file: File,

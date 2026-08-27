@@ -23,6 +23,15 @@ export const routes: Routes = [
     // Pas de guard car on vérifie la session dans le composant
   },
 
+  // ✅ Activation 2FA pour l'employé (QR code + OTP)
+  {
+    path: '2fa-activation',
+    loadComponent: () =>
+      import('./features/profile/two-factor-activation/two-factor-activation.component')
+        .then(m => m.TwoFactorActivationComponent)
+    // On pourrait ajouter un guard qui vérifie le flag pending
+  },
+
   // 🔁 REDIRECTION
   {
     path: '',
@@ -301,14 +310,14 @@ export const routes: Routes = [
       },
 
       // ========== CONTRATS ==========
-{
-  path: 'contrats',
-  loadComponent: () =>
-    import('./features/contrats/contrats.component')
-      .then(m => m.ContratsComponent),
-  canActivate: [PermissionGuard],
-  data: { permission: 'CONTRACT_VIEW_ALL' }
-},
+      {
+        path: 'contrats',
+        loadComponent: () =>
+          import('./features/contrats/contrats.component')
+            .then(m => m.ContratsComponent),
+        canActivate: [PermissionGuard],
+        data: { permission: 'CONTRACT_VIEW_ALL' }
+      },
 
       // ========== REDIRECTION PAR DÉFAUT ==========
       {

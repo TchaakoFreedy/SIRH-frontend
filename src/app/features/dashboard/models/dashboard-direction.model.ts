@@ -1,3 +1,7 @@
+// src/app/features/dashboard/models/dashboard-direction.model.ts
+
+import { Alert } from './alert.model';
+
 export interface DashboardDirectionResponse {
   totalEmployees: number;
   totalDepartments: number;
@@ -13,14 +17,9 @@ export interface DashboardDirectionResponse {
     type: string;
     count: number;
   }[];
-  alerts: {
-    type: string;
-    severity: 'INFO' | 'WARNING' | 'CRITICAL';
-    message: string;
-    details: any;
-  }[];
-  
-  // Nouveaux indicateurs pour discipline, sanctions et performance (périmètre direction)
+  alerts: Alert[];
+
+  // Indicateurs discipline, sanctions, performance
   pendingExplanationRequests: number;
   activeSanctions: number;
   pendingEvaluations: number;

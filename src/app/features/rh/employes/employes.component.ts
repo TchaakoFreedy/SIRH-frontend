@@ -1,3 +1,5 @@
+// src/app/features/rh/employes/employes.component.ts
+
 import { Component, OnInit, signal, computed, effect, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -101,7 +103,13 @@ export class EmployesComponent implements OnInit, OnDestroy {
   selectedContractTypeStep2 = signal<TypeContrat | null>(null);
   contractTypeConfigStep2 = signal<any | null>(null);
 
-  // Computed : employes enrichis avec les BONS noms de champs
+  // ========== SIGNAUX POUR L'HISTORIQUE ==========
+  employeeHistory = signal<any>(null);
+  isLoadingHistory = signal<boolean>(false);
+  activeDetailTab = signal<'info' | 'contracts' | 'documents' | 'history'>('info');
+  historyDownloadFormat = signal<'csv' | 'pdf'>('csv');
+
+  // Computed : employes enrichis
   enrichedEmployees = computed(() => {
     const all = this.employees();
     const postes = this.postes();
@@ -295,6 +303,47 @@ export class EmployesComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ========== MÉTHODE DE VÉRIFICATION D'EXPIRATION ==========
+  /**
+   * Vérifie si un contrat expire dans les 14 prochains jours.
+   * @param contract L'objet contrat
+   * @returns true si la date de fin est dans les 14 jours à compter d'aujourd'hui, false sinon
+   */
+  isContractExpiring(contract: any): boolean {
+    if (!contract || !contract.dateFin) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endDate = new Date(contract.dateFin);
+    endDate.setHours(0, 0, 0, 0);
+    const diffDays = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= 14;
+  }
+
+  // ========================================================================
+  // CONFIGURATION CONTRAT AVEC SURCHARGES
+  // ========================================================================
+
+  /**
+   * Retourne la configuration du type de contrat en appliquant les surcharges métier :
+   * - CDI : pas de date de fin, pas de période d'essai
+   * - CDD : pas de période d'essai (car déjà un type ESSAI)
+   * - ESSAI : permet le renouvellement
+   */
+  private getAdjustedConfig(type: TypeContrat): any {
+    const base = CONTRACT_TYPE_CONFIG[type];
+    if (!base) return null;
+    const config = { ...base };
+    if (type === 'CDI') {
+      config.hasEndDate = false;
+      config.requiresTrialPeriod = false;
+    } else if (type === 'CDD') {
+      config.requiresTrialPeriod = false;
+    } else if (type === 'ESSAI') {
+      config.showRenewable = true;
+    }
+    return config;
+  }
+
   initForms(): void {
     this.employeeForm = this.fb.group({
       id: [''],
@@ -308,6 +357,7 @@ export class EmployesComponent implements OnInit, OnDestroy {
       sexe: ['M', Validators.required],
       date_naissance: ['', Validators.required],
       telephone: ['', Validators.required],
+      numeroContactUrgence: [''],
       addresse: ['', Validators.required],
       date_embauche: ['', Validators.required],
       posteId: ['', Validators.required],
@@ -315,7 +365,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
       entrepriseId: ['', Validators.required]
     });
 
-    // Formulaire contrat pour l'étape 2 du wizard - enrichi avec tous les champs
     this.contractForm = this.fb.group({
       typeContrat: ['CDI', Validators.required],
       dateDebut: ['', Validators.required],
@@ -343,10 +392,9 @@ export class EmployesComponent implements OnInit, OnDestroy {
       observations: ['']
     });
 
-    // Initialiser les validateurs pour le formulaire contrat du wizard
     const defaultType = 'CDI' as TypeContrat;
     this.selectedContractTypeStep2.set(defaultType);
-    this.contractTypeConfigStep2.set(CONTRACT_TYPE_CONFIG[defaultType]);
+    this.contractTypeConfigStep2.set(this.getAdjustedConfig(defaultType));
     this.updateContractFormValidatorsStep2(defaultType);
 
     this.avenantForm = this.fb.group({
@@ -394,29 +442,24 @@ export class EmployesComponent implements OnInit, OnDestroy {
       observations: ['']
     });
 
-    // Ecouter les changements de type
     this.contratFormModal.get('typeContrat')?.valueChanges.subscribe((type: string) => {
       this.updateContractFormValidators(type as TypeContrat);
     });
 
-    // Ecouter les changements de duree d'essai pour calculer automatiquement la date de fin
     this.contratFormModal.get('dureeEssaiMois')?.valueChanges.subscribe((dureeMois: number) => {
       this.onDureeEssaiChange();
     });
 
-    // Ecouter les changements de date de debut pour recalculer la date de fin d'essai
     this.contratFormModal.get('dateDebut')?.valueChanges.subscribe(() => {
       this.onDureeEssaiChange();
     });
 
-    // Initialiser les validators par defaut
-    this.updateContractFormValidators('CDI');
+    const defaultType = 'CDI' as TypeContrat;
+    this.selectedContractType.set(defaultType);
+    this.contractTypeConfig.set(this.getAdjustedConfig(defaultType));
+    this.updateContractFormValidators(defaultType);
   }
 
-  /**
-   * Calcule automatiquement la date de fin d'essai lorsque la durée ou la date de debut change
-   * (pour la modale contrat)
-   */
   onDureeEssaiChange(): void {
     const dureeMois = this.contratFormModal.get('dureeEssaiMois')?.value;
     const dateDebut = this.contratFormModal.get('dateDebut')?.value;
@@ -437,9 +480,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Calcule automatiquement la date de fin d'essai pour le formulaire de l'étape 2 du wizard
-   */
   onDureeEssaiChangeStep2(): void {
     const dureeMois = this.contractForm.get('dureeEssaiMois')?.value;
     const dateDebut = this.contractForm.get('dateDebut')?.value;
@@ -460,12 +500,8 @@ export class EmployesComponent implements OnInit, OnDestroy {
     }
   }
 
-  // ========================================================================
-  // Méthodes pour le formulaire de la modale contrat
-  // ========================================================================
-
   private updateContractFormValidators(type: TypeContrat): void {
-    const config = CONTRACT_TYPE_CONFIG[type];
+    const config = this.getAdjustedConfig(type);
     if (!config) return;
 
     this.selectedContractType.set(type);
@@ -473,7 +509,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
 
     const form = this.contratFormModal;
 
-    // Gestion du statut
     const statutControl = form.get('statut');
     if (type === 'ESSAI') {
       statutControl?.setValue('EN_ESSAI', { emitEvent: false });
@@ -485,7 +520,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
       }
     }
 
-    // Date de fin
     const dateFinControl = form.get('dateFin');
     if (config.hasEndDate) {
       dateFinControl?.setValidators([Validators.required]);
@@ -494,7 +528,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     }
     dateFinControl?.updateValueAndValidity();
 
-    // Periode d'essai
     const dureeEssaiControl = form.get('dureeEssaiMois');
     const dateFinEssaiControl = form.get('dateFinEssai');
     if (config.requiresTrialPeriod) {
@@ -511,7 +544,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     dureeEssaiControl?.updateValueAndValidity();
     dateFinEssaiControl?.updateValueAndValidity();
 
-    // Salaire
     const salaireControl = form.get('salaireBrut');
     if (config.requiresSalary) {
       salaireControl?.setValidators([Validators.required, Validators.min(0)]);
@@ -520,7 +552,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     }
     salaireControl?.updateValueAndValidity();
 
-    // Motif de recours (CDD)
     const motifControl = form.get('motifRecours');
     if (config.requiresMotifRecours) {
       motifControl?.setValidators([Validators.required]);
@@ -529,7 +560,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     }
     motifControl?.updateValueAndValidity();
 
-    // Etablissement (Stage)
     const etablissementControl = form.get('etablissement');
     if (config.requiresEtablissement) {
       etablissementControl?.setValidators([Validators.required]);
@@ -538,7 +568,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     }
     etablissementControl?.updateValueAndValidity();
 
-    // Tuteur (Stage)
     const tuteurControl = form.get('tuteurNom');
     if (config.requiresTuteur) {
       tuteurControl?.setValidators([Validators.required]);
@@ -547,7 +576,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     }
     tuteurControl?.updateValueAndValidity();
 
-    // Description prestation (Freelance)
     const prestationControl = form.get('descriptionPrestation');
     if (config.requiresPrestationDescription) {
       prestationControl?.setValidators([Validators.required]);
@@ -567,10 +595,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     this.updateContractFormValidators(type);
   }
 
-  // ========================================================================
-  // Méthodes pour le formulaire de l'étape 2 du wizard
-  // ========================================================================
-
   isContractTypeStep2(): any {
     return this.contractTypeConfigStep2();
   }
@@ -578,19 +602,18 @@ export class EmployesComponent implements OnInit, OnDestroy {
   onContractTypeChangeStep2(event: Event): void {
     const select = event.target as HTMLSelectElement;
     const type = select.value as TypeContrat;
-    const config = CONTRACT_TYPE_CONFIG[type];
+    const config = this.getAdjustedConfig(type);
     this.selectedContractTypeStep2.set(type);
     this.contractTypeConfigStep2.set(config);
     this.updateContractFormValidatorsStep2(type);
   }
 
   private updateContractFormValidatorsStep2(type: TypeContrat): void {
-    const config = CONTRACT_TYPE_CONFIG[type];
+    const config = this.getAdjustedConfig(type);
     if (!config) return;
 
     const form = this.contractForm;
 
-    // Gestion du statut
     const statutControl = form.get('statut');
     if (type === 'ESSAI') {
       statutControl?.setValue('EN_ESSAI', { emitEvent: false });
@@ -602,7 +625,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
       }
     }
 
-    // Date de fin
     const dateFinControl = form.get('dateFin');
     if (config.hasEndDate) {
       dateFinControl?.setValidators([Validators.required]);
@@ -611,7 +633,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     }
     dateFinControl?.updateValueAndValidity();
 
-    // Periode d'essai
     const dureeEssaiControl = form.get('dureeEssaiMois');
     const dateFinEssaiControl = form.get('dateFinEssai');
     if (config.requiresTrialPeriod) {
@@ -628,7 +649,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     dureeEssaiControl?.updateValueAndValidity();
     dateFinEssaiControl?.updateValueAndValidity();
 
-    // Salaire
     const salaireControl = form.get('salaireBrut');
     if (config.requiresSalary) {
       salaireControl?.setValidators([Validators.required, Validators.min(0)]);
@@ -637,7 +657,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     }
     salaireControl?.updateValueAndValidity();
 
-    // Motif de recours (CDD)
     const motifControl = form.get('motifRecours');
     if (config.requiresMotifRecours) {
       motifControl?.setValidators([Validators.required]);
@@ -646,7 +665,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     }
     motifControl?.updateValueAndValidity();
 
-    // Etablissement (Stage)
     const etablissementControl = form.get('etablissement');
     if (config.requiresEtablissement) {
       etablissementControl?.setValidators([Validators.required]);
@@ -655,7 +673,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     }
     etablissementControl?.updateValueAndValidity();
 
-    // Tuteur (Stage)
     const tuteurControl = form.get('tuteurNom');
     if (config.requiresTuteur) {
       tuteurControl?.setValidators([Validators.required]);
@@ -664,7 +681,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     }
     tuteurControl?.updateValueAndValidity();
 
-    // Description prestation (Freelance)
     const prestationControl = form.get('descriptionPrestation');
     if (config.requiresPrestationDescription) {
       prestationControl?.setValidators([Validators.required]);
@@ -675,7 +691,7 @@ export class EmployesComponent implements OnInit, OnDestroy {
   }
 
   // ========================================================================
-  // Suite du code existant (inchangé)
+  // Initialisation et chargement des données
   // ========================================================================
 
   private initializeUserRole(user: any): void {
@@ -869,6 +885,10 @@ export class EmployesComponent implements OnInit, OnDestroy {
       });
   }
 
+  // ========================================================================
+  // MÉTHODES 2FA
+  // ========================================================================
+
   open2FAModal(employee: any): void {
     if (!this.canManage2FA()) {
       alert('Vous n\'avez pas la permission de gerer le 2FA.');
@@ -901,13 +921,46 @@ export class EmployesComponent implements OnInit, OnDestroy {
           if (enabled) {
             this.twoFASetupStep.set(3);
           } else {
-            this.generate2FASecret(userId);
+            this.twoFASetupStep.set(0);
           }
           this.show2FAModal.set(true);
         },
         error: () => {
-          this.generate2FASecret(userId);
+          this.twoFASetupStep.set(0);
           this.show2FAModal.set(true);
+        }
+      });
+  }
+
+  initiateTwoFactorForEmployee(): void {
+    const employee = this.selected2FAEmployee();
+    if (!employee) return;
+    const userId = employee.userId || employee.user?.id || employee.user_id;
+    if (!userId) return;
+
+    const employeeId = employee.id;
+    this.isToggling2FA.update(status => ({
+      ...status,
+      [employeeId]: true
+    }));
+
+    this.twoFactorAuthService.initiateTwoFactor(userId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.isToggling2FA.update(status => ({
+            ...status,
+            [employeeId]: false
+          }));
+          this.twoFASetupStep.set(4);
+          this.twoFAError.set(null);
+        },
+        error: (err) => {
+          this.isToggling2FA.update(status => ({
+            ...status,
+            [employeeId]: false
+          }));
+          this.twoFAError.set(err.error?.error || 'Erreur lors de l\'initiation');
         }
       });
   }
@@ -1036,6 +1089,10 @@ export class EmployesComponent implements OnInit, OnDestroy {
       event.preventDefault();
     }
   }
+
+  // ========================================================================
+  // CHARGEMENT DES DONNÉES
+  // ========================================================================
 
   private loadInitialData(): void {
     this.loadEntreprises();
@@ -1221,7 +1278,9 @@ export class EmployesComponent implements OnInit, OnDestroy {
                   entrepriseId: companyId
                 }));
                 
-                this.employees.set(mapped);
+                // Tri du plus récent au plus ancien
+                const sorted = this.sortEmployeesByDate(mapped);
+                this.employees.set(sorted);
                 this.isLoading.set(false);
               },
               error: () => this.loadAllEmployees()
@@ -1241,7 +1300,9 @@ export class EmployesComponent implements OnInit, OnDestroy {
             id: emp.id || emp.id,
             departementId: emp.departementId || emp.departementid
           }));
-          this.employees.set(mapped);
+          // Tri du plus récent au plus ancien
+          const sorted = this.sortEmployeesByDate(mapped);
+          this.employees.set(sorted);
           this.isLoading.set(false);
           this.loadingError.set(null);
         },
@@ -1252,6 +1313,41 @@ export class EmployesComponent implements OnInit, OnDestroy {
           this.isLoading.set(false);
         }
       });
+  }
+
+  /**
+   * Trie une liste d'employés par date de création décroissante (du plus récent au plus ancien).
+   * Si createdAt n'est pas présent, utilise date_embauche, puis l'id en dernier recours.
+   */
+  private sortEmployeesByDate(employees: any[]): any[] {
+    return [...employees].sort((a, b) => {
+      // Fonction pour extraire une date valide
+      const getDate = (emp: any): Date => {
+        if (emp.createdAt) {
+          const d = new Date(emp.createdAt);
+          if (!isNaN(d.getTime())) return d;
+        }
+        if (emp.date_embauche) {
+          const d = new Date(emp.date_embauche);
+          if (!isNaN(d.getTime())) return d;
+        }
+        // Fallback : utiliser l'id (ObjectId contient un timestamp)
+        if (emp.id) {
+          // Pour les ObjectId MongoDB, on peut extraire le timestamp
+          try {
+            const timestamp = parseInt(emp.id.substring(0, 8), 16) * 1000;
+            return new Date(timestamp);
+          } catch {
+            // ignore
+          }
+        }
+        return new Date(0); // date très ancienne
+      };
+
+      const dateA = getDate(a);
+      const dateB = getDate(b);
+      return dateB.getTime() - dateA.getTime(); // décroissant
+    });
   }
 
   loadEntreprises(): void {
@@ -1610,7 +1706,7 @@ export class EmployesComponent implements OnInit, OnDestroy {
   }
 
   getStep1Fields(): string[] {
-    const fields = ['nom', 'prenom', 'matriculeInterne', 'sexe', 'date_naissance', 'telephone', 'addresse', 'date_embauche', 'posteId', 'departementId', 'entrepriseId'];
+    const fields = ['nom', 'prenom', 'matriculeInterne', 'sexe', 'date_naissance', 'telephone', 'numeroContactUrgence', 'addresse', 'date_embauche', 'posteId', 'departementId', 'entrepriseId'];
     if (!this.isEditMode()) fields.push('email', 'password', 'roleId');
     return fields;
   }
@@ -1767,9 +1863,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Supprime un fichier de la liste des documents du contrat
-   */
   removeContratFile(index: number): void {
     if (index >= 0 && index < this.contratFiles.length) {
       this.contratFiles.splice(index, 1);
@@ -1810,7 +1903,7 @@ export class EmployesComponent implements OnInit, OnDestroy {
     });
     this.contratFiles = [];
     this.selectedContractType.set('CDI');
-    this.contractTypeConfig.set(CONTRACT_TYPE_CONFIG['CDI']);
+    this.contractTypeConfig.set(this.getAdjustedConfig('CDI'));
     this.showContratModal.set(true);
   }
 
@@ -1919,7 +2012,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
     const rawContrat = this.contractForm.value;
     const { entrepriseId, ...employeePayload } = rawEmp;
 
-    // Construction du payload enrichi avec tous les champs du contrat
     const payload = {
       email: employeePayload.email,
       password: employeePayload.password,
@@ -1931,6 +2023,7 @@ export class EmployesComponent implements OnInit, OnDestroy {
       sexe: employeePayload.sexe,
       date_naissance: employeePayload.date_naissance,
       telephone: employeePayload.telephone,
+      numeroContactUrgence: employeePayload.numeroContactUrgence,
       addresse: employeePayload.addresse,
       date_embauche: employeePayload.date_embauche,
       posteId: employeePayload.posteId,
@@ -1939,7 +2032,6 @@ export class EmployesComponent implements OnInit, OnDestroy {
       typeContrat: rawContrat.typeContrat,
       dateDebutContrat: rawContrat.dateDebut,
       dateFinContrat: rawContrat.dateFin || null,
-      // Ajout des nouveaux champs
       salaireBrut: rawContrat.salaireBrut || null,
       salaireNet: rawContrat.salaireNet || null,
       tauxHoraire: rawContrat.tauxHoraire || null,
@@ -2017,6 +2109,7 @@ export class EmployesComponent implements OnInit, OnDestroy {
       sexe: updateData.sexe,
       date_naissance: updateData.date_naissance,
       telephone: updateData.telephone,
+      numeroContactUrgence: updateData.numeroContactUrgence,
       addresse: updateData.addresse,
       date_embauche: updateData.date_embauche,
       posteId: updateData.posteId,
@@ -2073,6 +2166,10 @@ export class EmployesComponent implements OnInit, OnDestroy {
       });
   }
 
+  // ========================================================================
+  // MÉTHODES MODALE DÉTAILS AVEC HISTORIQUE
+  // ========================================================================
+
   viewEmployeeDetails(id: string): void {
     if (!this.canViewAllEmployees() && !this.canViewEmployee()) {
       alert('Vous n\'avez pas la permission de voir les details d\'un employe.');
@@ -2087,10 +2184,14 @@ export class EmployesComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (emp: any) => {
           this.selectedEmployee.set(emp);
+          this.activeDetailTab.set('info');
+          this.employeeHistory.set(null);
           this.contratService.getByEmployee(id)
             .pipe(takeUntil(this.destroy$))
             .subscribe({
-              next: (c: any[]) => this.activeEmployeeContracts.set(c),
+              next: (c: any[]) => {
+                this.activeEmployeeContracts.set(c);
+              },
               error: () => this.activeEmployeeContracts.set([])
             });
           this.documentService.getByEmployee(id)
@@ -2110,7 +2211,161 @@ export class EmployesComponent implements OnInit, OnDestroy {
   closeDetailModal(): void {
     this.showDetailModal.set(false);
     this.selectedEmployee.set(null);
+    this.employeeHistory.set(null);
+    this.activeDetailTab.set('info');
   }
+
+  // ========================================================================
+  // MÉTHODES POUR L'HISTORIQUE
+  // ========================================================================
+
+  loadEmployeeHistory(employeeId: string): void {
+    if (!employeeId) return;
+    this.isLoadingHistory.set(true);
+    this.employeService.getHistory(employeeId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (history) => {
+          this.employeeHistory.set(history);
+          this.isLoadingHistory.set(false);
+        },
+        error: (err) => {
+          console.error('Erreur chargement historique:', err);
+          this.employeeHistory.set(null);
+          this.isLoadingHistory.set(false);
+        }
+      });
+  }
+
+  downloadHistory(employeeId: string, format: 'csv' | 'pdf'): void {
+    if (!employeeId) return;
+    this.employeService.downloadHistory(employeeId, format)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (blob) => {
+          const extension = format === 'csv' ? 'csv' : 'pdf';
+          const fileName = `historique_employe_${employeeId}.${extension}`;
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        },
+        error: (err) => {
+          console.error('Erreur telechargement historique:', err);
+          alert('Impossible de telecharger l\'historique.');
+        }
+      });
+  }
+
+  switchDetailTab(tab: 'info' | 'contracts' | 'documents' | 'history'): void {
+    this.activeDetailTab.set(tab);
+    if (tab === 'history' && this.selectedEmployee()) {
+      if (!this.employeeHistory()) {
+        this.loadEmployeeHistory(this.selectedEmployee().id);
+      }
+    }
+  }
+
+  getEventIcon(type: string): string {
+    const iconMap: Record<string, string> = {
+      'HIRING': 'person_add',
+      'CONTRACT_START': 'play_circle',
+      'CONTRACT_END': 'stop_circle',
+      'CONTRACT_TERMINATION': 'cancel',
+      'LEAVE': 'beach_access',
+      'ABSENCE': 'event_busy',
+      'DOCUMENT': 'description',
+      'PAYSLIP': 'receipt',
+      'PERFORMANCE': 'trending_up',
+      'LEAVE_BALANCE': 'balance',
+      'STATUS_CHANGE': 'swap_horiz'
+    };
+    return iconMap[type] || 'event_note';
+  }
+
+  getEventColor(type: string): string {
+    const colorMap: Record<string, string> = {
+      'HIRING': 'success',
+      'CONTRACT_START': 'primary',
+      'CONTRACT_END': 'danger',
+      'CONTRACT_TERMINATION': 'danger',
+      'LEAVE': 'warning',
+      'ABSENCE': 'warning',
+      'DOCUMENT': 'info',
+      'PAYSLIP': 'primary',
+      'PERFORMANCE': 'success',
+      'LEAVE_BALANCE': 'info',
+      'STATUS_CHANGE': 'secondary'
+    };
+    return colorMap[type] || 'secondary';
+  }
+
+  /**
+   * Transforme un objet details en tableau de paires clé-valeur pour l'affichage.
+   * Si details est une chaîne, tente de la parser.
+   */
+  getDetailsArray(details: any): { key: string; value: any }[] {
+    if (!details) {
+      return [];
+    }
+
+    // Si c'est déjà un objet, on le convertit directement
+    if (typeof details === 'object' && !Array.isArray(details)) {
+      return Object.keys(details).map(key => ({
+        key: key,
+        value: details[key]
+      }));
+    }
+
+    // Si c'est une chaîne, on tente de la parser
+    if (typeof details === 'string') {
+      try {
+        // Essayer de parser du JSON
+        const parsed = JSON.parse(details);
+        if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return Object.keys(parsed).map(key => ({
+            key: key,
+            value: parsed[key]
+          }));
+        }
+      } catch (e) {
+        // Si ce n'est pas du JSON valide, on essaie d'extraire les paires clé=valeur
+        const pairs = details.match(/(\w+)=([^,{}]+)/g);
+        if (pairs) {
+          return pairs.map(pair => {
+            const [key, ...valueParts] = pair.split('=');
+            return {
+              key: key.trim(),
+              value: valueParts.join('=').trim()
+            };
+          });
+        }
+      }
+    }
+
+    return [];
+  }
+    /**
+   * Vérifie si un employé a un contrat actif qui expire dans les 14 jours.
+   * @param employeeId L'ID de l'employé
+   * @returns true si un contrat actif expire dans les 14 jours, false sinon
+   */
+  isEmployeeContractExpiring(employeeId: string): boolean {
+    if (!employeeId) return false;
+    const employeeContracts = this.contrats().filter(c => c.employeeId === employeeId || c.employee_id === employeeId);
+    // Prendre le contrat actif le plus récent (ou n'importe quel contrat actif)
+    const activeContract = employeeContracts.find(c => c.statut === 'ACTIF');
+    if (!activeContract) return false;
+    return this.isContractExpiring(activeContract);
+  }
+
+  // ========================================================================
+  // AUTRES MÉTHODES
+  // ========================================================================
 
   openAvenantModal(empId?: string): void {
     if (!this.canCreateAvenant()) {

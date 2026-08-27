@@ -45,6 +45,9 @@ export interface LoginResponse {
   userId?: string;
   email?: string;
   twoFactorEnabled?: boolean;
+  twoFactorPending?: boolean;
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface TwoFactorSession {
@@ -98,6 +101,10 @@ export class AuthService {
     }
     return null;
   }
+
+  // =========================
+  // 2FA methods
+  // =========================
 
   verifyTwoFactor(userId: string, otpCode: number): Observable<LoginResponse> {
     console.log(`Verification 2FA pour userId: ${userId}`);
@@ -155,6 +162,106 @@ export class AuthService {
     console.log('Session 2FA effacee');
   }
 
+  // =========================
+  // Gestion des flags 2FA pending
+  // =========================
+
+  private twoFactorPendingSubject = new BehaviorSubject<boolean>(false);
+  twoFactorPending$ = this.twoFactorPendingSubject.asObservable();
+
+  setTwoFactorPending(pending: boolean): void {
+    this.twoFactorPendingSubject.next(pending);
+    if (pending) {
+      sessionStorage.setItem('2FA_PENDING', 'true');
+    } else {
+      sessionStorage.removeItem('2FA_PENDING');
+    }
+  }
+
+  isTwoFactorPending(): boolean {
+    return sessionStorage.getItem('2FA_PENDING') === 'true';
+  }
+
+  clearTwoFactorPending(): void {
+    sessionStorage.removeItem('2FA_PENDING');
+    this.twoFactorPendingSubject.next(false);
+  }
+
+  // =========================
+  // Traitement de la réponse login
+  // =========================
+
+  /**
+   * Traite la réponse de login et stocke les données appropriées.
+   * Gère les cas : token direct, 2FA requis, 2FA en attente.
+   */
+  handleLoginResponse(response: LoginResponse): void {
+    console.log('Handling login response:', response);
+
+    // Cas 1 : token présent -> login complet
+    if (response.accessToken) {
+      this.handleSuccessfulLogin(response);
+      return;
+    }
+
+    // Cas 2 : 2FA requis (déjà activé)
+    if (response.twoFactorRequired === true) {
+      console.log('2FA requis pour l\'utilisateur');
+      if (response.userId && response.email) {
+        this.setTwoFactorSession(response.userId, response.email);
+      }
+      this.setTwoFactorPending(false);
+      return;
+    }
+
+    // Cas 3 : 2FA en attente (secret généré par RH)
+    if (response.twoFactorPending === true) {
+      console.log('2FA en attente d\'activation');
+      this.setTwoFactorPending(true);
+      if (response.userId && response.email) {
+        const partialUser: AuthUser = {
+          id: response.userId,
+          email: response.email,
+          username: response.email,
+          firstName: response.firstName || '',
+          lastName: response.lastName || ''
+        };
+        localStorage.setItem(this.USER_KEY, JSON.stringify(partialUser));
+        this.currentUserSubject.next(partialUser);
+      }
+      return;
+    }
+
+    console.warn('Réponse de login non reconnue:', response);
+  }
+
+  // =========================
+  // Login principal
+  // =========================
+
+  login(email: string, password: string): Observable<LoginResponse> {
+    console.log(`Tentative de login pour: ${email}`);
+    
+    return this.http.post<LoginResponse>(`${this.apiUrl}/login`, { email, password }).pipe(
+      tap({
+        next: (response) => {
+          console.log('Reponse login recue:', response);
+        },
+        error: (error) => {
+          console.error('Erreur login:', error);
+        }
+      }),
+      catchError((error) => {
+        console.error('Erreur login catchee:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  // =========================
+  // Stockage du token et utilisateur
+  // =========================
+
   handleSuccessfulLogin(response: LoginResponse): void {
     console.log('Handling successful login...');
     
@@ -192,11 +299,11 @@ export class AuthService {
                              null;
 
     const user: AuthUser = {
-      id: backendUser.id || backendUser._id,
+      id: backendUser.id || backendUser._id || response.userId,
       username: backendUser.username || backendUser.email || backendUser.firstName || '',
-      email: backendUser.email || '',
-      firstName: backendUser.firstName || '',
-      lastName: backendUser.lastName || '',
+      email: backendUser.email || response.email || '',
+      firstName: backendUser.firstName || response.firstName || '',
+      lastName: backendUser.lastName || response.lastName || '',
       token: token,
       refreshToken: response.refreshToken,
       roles: backendUser.roles || response.roles || [roleName],
@@ -212,6 +319,8 @@ export class AuthService {
 
     localStorage.setItem(this.USER_KEY, JSON.stringify(user));
     this.currentUserSubject.next(user);
+    this.setTwoFactorPending(false);
+    this.clearTwoFactorSession();
 
     console.log('Utilisateur connecte avec succes');
     console.log('   Utilisateur:', user.username);
@@ -219,36 +328,9 @@ export class AuthService {
     console.log('   Token stocke:', this.getToken() ? 'YES' : 'NO');
   }
 
-  login(email: string, password: string): Observable<LoginResponse> {
-    console.log(`Tentative de login pour: ${email}`);
-    
-    return this.http.post<LoginResponse>(`${this.apiUrl}/login`, { email, password }).pipe(
-      tap({
-        next: (response) => {
-          console.log('Reponse login recue:', response);
-          
-          if (response?.twoFactorRequired) {
-            console.log('2FA requis, pas de stockage du token');
-            return;
-          }
-          
-          if (response?.accessToken) {
-            console.log('Token recu, stockage...');
-            this.handleSuccessfulLogin(response);
-          } else {
-            console.error('Aucun token dans la reponse');
-          }
-        },
-        error: (error) => {
-          console.error('Erreur login:', error);
-        }
-      }),
-      catchError((error) => {
-        console.error('Erreur login catchee:', error);
-        return throwError(() => error);
-      })
-    );
-  }
+  // =========================
+  // Autres méthodes (refresh, logout, etc.)
+  // =========================
 
   private loadStoredUser(): void {
     const token = this.getToken();

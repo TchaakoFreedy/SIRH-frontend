@@ -1,3 +1,7 @@
+// src/app/features/dashboard/models/dashboard-rh.model.ts
+
+import { Alert } from './alert.model';
+
 export interface DashboardRHResponse {
   totalEmployees: number;
   totalDepartments: number;
@@ -33,19 +37,12 @@ export interface DashboardRHResponse {
     description: string;
     employeeName: string;
   }[];
-  alerts: {
-    type: string;
-    severity: 'INFO' | 'WARNING' | 'CRITICAL';
-    message: string;
-    details: any;
-  }[];
-  
-  // Nouveaux indicateurs pour discipline, sanctions et performance
+  alerts: Alert[];
+
+  // Indicateurs discipline, sanctions, performance
   pendingExplanationRequests: number;
   activeSanctions: number;
   pendingEvaluations: number;
-  
-  // Données pour les graphiques supplémentaires
   explanationRequestsEvolution: {
     month: string;
     count: number;

@@ -1,3 +1,7 @@
+// src/app/features/dashboard/models/dashboard-manager.model.ts
+
+import { Alert } from './alert.model';
+
 export interface DashboardManagerResponse {
   teamSize: number;
   employeesAbsentToday: number;
@@ -17,8 +21,9 @@ export interface DashboardManagerResponse {
     description: string;
     employeeName: string;
   }[];
-  
-  // Nouveaux indicateurs pour discipline, sanctions et performance (périmètre manager)
+  alerts?: Alert[]; // optionnel
+
+  // Indicateurs discipline, sanctions, performance
   pendingExplanationRequests: number;
   activeSanctions: number;
   pendingEvaluations: number;

@@ -3,7 +3,7 @@
 import { Component, OnInit, signal, computed, inject, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { forkJoin, catchError, of, finalize, Subject, takeUntil } from 'rxjs';
+import { forkJoin, catchError, of, finalize, Subject, takeUntil, switchMap, map } from 'rxjs';
 
 import { AuthService, AuthUser } from '../../../services/auth.service';
 import { EmployeService } from '../../../core/services/employe.service';
@@ -21,7 +21,7 @@ import { environment } from '../../../../environments/environment';
   selector: 'app-profil',
   standalone: true,
   imports: [
-    CommonModule, 
+    CommonModule,
     ReactiveFormsModule,
     DocumentPreviewModalComponent
   ],
@@ -76,7 +76,7 @@ export class ProfilComponent implements OnInit, OnDestroy {
   selectedPhotoFile: File | null = null;
   userRoleLabel: string = '';
   selectedDocument = signal<DocumentPreviewData | null>(null);
-  
+
   // ─── SIGNALS ──────────────────────────────────────────────────────────────
   posteNom = signal<string>('');
   departementNom = signal<string>('');
@@ -135,6 +135,7 @@ export class ProfilComponent implements OnInit, OnDestroy {
   private initFormularies(): void {
     this.personalForm = this.fb.group({
       telephone: ['', [Validators.required, Validators.pattern(/^[0-9+ ]{9,14}$/)]],
+      numeroContactUrgence: ['', [Validators.pattern(/^[0-9+ ]{9,14}$/)]],
       adresse: ['', [Validators.required, Validators.minLength(3)]]
     });
 
@@ -164,10 +165,10 @@ export class ProfilComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (userFromAuth) => {
         this.authUser = userFromAuth;
-        
+
         if (!userFromAuth) {
           this.isLoading.set(false);
-          return; 
+          return;
         }
 
         if (!userFromAuth.id) {
@@ -176,59 +177,186 @@ export class ProfilComponent implements OnInit, OnDestroy {
           return;
         }
 
-        this.currentUserId.set(userFromAuth.id);
+        const userId = userFromAuth.id;
+        this.currentUserId.set(userId);
         this.currentUserEmail.set(userFromAuth.email || '');
 
-        this.userService.getUser(userFromAuth.id).pipe(
-          takeUntil(this.destroy$)
+        // Récupération de l'utilisateur puis du rôle
+        this.userService.getUser(userId).pipe(
+          takeUntil(this.destroy$),
+          switchMap((userFull: User) => {
+            this.currentUser = userFull;
+            if (userFull.roleId) {
+              return this.userService.getRole(userFull.roleId).pipe(
+                map(role => {
+                  userFull.role = role;
+                  return userFull;
+                }),
+                catchError(() => {
+                  return of(userFull);
+                })
+              );
+            } else {
+              return of(userFull);
+            }
+          })
         ).subscribe({
           next: (userFull: User) => {
             this.currentUser = userFull;
-            
             this.isRH.set(userFull.role?.name === 'RH');
             this.userRoleLabel = this.userService.getRoleLabel(userFull.role?.name || '');
-            
+            console.log('Rôle récupéré:', this.userRoleLabel);
+
             this.checkTwoFactorStatus(userFull.id);
-            
-            const employeeId = userFull.employeeId || this.authUser?.employeeId || this.authUser?.id || '';
-            
+
+            let employeeId = userFull.employeeId || this.authUser?.employeeId;
+            if (employeeId && employeeId === userFull.id) {
+              console.warn('employeeId est identique à userId, on ignore');
+              employeeId = undefined;
+            }
+
             if (employeeId) {
-              this.loadEmployeeData(employeeId);
+              this.loadEmployeeDataViaId(employeeId, userFull.id);
             } else {
-              this.showToast('error', 'Impossible de trouver les donnees employe.');
-              this.isLoading.set(false);
+              this.loadEmployeeDataViaUserId(userFull.id);
             }
           },
           error: (err) => {
-            console.error('Erreur chargement user:', err);
-            const fallbackUser: User = {
-              id: this.authUser!.id!,
-              firstName: this.authUser?.firstName || '',
-              lastName: this.authUser?.lastName || '',
-              email: this.authUser?.email || '',
-              active: true,
-              roleId: this.authUser?.roleId || '',
-              loginAttempts: 0,
-              locked: false,
-              createdAt: '',
-              createdBy: '',
-              employeeId: this.authUser?.employeeId
-            };
-            this.currentUser = fallbackUser;
-            this.currentUserEmail.set(this.authUser?.email || '');
-            
-            const employeeId = this.authUser?.employeeId || this.authUser?.id || '';
-            if (employeeId) {
-              this.loadEmployeeData(employeeId);
+            console.error('Erreur lors du chargement de l\'utilisateur/rôle:', err);
+            this.userRoleLabel = 'Utilisateur';
+            this.isRH.set(false);
+            const userIdFallback = this.authUser?.id || '';
+            if (userIdFallback) {
+              this.loadEmployeeDataViaUserId(userIdFallback);
             } else {
               this.isLoading.set(false);
-              this.showToast('error', 'Impossible de trouver les donnees employe.');
+              this.showToast('error', 'Impossible de charger les données.');
             }
           }
         });
       },
       error: (err) => {
         console.error('Erreur lors du suivi de la session:', err);
+        this.isLoading.set(false);
+      }
+    });
+  }
+
+  private loadEmployeeDataViaId(employeeId: string, userId: string): void {
+    this.isLoading.set(true);
+    this.employeService.getById(employeeId).pipe(
+      takeUntil(this.destroy$),
+      catchError((err) => {
+        console.warn(`Erreur avec getById(${employeeId}), tentative getByUserId(${userId})`, err);
+        return this.employeService.getByUserId(userId).pipe(
+          catchError(() => of(null))
+        );
+      })
+    ).subscribe({
+      next: (employe) => {
+        if (employe) {
+          this.chargerDonneesEmploye(employe);
+        } else {
+          this.showToast('error', 'Impossible de trouver les donnees employe.');
+          this.isLoading.set(false);
+        }
+      },
+      error: () => {
+        this.showToast('error', 'Erreur lors du chargement du profil.');
+        this.isLoading.set(false);
+      }
+    });
+  }
+
+  private loadEmployeeDataViaUserId(userId: string): void {
+    this.isLoading.set(true);
+    this.employeService.getByUserId(userId).pipe(
+      takeUntil(this.destroy$),
+      catchError(() => of(null))
+    ).subscribe({
+      next: (employe) => {
+        if (employe) {
+          this.chargerDonneesEmploye(employe);
+        } else {
+          this.showToast('error', 'Aucun employe associe a cet utilisateur.');
+          this.isLoading.set(false);
+        }
+      },
+      error: () => {
+        this.showToast('error', 'Erreur lors du chargement du profil.');
+        this.isLoading.set(false);
+      }
+    });
+  }
+
+  private chargerDonneesEmploye(employe: any): void {
+    this.profil = employe;
+    console.log('Employee loaded:', this.profil);
+
+    this.personalForm.patchValue({
+      telephone: employe.telephone || '',
+      numeroContactUrgence: employe.numeroContactUrgence || '',
+      adresse: employe.addresse || ''
+    });
+
+    if (this.profil.departementId) {
+      this.departementService
+        .getById(this.profil.departementId)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (departement) => {
+            this.departementNom.set(departement?.name || 'Departement sans nom');
+            this.cdr.detectChanges();
+          },
+          error: () => {
+            this.departementNom.set('Departement inconnu');
+            this.cdr.detectChanges();
+          }
+        });
+    } else {
+      this.departementNom.set('Aucun departement assigne');
+    }
+
+    if (this.profil.posteId) {
+      this.postesService
+        .getById(this.profil.posteId)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (poste: Poste) => {
+            this.posteNom.set(poste?.libelle || 'Poste sans libelle');
+            this.cdr.detectChanges();
+          },
+          error: () => {
+            this.posteNom.set('Poste inconnu');
+            this.cdr.detectChanges();
+          }
+        });
+    } else {
+      this.posteNom.set('Aucun poste assigne');
+    }
+
+    const employeeId = employe.id;
+    forkJoin({
+      contrats: this.contratService.getByEmployee(employeeId).pipe(catchError(() => of([]))),
+      docs: this.documentService.getByEmployee(employeeId).pipe(catchError(() => of([])))
+    }).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => {
+        this.isLoading.set(false);
+        console.log('Loading complete');
+      })
+    ).subscribe({
+      next: (res) => {
+        this.contrats = res.contrats || [];
+        this.documents = res.docs || [];
+        console.log('Documents loaded:', this.documents.length, 'documents');
+        if (this.documents.length > 0) {
+          console.log('Sample document:', this.documents[0]);
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Erreur chargement contrats/docs:', err);
         this.isLoading.set(false);
       }
     });
@@ -244,8 +372,7 @@ export class ProfilComponent implements OnInit, OnDestroy {
         this.isTwoFactorEnabled.set(status);
         console.log('2FA Status:', status ? 'Active' : 'Desactive');
       },
-      error: (err) => {
-        console.error('Erreur verification 2FA:', err);
+      error: () => {
         this.isTwoFactorEnabled.set(false);
       }
     });
@@ -422,99 +549,6 @@ export class ProfilComponent implements OnInit, OnDestroy {
     document.body.removeChild(textarea);
   }
 
-  // ─── Autres methodes existantes ──────────────────────────────────────────
-
-  private loadEmployeeData(employeeId: string): void {
-    this.isLoading.set(true);
-
-    forkJoin({
-      employe: this.employeService.getById(employeeId).pipe(catchError(() => of(null))),
-      contrats: this.contratService.getByEmployee(employeeId).pipe(catchError(() => of([]))),
-      docs: this.documentService.getByEmployee(employeeId).pipe(catchError(() => of([])))
-    }).pipe(
-      takeUntil(this.destroy$),
-      finalize(() => {
-        this.isLoading.set(false);
-        console.log('Loading complete');
-      })
-    ).subscribe({
-      next: (res) => {
-        console.log('Raw response from forkJoin:', res);
-        
-        if (res.employe) {
-          this.profil = res.employe;
-          console.log('Employee loaded:', this.profil);
-          
-          this.personalForm.patchValue({
-            telephone: res.employe.telephone || '',
-            adresse: res.employe.addresse || ''
-          });
-
-          if (this.profil.departementId) {
-            this.departementService
-              .getById(this.profil.departementId)
-              .pipe(takeUntil(this.destroy$))
-              .subscribe({
-                next: (departement) => {
-                  this.departementNom.set(departement?.name || 'Departement sans nom');
-                  this.cdr.detectChanges();
-                },
-                error: (err) => {
-                  console.error('Erreur departement :', err);
-                  this.departementNom.set('Departement inconnu');
-                  this.cdr.detectChanges();
-                }
-              });
-          } else {
-            this.departementNom.set('Aucun departement assigne');
-          }
-
-          if (this.profil.posteId) {
-            this.postesService
-              .getById(this.profil.posteId)
-              .pipe(takeUntil(this.destroy$))
-              .subscribe({
-                next: (poste: Poste) => {
-                  const postName = poste?.libelle || 'Poste sans libelle';
-                  this.posteNom.set(postName);
-                  this.cdr.detectChanges();
-                },
-                error: (err) => {
-                  console.error('Erreur chargement poste :', err);
-                  this.posteNom.set('Poste inconnu');
-                  this.cdr.detectChanges();
-                }
-              });
-          } else {
-            this.posteNom.set('Aucun poste assigne');
-          }
-
-          this.contrats = res.contrats || [];
-          this.documents = res.docs || [];
-          
-          console.log('Documents loaded:', this.documents.length, 'documents');
-          if (this.documents.length > 0) {
-            console.log('Sample document:', this.documents[0]);
-            console.log('Document imageUrls:', this.documents[0].imageUrls);
-          } else {
-            console.log('No documents found for this employee');
-          }
-
-          this.cdr.detectChanges();
-          
-        } else {
-          console.error('No employee data received');
-          this.showToast('error', 'Profil employe introuvable.');
-        }
-      },
-      error: (err) => {
-        console.error('Erreur chargement donnees:', err);
-        this.showToast('error', 'Erreur lors du chargement des donnees.');
-        this.isLoading.set(false);
-      }
-    });
-  }
-
   // ─── Navigation ─────────────────────────────────────────────────────────
   changerOnglet(id: string): void {
     this.ongletActif.set(id);
@@ -526,6 +560,7 @@ export class ProfilComponent implements OnInit, OnDestroy {
     if (this.profil) {
       this.personalForm.patchValue({
         telephone: this.profil.telephone || '',
+        numeroContactUrgence: this.profil.numeroContactUrgence || '',
         adresse: this.profil.addresse || ''
       });
     }
@@ -538,6 +573,7 @@ export class ProfilComponent implements OnInit, OnDestroy {
     if (this.profil) {
       this.personalForm.patchValue({
         telephone: this.profil.telephone || '',
+        numeroContactUrgence: this.profil.numeroContactUrgence || '',
         adresse: this.profil.addresse || ''
       });
     }
@@ -554,12 +590,13 @@ export class ProfilComponent implements OnInit, OnDestroy {
 
     this.isSaving.set(true);
 
-    // Recuperer les valeurs du formulaire
     const telephoneValue = this.personalForm.value.telephone || '';
+    const numeroUrgenceValue = this.personalForm.value.numeroContactUrgence || '';
     const adresseValue = this.personalForm.value.adresse || '';
 
     const updatedData = {
       telephone: telephoneValue,
+      numeroContactUrgence: numeroUrgenceValue,
       addresse: adresseValue
     };
 
@@ -574,14 +611,14 @@ export class ProfilComponent implements OnInit, OnDestroy {
         this.profil = savedEmployee;
         this.isEditMode.set(false);
         this.showToast('success', 'Profil mis a jour avec succes.');
-        
+
         if (this.selectedPhotoFile) {
           this.uploadPhoto();
         }
       },
       error: (err) => {
         console.error('Erreur mise a jour:', err);
-        
+
         if (err.status === 403) {
           this.showToast('error', 'Vous n avez pas la permission de modifier ce champ.');
         } else if (err.status === 401) {
@@ -667,12 +704,12 @@ export class ProfilComponent implements OnInit, OnDestroy {
 
     console.log('Downloading single document by ID:', event.documentId);
     this.isDownloading.set(true);
-    
+
     this.documentService.downloadDocumentFileAndSave(
-      event.documentId, 
+      event.documentId,
       event.name || 'document'
     );
-    
+
     setTimeout(() => {
       this.isDownloading.set(false);
       this.showToast('success', 'Telechargement en cours.');
@@ -681,26 +718,26 @@ export class ProfilComponent implements OnInit, OnDestroy {
 
   downloadDocumentById(documentId: string, fileName?: string): void {
     console.log('Downloading document by ID:', documentId);
-    
+
     const doc = this.documents.find(d => d.id === documentId);
-    
+
     if (!doc) {
       this.showToast('error', 'Document non trouve.');
       return;
     }
-    
+
     if (!doc.imageUrls || doc.imageUrls.length === 0) {
       this.showToast('error', 'Aucun fichier disponible pour ce document.');
       return;
     }
-    
+
     this.isDownloading.set(true);
-    
+
     this.documentService.downloadDocumentFileAndSave(
-      documentId, 
+      documentId,
       fileName || doc.name || 'document'
     );
-    
+
     setTimeout(() => {
       this.isDownloading.set(false);
       this.showToast('success', 'Telechargement en cours.');
@@ -714,7 +751,7 @@ export class ProfilComponent implements OnInit, OnDestroy {
     }
 
     this.isDownloading.set(true);
-    
+
     try {
       event.urls.forEach((url, index) => {
         setTimeout(() => {
@@ -722,7 +759,7 @@ export class ProfilComponent implements OnInit, OnDestroy {
           this.documentService.downloadDocument(url, fileName);
         }, index * 500);
       });
-      
+
       this.showToast('success', 'Telechargement de ' + event.urls.length + ' fichiers en cours.');
     } catch (error) {
       console.error('Error downloading:', error);
@@ -739,7 +776,7 @@ export class ProfilComponent implements OnInit, OnDestroy {
       this.showToast('error', 'Aucun fichier disponible.');
       return;
     }
-    
+
     this.documentService.downloadDocument(url, fileName);
   }
 
@@ -755,7 +792,7 @@ export class ProfilComponent implements OnInit, OnDestroy {
   }
 
   // ─── Image Utilities ──────────────────────────────────────────────────
-  
+
   getDocumentPreviewUrl(documentId: string): string {
     return this.apiUrl + '/documents-management/pieces/' + documentId + '/preview';
   }
@@ -764,19 +801,19 @@ export class ProfilComponent implements OnInit, OnDestroy {
     const imageTypes = ['PHOTO', 'IMAGE', 'CNI'];
     const type = doc.typeDocument?.toUpperCase() || '';
     const name = doc.name?.toLowerCase() || '';
-    
+
     if (imageTypes.some(t => type.includes(t) || type === t)) {
       return true;
     }
-    
+
     if (doc.imageUrls && doc.imageUrls.length > 0) {
       const url = doc.imageUrls[0].toLowerCase();
-      return url.endsWith('.jpg') || url.endsWith('.jpeg') || 
-             url.endsWith('.png') || url.endsWith('.gif') || 
-             url.endsWith('.webp') || url.endsWith('.svg') ||
-             url.endsWith('.bmp');
+      return url.endsWith('.jpg') || url.endsWith('.jpeg') ||
+        url.endsWith('.png') || url.endsWith('.gif') ||
+        url.endsWith('.webp') || url.endsWith('.svg') ||
+        url.endsWith('.bmp');
     }
-    
+
     return false;
   }
 
@@ -836,10 +873,10 @@ export class ProfilComponent implements OnInit, OnDestroy {
     try {
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) return '—';
-      return date.toLocaleDateString('fr-FR', { 
-        day: '2-digit', 
-        month: 'long', 
-        year: 'numeric' 
+      return date.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
       });
     } catch {
       return '—';

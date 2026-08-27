@@ -45,7 +45,25 @@ export class TwoFactorAuthService {
   }
 
   /**
-   * Active le 2FA pour un utilisateur (RH uniquement)
+   * Initie le processus 2FA pour un utilisateur (RH uniquement)
+   * Génère un secret et le met en attente.
+   */
+  initiateTwoFactor(userId: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/2fa/admin/initiate/${userId}`, {});
+  }
+
+  /**
+   * Récupère les informations de 2FA en attente pour un utilisateur donné
+   * (QR code, secret, backup codes)
+   */
+  getPendingTwoFactor(userId: string): Observable<{ secret: string; qrCodeUrl: string; backupCodes: string[] }> {
+    return this.http.get<{ secret: string; qrCodeUrl: string; backupCodes: string[] }>(
+      `${this.apiUrl}/2fa/pending?userId=${userId}`
+    );
+  }
+
+  /**
+   * Active le 2FA pour un utilisateur (RH uniquement) - Déprécié
    */
   enableTwoFactorByRH(userId: string): Observable<TwoFactorSetupResponse> {
     return this.http.post<TwoFactorSetupResponse>(`${this.apiUrl}/2fa/admin/enable/${userId}`, {});

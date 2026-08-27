@@ -85,10 +85,7 @@ export interface CreateContratRequest {
   observations?: string | null;
 }
 
-// Ajout des interfaces manquantes
-export interface UpdateContratRequest extends Partial<CreateContratRequest> {
-  // On peut ajouter des champs spécifiques si besoin
-}
+export interface UpdateContratRequest extends Partial<CreateContratRequest> {}
 
 export interface RenouvellementContratRequest {
   contratId: string;
@@ -105,6 +102,39 @@ export interface StatistiquesContratDTO {
   parStatut: Record<string, number>;
   parType: Record<string, number>;
   tauxActif: number;
+}
+
+// ============================================================
+// CONFIGURATION DES ALERTES DE CONTRAT (GLOBALE)
+// ============================================================
+
+export interface ContractAlertConfig {
+  id?: string;
+  enabled: boolean;
+  daysBefore: number;
+  emailRecipients: string[];
+  emailCc: string[];
+  emailSubject: string;
+  emailBodyTemplate: string;
+}
+
+export interface CreateContractAlertConfigRequest {
+  companyId: string;
+  enabled?: boolean;
+  daysBefore?: number;
+  emailRecipients?: string[];
+  emailCc?: string[];
+  emailSubject?: string;
+  emailBodyTemplate?: string;
+}
+
+export interface UpdateContractAlertConfigRequest {
+  enabled?: boolean;
+  daysBefore?: number;
+  emailRecipients?: string[];
+  emailCc?: string[];
+  emailSubject?: string;
+  emailBodyTemplate?: string;
 }
 
 // Configuration des types de contrat
@@ -194,7 +224,7 @@ export const CONTRACT_TYPE_CONFIG: Record<TypeContrat, {
   }
 };
 
-// Fonctions utilitaires (une seule fois)
+// Fonctions utilitaires
 export function getContractTypeConfig(type: TypeContrat): typeof CONTRACT_TYPE_CONFIG[TypeContrat] | null {
   return CONTRACT_TYPE_CONFIG[type] || null;
 }

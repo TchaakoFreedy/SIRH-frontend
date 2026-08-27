@@ -1,0 +1,99 @@
+<div class="twofa-activation">
+  <div class="twofa-card">
+    <div class="twofa-header">
+      <div class="twofa-icon">
+        <span class="material-symbols-outlined">shield</span>
+      </div>
+      <h2>Securite – Authentification a deux facteurs</h2>
+      <p>Renforcez la securite de votre compte en activant la double authentification.</p>
+    </div>
+
+    @if (isLoading()) {
+      <div class="loading-spinner">
+        <div class="spinner-border"></div>
+        <p>Chargement des informations...</p>
+      </div>
+    }
+
+    @if (errorMessage()) {
+      <div class="alert alert-danger">
+        <span class="material-symbols-outlined">error</span>
+        {{ errorMessage() }}
+      </div>
+    }
+
+    @if (isTwoFactorEnabled()) {
+      <div class="success-message">
+        <span class="material-symbols-outlined">check_circle</span>
+        <div>
+          <strong>2FA active</strong>
+          <p>Votre compte est protege par une double authentification.</p>
+        </div>
+      </div>
+    }
+
+    @if (!isTwoFactorEnabled() && pendingInfo()) {
+      <div class="pending-info">
+        <div class="qr-section">
+          <h3>Etape 1 : Scannez le QR code</h3>
+          <p>Utilisez Google Authenticator ou une application compatible pour scanner ce code.</p>
+          <div class="qr-code">
+            <img [src]="pendingInfo()!.qrCodeUrl" alt="QR Code 2FA" />
+          </div>
+          <div class="secret-key">
+            <strong>Cle secrete :</strong> <code>{{ pendingInfo()!.secret }}</code>
+          </div>
+        </div>
+
+        <div class="backup-codes">
+          <h3>Codes de recuperation</h3>
+          <p>Conservez ces codes dans un endroit sur. Chaque code ne peut etre utilise qu'une seule fois.</p>
+          <div class="codes-grid">
+            @for (code of pendingInfo()!.backupCodes; track $index) {
+              <span>{{ code }}</span>
+            }
+          </div>
+        </div>
+
+        <div class="activation-form">
+          <h3>Etape 2 : Saisissez le code</h3>
+          <p>Entrez le code a 6 chiffres genere par votre application d'authentification.</p>
+          <div class="form-group">
+            <label for="otpCode">Code OTP</label>
+            <input
+              id="otpCode"
+              type="text"
+              [ngModel]="otpCode()"
+              (ngModelChange)="otpCode.set($event)"
+              maxlength="6"
+              placeholder="000000"
+              (keypress)="onlyNumbers($event)"
+              [disabled]="isActivating()"
+            />
+          </div>
+          <button class="btn btn-primary" (click)="activate()" [disabled]="isActivating() || otpCode().length !== 6">
+            @if (!isActivating()) {
+              <span>Activer le 2FA</span>
+            } @else {
+              <span class="spinner">...</span>
+            }
+          </button>
+          @if (errorMessage() && !isLoading()) {
+            <div class="error-text">{{ errorMessage() }}</div>
+          }
+          @if (activationSuccess()) {
+            <div class="success-text">2FA active avec succes !</div>
+          }
+        </div>
+      </div>
+    }
+
+    @if (!isTwoFactorEnabled() && !pendingInfo() && !isLoading()) {
+      <div class="empty-state">
+        <span class="material-symbols-outlined">info</span>
+        <p>Aucune demande d'activation 2FA en cours.</p>
+        <p class="hint">Contactez votre RH si vous souhaitez activer la double authentification.</p>
+      </div>
+    }
+  </div>
+</div>

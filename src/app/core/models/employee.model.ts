@@ -11,6 +11,7 @@ export interface Employee {
   sexe: string;
   date_naissance: string;
   telephone: number;
+  numeroContactUrgence?: string;   // AJOUTÉ
   addresse: string;
   date_embauche: string;
   statut: string;
@@ -22,8 +23,8 @@ export interface Employee {
   updatedBy?: string;
   departement: Departement;
   
-  nombreEnfantsMoinsDe7Ans?: number;  // Pour le calcul des droits
-  nombreEnfants?: number;             // Si le champ existe sous ce nom
-  email?: string;                     // Optionnel
-  telephonePortable?: string;         // Optionnel
+  nombreEnfantsMoinsDe7Ans?: number;
+  nombreEnfants?: number;
+  email?: string;
+  telephonePortable?: string;
 }

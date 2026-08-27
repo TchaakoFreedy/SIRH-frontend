@@ -239,139 +239,169 @@
         }
       </nav>
 
-      <!-- ═══ ONGLET PERSONNEL ═══ -->
-      @if (ongletActif() === 'personnel') {
-        <div class="onglet-content" role="tabpanel">
-          <div class="section-header">
-            <div>
-              <h2 class="section-title">Informations personnelles</h2>
-              <p class="section-subtitle">Consultez et mettez à jour vos coordonnées</p>
-            </div>
-            @if (!isEditMode()) {
-              <button class="btn btn--primary" (click)="activerModification()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+     <!-- ═══ ONGLET PERSONNEL ═══ -->
+@if (ongletActif() === 'personnel') {
+  <div class="onglet-content" role="tabpanel">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Informations personnelles</h2>
+        <p class="section-subtitle">Consultez et mettez à jour vos coordonnées</p>
+      </div>
+      @if (!isEditMode()) {
+        <button class="btn btn--primary" (click)="activerModification()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+          Modifier
+        </button>
+      } @else {
+        <div class="action-group">
+          <button class="btn btn--ghost" (click)="annulerModification()" [disabled]="isSaving()">
+            Annuler
+          </button>
+          <button class="btn btn--primary" [disabled]="isSaving()" (click)="sauvegarderModifications()">
+            @if (isSaving()) {
+              <span class="btn__spinner"></span>
+            } @else {
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+              </svg>
+              Sauvegarder
+            }
+          </button>
+        </div>
+      }
+    </div>
+
+    <form [formGroup]="personalForm" class="profil-form">
+      <div class="form-grid">
+        <!-- Nom complet -->
+        <div class="form-field form-field--full">
+          <label class="form-label">Nom complet</label>
+          <div class="form-readonly">
+            <span>{{ profil?.prenom }} {{ profil?.nom }}</span>
+            <span class="form-readonly__badge">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <path d="M7 7h.01M7 12h.01M7 17h.01"/>
+                <path d="M12 7h5M12 12h5M12 17h5"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+
+        <!-- Genre -->
+        <div class="form-field">
+          <label class="form-label">Genre</label>
+          <div class="form-readonly">
+            <span>{{ profil?.sexe || 'Non spécifié' }}</span>
+          </div>
+        </div>
+
+        <!-- Date de naissance -->
+        <div class="form-field">
+          <label class="form-label">Date de naissance</label>
+          <div class="form-readonly">
+            <span>{{ formatDate(profil?.date_naissance) }}</span>
+          </div>
+        </div>
+
+        <!-- Téléphone -->
+        <div class="form-field">
+          <label class="form-label">
+            Téléphone
+            @if (isEditMode()) {
+              <span class="form-label__editable">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
-                Modifier
-              </button>
-            } @else {
-              <div class="action-group">
-                <button class="btn btn--ghost" (click)="annulerModification()" [disabled]="isSaving()">
-                  Annuler
-                </button>
-                <button class="btn btn--primary" [disabled]="isSaving()" (click)="sauvegarderModifications()">
-                  @if (isSaving()) {
-                    <span class="btn__spinner"></span>
-                  } @else {
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                      <polyline points="17 21 17 13 7 13 7 21"/>
-                      <polyline points="7 3 7 8 15 8"/>
-                    </svg>
-                    Sauvegarder
-                  }
-                </button>
-              </div>
+              </span>
             }
-          </div>
-
-          <form [formGroup]="personalForm" class="profil-form">
-            <div class="form-grid">
-              <!-- Nom complet -->
-              <div class="form-field form-field--full">
-                <label class="form-label">Nom complet</label>
-                <div class="form-readonly">
-                  <span>{{ profil?.prenom }} {{ profil?.nom }}</span>
-                  <span class="form-readonly__badge">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                      <path d="M7 7h.01M7 12h.01M7 17h.01"/>
-                      <path d="M12 7h5M12 12h5M12 17h5"/>
-                    </svg>
-                  </span>
-                </div>
-              </div>
-
-              <!-- Genre -->
-              <div class="form-field">
-                <label class="form-label">Genre</label>
-                <div class="form-readonly">
-                  <span>{{ profil?.sexe || 'Non spécifié' }}</span>
-                </div>
-              </div>
-
-              <!-- Date de naissance -->
-              <div class="form-field">
-                <label class="form-label">Date de naissance</label>
-                <div class="form-readonly">
-                  <span>{{ formatDate(profil?.date_naissance) }}</span>
-                </div>
-              </div>
-
-              <!-- Téléphone -->
-              <div class="form-field">
-                <label class="form-label">
-                  Téléphone
-                  @if (isEditMode()) {
-                    <span class="form-label__editable">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                      </svg>
-                    </span>
-                  }
-                </label>
-                @if (isEditMode()) {
-                  <input
-                    type="tel"
-                    formControlName="telephone"
-                    class="form-input"
-                    [class.form-input--error]="f['telephone'].invalid && f['telephone'].touched"
-                    placeholder="Ex: 06 12 34 56 78"/>
-                  @if (f['telephone'].invalid && f['telephone'].touched) {
-                    <span class="form-error">Format invalide</span>
-                  }
-                } @else {
-                  <div class="form-readonly form-readonly--editable">
-                    <span>{{ profil?.telephone || 'Non renseigné' }}</span>
-                  </div>
-                }
-              </div>
-
-              <!-- Adresse -->
-              <div class="form-field form-field--full">
-                <label class="form-label">
-                  Adresse de résidence
-                  @if (isEditMode()) {
-                    <span class="form-label__editable">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                      </svg>
-                    </span>
-                  }
-                </label>
-                @if (isEditMode()) {
-                  <input
-                    type="text"
-                    formControlName="adresse"
-                    class="form-input"
-                    [class.form-input--error]="f['adresse'].invalid && f['adresse'].touched"
-                    placeholder="Votre adresse complète"/>
-                  @if (f['adresse'].invalid && f['adresse'].touched) {
-                    <span class="form-error">Adresse requise</span>
-                  }
-                } @else {
-                  <div class="form-readonly form-readonly--editable">
-                    <span>{{ profil?.addresse || 'Non renseignée' }}</span>
-                  </div>
-                }
-              </div>
+          </label>
+          @if (isEditMode()) {
+            <input
+              type="tel"
+              formControlName="telephone"
+              class="form-input"
+              [class.form-input--error]="f['telephone'].invalid && f['telephone'].touched"
+              placeholder="Ex: 06 12 34 56 78"/>
+            @if (f['telephone'].invalid && f['telephone'].touched) {
+              <span class="form-error">Format invalide</span>
+            }
+          } @else {
+            <div class="form-readonly form-readonly--editable">
+              <span>{{ profil?.telephone || 'Non renseigné' }}</span>
             </div>
-          </form>
+          }
         </div>
-      }
+
+        <!-- === Numéro d'urgence (AJOUT) === -->
+        <div class="form-field">
+          <label class="form-label">
+            Numéro d'urgence
+            @if (isEditMode()) {
+              <span class="form-label__editable">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </span>
+            }
+          </label>
+          @if (isEditMode()) {
+            <input
+              type="tel"
+              formControlName="numeroContactUrgence"
+              class="form-input"
+              [class.form-input--error]="f['numeroContactUrgence'].invalid && f['numeroContactUrgence'].touched"
+              placeholder="Ex: 06 12 34 56 78"/>
+            @if (f['numeroContactUrgence'].invalid && f['numeroContactUrgence'].touched) {
+              <span class="form-error">Format invalide</span>
+            }
+          } @else {
+            <div class="form-readonly form-readonly--editable">
+              <span>{{ profil?.numeroContactUrgence || 'Non renseigné' }}</span>
+            </div>
+          }
+        </div>
+
+        <!-- Adresse -->
+        <div class="form-field form-field--full">
+          <label class="form-label">
+            Adresse de résidence
+            @if (isEditMode()) {
+              <span class="form-label__editable">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </span>
+            }
+          </label>
+          @if (isEditMode()) {
+            <input
+              type="text"
+              formControlName="adresse"
+              class="form-input"
+              [class.form-input--error]="f['adresse'].invalid && f['adresse'].touched"
+              placeholder="Votre adresse complète"/>
+            @if (f['adresse'].invalid && f['adresse'].touched) {
+              <span class="form-error">Adresse requise</span>
+            }
+          } @else {
+            <div class="form-readonly form-readonly--editable">
+              <span>{{ profil?.addresse || 'Non renseignée' }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    </form>
+  </div>
+}
 <!-- ═══ ONGLET PROFESSIONNEL ═══ -->
 @if (ongletActif() === 'professionnel') {
   <div class="onglet-content" role="tabpanel">

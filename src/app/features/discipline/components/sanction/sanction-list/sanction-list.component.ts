@@ -97,6 +97,13 @@ export class SanctionListComponent implements OnInit {
       data = data.filter(s => s.statut === this.selectedStatut);
     }
 
+    // Tri du plus récent au plus ancien selon la date de création (createdAt)
+    data.sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
+
     this.filteredData.set(data);
     this.currentPage = 1;
   }
@@ -178,11 +185,9 @@ export class SanctionListComponent implements OnInit {
     this.currentPage = 1;
   }
 
-  // ✅ Navigation avec URL de retour
   viewSanction(id: string): void {
-    console.log('🔍 Navigation vers le détail de la sanction:', id);
+    console.log('Navigation vers le détail de la sanction:', id);
     
-    // Stocker l'URL de retour dans localStorage
     localStorage.setItem('sanction_return_url', '/app/discipline/sanctions');
     
     this.router.navigate(
@@ -193,16 +198,16 @@ export class SanctionListComponent implements OnInit {
       }
     ).then(
       success => {
-        console.log('✅ Navigation réussie:', success);
+        console.log('Navigation reussie:', success);
       },
       error => {
-        console.error('❌ Erreur de navigation:', error);
+        console.error('Erreur de navigation:', error);
       }
     );
   }
 
   createSanction(): void {
-    console.log('🔍 Navigation vers la création de sanction');
+    console.log('Navigation vers la creation de sanction');
     this.router.navigate(['/app/discipline/sanctions/create']);
   }
 
@@ -211,24 +216,24 @@ export class SanctionListComponent implements OnInit {
       this.isLoading = true;
       this.sanctionService.liftSanction(id).subscribe({
         next: () => {
-          this.snackBar.open('Sanction levée avec succès !', 'Fermer', { duration: 3000 });
+          this.snackBar.open('Sanction levee avec succes !', 'Fermer', { duration: 3000 });
           this.loadSanctions();
         },
         error: (error) => {
           this.isLoading = false;
           console.error('Erreur:', error);
-          this.snackBar.open('Erreur lors de la levée de la sanction', 'Fermer', { duration: 3000 });
+          this.snackBar.open('Erreur lors de la levee de la sanction', 'Fermer', { duration: 3000 });
         }
       });
     }
   }
 
   deleteSanction(id: string): void {
-    if (confirm('Voulez-vous vraiment supprimer cette sanction ? Cette action est irréversible.')) {
+    if (confirm('Voulez-vous vraiment supprimer cette sanction ? Cette action est irreversible.')) {
       this.isLoading = true;
       this.sanctionService.deleteSanction(id).subscribe({
         next: () => {
-          this.snackBar.open('Sanction supprimée', 'Fermer', { duration: 3000 });
+          this.snackBar.open('Sanction supprimee', 'Fermer', { duration: 3000 });
           this.loadSanctions();
         },
         error: (error) => {

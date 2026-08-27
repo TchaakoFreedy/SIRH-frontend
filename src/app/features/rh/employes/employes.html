@@ -1,4 +1,5 @@
 <!-- src/app/features/rh/employes/employes.html -->
+<!-- Version complète avec mise en évidence des employés dont le contrat expire -->
 
 <div class="unity-container">
   
@@ -125,7 +126,7 @@
         </thead>
         <tbody>
           @for (emp of paginatedEmployees(); track emp.id) {
-            <tr>
+            <tr [class.expiring-row]="isEmployeeContractExpiring(emp.id)">
               <td><span class="tag-matricule">{{ emp.matriculeInterne }}</span></td>
               <td>
                 <div class="user-cell">
@@ -149,38 +150,38 @@
                 </span>
               </td>
               <!-- Bouton 2FA -->
-<td class="th-center">
-  @if (canManage2FA()) {
-    <button 
-      (click)="open2FAModal(emp)" 
-      class="action-btn twofa-btn" 
-      [class.active]="twoFactorStatus()[emp.id] === true"
-      [class.inactive]="twoFactorStatus()[emp.id] === false || !twoFactorStatus()[emp.id]"
-      [disabled]="isToggling2FA()[emp.id]"
-      title="{{ twoFactorStatus()[emp.id] ? '2FA activé - Cliquez pour gérer' : '2FA désactivé - Cliquez pour activer' }}">
-      <span class="material-symbols-outlined">
-        @if (isToggling2FA()[emp.id]) {
-          progress_activity
-        } @else if (twoFactorStatus()[emp.id]) {
-          shield
-        } @else {
-          shield
-        }
-      </span>
-      <span class="status-text">
-        @if (isToggling2FA()[emp.id]) {
-          ...
-        } @else if (twoFactorStatus()[emp.id]) {
-          Activé
-        } @else {
-          Désactivé
-        }
-      </span>
-    </button>
-  } @else {
-    <span class="no-2fa">—</span>
-  }
-</td>
+              <td class="th-center">
+                @if (canManage2FA()) {
+                  <button 
+                    (click)="open2FAModal(emp)" 
+                    class="action-btn twofa-btn" 
+                    [class.active]="twoFactorStatus()[emp.id] === true"
+                    [class.inactive]="twoFactorStatus()[emp.id] === false || !twoFactorStatus()[emp.id]"
+                    [disabled]="isToggling2FA()[emp.id]"
+                    title="{{ twoFactorStatus()[emp.id] ? '2FA activé - Cliquez pour gérer' : '2FA désactivé - Cliquez pour activer' }}">
+                    <span class="material-symbols-outlined">
+                      @if (isToggling2FA()[emp.id]) {
+                        progress_activity
+                      } @else if (twoFactorStatus()[emp.id]) {
+                        shield
+                      } @else {
+                        shield
+                      }
+                    </span>
+                    <span class="status-text">
+                      @if (isToggling2FA()[emp.id]) {
+                        ...
+                      } @else if (twoFactorStatus()[emp.id]) {
+                        Activé
+                      } @else {
+                        Désactivé
+                      }
+                    </span>
+                  </button>
+                } @else {
+                  <span class="no-2fa">—</span>
+                }
+              </td>
               <td>
                 <div class="actions-cell">
                   @if (canViewAllEmployees() || canViewEmployee()) {
@@ -416,6 +417,11 @@
                   <label>Téléphone *</label>
                   <input type="number" formControlName="telephone"/>
                 </div>
+                <!-- Champ numéro d'urgence -->
+                <div class="form-group span-2">
+                  <label>Numéro d'urgence</label>
+                  <input type="text" formControlName="numeroContactUrgence" placeholder="Ex: 6X XX XX XX" />
+                </div>
                 <div class="form-group span-4">
                   <label>Adresse complète *</label>
                   <input type="text" formControlName="addresse" placeholder="Quartier, Ville, Pays"/>
@@ -537,7 +543,8 @@
                     <small class="error-text">Date requise</small>
                   }
                 </div>
-                <div class="form-group">
+                <!-- Masquage dateFin si hasEndDate = false (CDI) -->
+                <div class="form-group" *ngIf="contractTypeConfigStep2()?.hasEndDate">
                   <label>Date de fin <span *ngIf="isContractTypeStep2()?.hasEndDate" class="required">*</span></label>
                   <input type="date" formControlName="dateFin" (focus)="openDatePicker($event)" />
                   @if (contractForm.get('dateFin')?.touched && contractForm.get('dateFin')?.invalid) {
@@ -650,7 +657,7 @@
               </div>
             </div>
 
-            <!-- ===== RENOUVELLEMENT ===== -->
+            <!-- ===== RENOUVELLEMENT (visible pour ESSAI via showRenewable) ===== -->
             <div class="form-block" *ngIf="isContractTypeStep2()?.showRenewable">
               <div class="block-title"><span class="material-symbols-outlined">autorenew</span> Renouvellement</div>
               <div class="form-grid grid-2">
@@ -816,7 +823,8 @@
 
       <!-- Footer Wizard -->
       <div class="modal-footer-bar">
-        <button class="btn btn-ghost" (click)="closeEmployeeModal()">Annuler</button>
+        <!-- Annuler à gauche avec margin-right: auto -->
+        <button class="btn btn-ghost" style="margin-right: auto;" (click)="closeEmployeeModal()">Annuler</button>
         
         @if (!isEditMode()) {
           @if (currentStep() > 1) {
@@ -901,80 +909,191 @@
         <button (click)="closeDetailModal()" class="close-btn"><span class="material-symbols-outlined">close</span></button>
       </div>
 
+      <!-- Onglets -->
+      <div class="detail-tabs">
+        <button class="tab-btn" [class.active]="activeDetailTab() === 'info'" (click)="switchDetailTab('info')">
+          <span class="material-symbols-outlined">person</span> Identité
+        </button>
+        <button class="tab-btn" [class.active]="activeDetailTab() === 'contracts'" (click)="switchDetailTab('contracts')">
+          <span class="material-symbols-outlined">gavel</span> Contrats
+        </button>
+        <button class="tab-btn" [class.active]="activeDetailTab() === 'documents'" (click)="switchDetailTab('documents')">
+          <span class="material-symbols-outlined">inventory</span> Documents
+        </button>
+        <button class="tab-btn" [class.active]="activeDetailTab() === 'history'" (click)="switchDetailTab('history')">
+          <span class="material-symbols-outlined">history</span> Historique
+        </button>
+      </div>
+
       <div class="modal-body-scroll">
-        <div class="detail-section">
-          <h4><span class="material-symbols-outlined">contact_page</span> Identité & Contact</h4>
-          <div class="detail-grid">
-            <div class="detail-item"><span class="lbl">Sexe</span><span class="val">{{ selectedEmployee().sexe === 'M' ? 'Masculin' : 'Féminin' }}</span></div>
-            <div class="detail-item"><span class="lbl">Né(e) le</span><span class="val">{{ selectedEmployee().date_naissance }}</span></div>
-            <div class="detail-item"><span class="lbl">Téléphone</span><span class="val">{{ selectedEmployee().telephone }}</span></div>
-            <div class="detail-item"><span class="lbl">Email</span><span class="val">{{ selectedEmployee().user?.email || '—' }}</span></div>
-            <div class="detail-item span-2"><span class="lbl">Adresse</span><span class="val">{{ selectedEmployee().addresse }}</span></div>
-            <div class="detail-item"><span class="lbl">Matricule</span><span class="val accent">{{ selectedEmployee().matriculeInterne }}</span></div>
-            <div class="detail-item"><span class="lbl">CNPS</span><span class="val">{{ selectedEmployee().matricule_CNPS || 'Non fourni' }}</span></div>
-            <div class="detail-item"><span class="lbl">Embauche</span><span class="val">{{ selectedEmployee().date_embauche }}</span></div>
-          </div>
-        </div>
-
-        <div class="detail-section">
-          <h4><span class="material-symbols-outlined">history_edu</span> Contrats</h4>
-          @for (c of activeEmployeeContracts(); track c.id) {
-            <div class="list-row">
-              <div class="list-icon"><span class="material-symbols-outlined">gavel</span></div>
-              <div class="list-body">
-                <div class="list-title">{{ c.typeContrat }}</div>
-                <div class="list-meta">Du {{ c.dateDebut }} au {{ c.dateFin || 'Indéterminé' }}</div>
-              </div>
-              <span class="status-pill" [class.active]="c.statut === 'ACTIF'">{{ c.statut }}</span>
+        <!-- Onglet Identité -->
+        @if (activeDetailTab() === 'info') {
+          <div class="detail-section">
+            <h4><span class="material-symbols-outlined">contact_page</span> Identité & Contact</h4>
+            <div class="detail-grid">
+              <div class="detail-item"><span class="lbl">Sexe</span><span class="val">{{ selectedEmployee().sexe === 'M' ? 'Masculin' : 'Féminin' }}</span></div>
+              <div class="detail-item"><span class="lbl">Né(e) le</span><span class="val">{{ selectedEmployee().date_naissance }}</span></div>
+              <div class="detail-item"><span class="lbl">Téléphone</span><span class="val">{{ selectedEmployee().telephone }}</span></div>
+              <div class="detail-item"><span class="lbl">Urgence</span><span class="val">{{ selectedEmployee().numeroContactUrgence || 'Non renseigné' }}</span></div>
+              <div class="detail-item"><span class="lbl">Email</span><span class="val">{{ selectedEmployee().user?.email || '—' }}</span></div>
+              <div class="detail-item span-2"><span class="lbl">Adresse</span><span class="val">{{ selectedEmployee().addresse }}</span></div>
+              <div class="detail-item"><span class="lbl">Matricule</span><span class="val accent">{{ selectedEmployee().matriculeInterne }}</span></div>
+              <div class="detail-item"><span class="lbl">CNPS</span><span class="val">{{ selectedEmployee().matricule_CNPS || 'Non fourni' }}</span></div>
+              <div class="detail-item"><span class="lbl">Embauche</span><span class="val">{{ selectedEmployee().date_embauche }}</span></div>
             </div>
-          } @empty {
-            <div class="empty-mini">Aucun contrat enregistré.</div>
-          }
-        </div>
+          </div>
 
-        <!-- SECTION DOCUMENTS -->
-        <div class="detail-section">
-          <h4>
-            <span class="material-symbols-outlined">inventory</span> 
-            Documents ({{ employeeDocuments().length }})
-          </h4>
-          
-          <div class="documents-grid-mini">
-            @for (doc of employeeDocuments(); track doc.id) {
-              <div class="doc-mini-card" (click)="openDocumentPreview(doc)">
-                <div class="doc-mini-icon">{{ getDocumentIcon(doc.typeDocument) }}</div>
-                <div class="doc-mini-info">
-                  <div class="doc-mini-name">{{ doc.name || 'Document' }}</div>
-                  <div class="doc-mini-meta">{{ doc.typeDocument }} • {{ doc.dateUpload || doc.createdAt }}</div>
+          <!-- Section 2FA -->
+          <div class="detail-section">
+            <h4><span class="material-symbols-outlined">security</span> Sécurité 2FA</h4>
+            <div class="detail-item" style="display:flex; align-items:center; gap:12px; padding:12px 0;">
+              <span class="material-symbols-outlined" [style.color]="twoFactorStatus()[selectedEmployee().id] ? '#22c55e' : '#94a3b8'">
+                {{ twoFactorStatus()[selectedEmployee().id] ? 'shield' : 'shield' }}
+              </span>
+              <span style="font-weight:500;">
+                {{ twoFactorStatus()[selectedEmployee().id] ? '2FA Activé' : '2FA Désactivé' }}
+              </span>
+            </div>
+          </div>
+        }
+
+        <!-- Onglet Contrats -->
+        @if (activeDetailTab() === 'contracts') {
+          <div class="detail-section">
+            <h4>
+              <span class="material-symbols-outlined">history_edu</span> 
+              Contrats ({{ activeEmployeeContracts().length }})
+            </h4>
+            @for (c of activeEmployeeContracts(); track c.id) {
+              <div class="list-row" [class.expiring]="isContractExpiring(c)">
+                <div class="list-icon">
+                  <span class="material-symbols-outlined">gavel</span>
                 </div>
-                <div class="doc-mini-actions">
-                  <button class="btn-icon" title="Télécharger" (click)="$event.stopPropagation(); downloadDocument(doc.id, doc.name)">
+                <div class="list-body">
+                  <div class="list-title">
+                    {{ c.typeContrat }}
+                    @if (isContractExpiring(c)) {
+                      <span class="expiring-badge">Expire bientôt !</span>
+                    }
+                  </div>
+                  <div class="list-meta">
+                    Du {{ c.dateDebut }} au 
+                    <span [class.expiring-date]="isContractExpiring(c)">{{ c.dateFin || 'Indéterminé' }}</span>
+                    <span class="employee-name" *ngIf="c.employee?.nom || c.employeeName">
+                      • 
+                      @if (c.employee) {
+                        {{ c.employee.prenom }} {{ c.employee.nom }}
+                      } @else if (c.employeeName) {
+                        {{ c.employeeName }}
+                      } @else {
+                        Employé #{{ c.employeeId || c.employee_id }}
+                      }
+                    </span>
+                  </div>
+                </div>
+                <span class="status-pill" [class.active]="c.statut === 'ACTIF'">
+                  {{ c.statut }}
+                </span>
+              </div>
+            } @empty {
+              <div class="empty-mini">Aucun contrat enregistré.</div>
+            }
+          </div>
+        }
+
+        <!-- Onglet Documents -->
+        @if (activeDetailTab() === 'documents') {
+          <div class="detail-section">
+            <h4>
+              <span class="material-symbols-outlined">inventory</span> 
+              Documents ({{ employeeDocuments().length }})
+            </h4>
+            
+            <div class="documents-grid-mini">
+              @for (doc of employeeDocuments(); track doc.id) {
+                <div class="doc-mini-card" (click)="openDocumentPreview(doc)">
+                  <div class="doc-mini-icon">{{ getDocumentIcon(doc.typeDocument) }}</div>
+                  <div class="doc-mini-info">
+                    <div class="doc-mini-name">{{ doc.name || 'Document' }}</div>
+                    <div class="doc-mini-meta">{{ doc.typeDocument }} • {{ doc.dateUpload || doc.createdAt }}</div>
+                  </div>
+                  <div class="doc-mini-actions">
+                    <button class="btn-icon" title="Télécharger" (click)="$event.stopPropagation(); downloadDocument(doc.id, doc.name)">
+                      <span class="material-symbols-outlined">download</span>
+                    </button>
+                  </div>
+                </div>
+              } @empty {
+                <div class="empty-mini">Aucun document.</div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- ========== ONGLET HISTORIQUE ========== -->
+        @if (activeDetailTab() === 'history') {
+          <div class="detail-section history-section">
+            <div class="history-header">
+              <h4>
+                <span class="material-symbols-outlined">history</span> 
+                Parcours de l'employé
+              </h4>
+              <div class="history-actions">
+                <div class="format-selector">
+                  <select [(ngModel)]="historyDownloadFormat" class="format-select">
+                    <option value="csv">CSV</option>
+                    <option value="pdf">PDF</option>
+                  </select>
+                  <button class="btn btn-sm btn-primary" 
+                          (click)="downloadHistory(selectedEmployee().id, historyDownloadFormat())"
+                          [disabled]="isLoadingHistory() || !employeeHistory()">
                     <span class="material-symbols-outlined">download</span>
+                    Télécharger
                   </button>
                 </div>
               </div>
-            } @empty {
-              <div class="empty-mini">Aucun document.</div>
+            </div>
+
+            @if (isLoadingHistory()) {
+              <div class="loading-spinner">
+                <div class="spinner"></div>
+                <span>Chargement de l'historique...</span>
+              </div>
+            } @else if (employeeHistory()) {
+              @if (employeeHistory().events && employeeHistory().events.length > 0) {
+                <div class="timeline">
+                  @for (event of employeeHistory().events; track $index) {
+                    <div class="timeline-item" [class]="'timeline-' + getEventColor(event.type)">
+                      <div class="timeline-icon">
+                        <span class="material-symbols-outlined">{{ getEventIcon(event.type) }}</span>
+                      </div>
+                      <div class="timeline-content">
+                        <div class="timeline-header">
+                          <span class="timeline-date">{{ event.date | date:'dd/MM/yyyy HH:mm' }}</span>
+                          <span class="timeline-type">{{ event.type }}</span>
+                        </div>
+                        <div class="timeline-description">{{ event.description }}</div>
+                        @if (event.details) {
+                          <div class="timeline-details">
+                            @for (item of getDetailsArray(event.details); track item.key) {
+                              <span class="detail-tag">
+                                <strong>{{ item.key }} :</strong> {{ item.value }}
+                              </span>
+                            }
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="empty-mini">Aucun événement enregistré pour cet employé.</div>
+              }
+            } @else {
+              <div class="empty-mini">Impossible de charger l'historique.</div>
             }
           </div>
-        </div>
-
-        <!-- SECTION 2FA -->
-        <div class="detail-section">
-          <h4>
-            <span class="material-symbols-outlined">security</span> 
-            Sécurité 2FA
-          </h4>
-          <div class="detail-item" style="display:flex; align-items:center; gap:12px; padding:12px 0;">
-            <span class="material-symbols-outlined" [style.color]="twoFactorStatus()[selectedEmployee().id] ? '#22c55e' : '#94a3b8'">
-              {{ twoFactorStatus()[selectedEmployee().id] ? 'shield' : 'shield' }}
-            </span>
-            <span style="font-weight:500;">
-              {{ twoFactorStatus()[selectedEmployee().id] ? '✅ 2FA Activé' : '❌ 2FA Désactivé' }}
-            </span>
-            
-          </div>
-        </div>
+        }
       </div>
 
       <div class="modal-footer-bar">
@@ -988,6 +1107,7 @@
     </div>
   </div>
 }
+
 
 <!-- ============================================ -->
 <!-- ============ MODALE DOCUMENTS ============== -->
@@ -1034,7 +1154,7 @@
         }
       </div>
       <div class="modal-footer-bar">
-        <button class="btn btn-ghost" (click)="closeDocModal()">Annuler</button>
+        <button class="btn btn-ghost" style="margin-right: auto;" (click)="closeDocModal()">Annuler</button>
         <button class="btn btn-primary" 
                 [disabled]="docFiles.length === 0 || !canUploadDocuments()" 
                 (click)="submitEmployeeDocuments()">
@@ -1130,7 +1250,8 @@
                   <small class="error-text">Date requise</small>
                 }
               </div>
-              <div class="form-group">
+              <!-- Masquage dateFin si hasEndDate = false (CDI) -->
+              <div class="form-group" *ngIf="contractTypeConfig()?.hasEndDate">
                 <label>Date de fin <span *ngIf="contractTypeConfig()?.hasEndDate" class="required">*</span></label>
                 <input type="date" formControlName="dateFin" (focus)="openDatePicker($event)" />
                 @if (contratFormModal.get('dateFin')?.touched && contratFormModal.get('dateFin')?.invalid) {
@@ -1261,7 +1382,7 @@
             </div>
           </div>
 
-          <!-- ==================== RENOUVELLEMENT ==================== -->
+          <!-- ==================== RENOUVELLEMENT (visible pour ESSAI via showRenewable) ==================== -->
           <div class="form-block" *ngIf="contractTypeConfig()?.showRenewable">
             <div class="block-title"><span class="material-symbols-outlined">autorenew</span> Renouvellement</div>
             <div class="form-grid grid-2">
@@ -1322,7 +1443,7 @@
 
       <!-- Footer -->
       <div class="modal-footer-bar">
-        <button class="btn btn-ghost" (click)="closeContratModal()">Annuler</button>
+        <button class="btn btn-ghost" style="margin-right: auto;" (click)="closeContratModal()">Annuler</button>
         <button class="btn btn-primary" (click)="submitContrat()" [disabled]="contratFormModal.invalid">
           <span class="material-symbols-outlined">check_circle</span> Créer le contrat
         </button>
@@ -1341,26 +1462,34 @@
       <!-- Header -->
       <div class="modal-top-header">
         <div class="modal-title-group">
-          <div class="modal-icon" [class.success]="twoFASetupStep() === 3" [class.primary]="twoFASetupStep() !== 3">
+          <div class="modal-icon" [class.success]="twoFASetupStep() === 3 || twoFASetupStep() === 4" [class.primary]="twoFASetupStep() === 0 || twoFASetupStep() === 1">
             <span class="material-symbols-outlined">
-              {{ twoFASetupStep() === 3 ? 'shield' : 'security' }}
+              @if (twoFASetupStep() === 3) {
+                shield
+              } @else if (twoFASetupStep() === 4) {
+                check_circle
+              } @else {
+                security
+              }
             </span>
           </div>
           <div>
             <h3>
               @if (twoFASetupStep() === 3) {
                 Désactiver le 2FA
-              } @else if (twoFASetupStep() === 2) {
+              } @else if (twoFASetupStep() === 4) {
+                Initiation réussie
+              } @else if (twoFASetupStep() === 0) {
                 Activer le 2FA
               } @else {
                 Configuration 2FA
               }
             </h3>
             <p>
-              @if (twoFASetupStep() === 3) {
+              @if (twoFASetupStep() === 3 || twoFASetupStep() === 4) {
                 {{ selected2FAEmployee()?.prenom }} {{ selected2FAEmployee()?.nom }}
-              } @else if (twoFASetupStep() === 2) {
-                Scannez le QR code avec Google Authenticator
+              } @else if (twoFASetupStep() === 0) {
+                {{ selected2FAEmployee()?.prenom }} {{ selected2FAEmployee()?.nom }}
               } @else {
                 {{ selected2FAEmployee()?.prenom }} {{ selected2FAEmployee()?.nom }}
               }
@@ -1381,55 +1510,42 @@
         }
 
         @if (twoFASetupStep() === 1) {
-          <!-- Étape 1 : Génération du secret -->
+          <!-- Étape 1 : chargement -->
           <div class="text-center" style="padding: 40px 20px;">
             <div class="spinner-border" style="width:48px;height:48px;border:4px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 20px;"></div>
-            <p style="color:#64748b;font-size:16px;">Génération du code 2FA en cours...</p>
-            <p style="color:#94a3b8;font-size:14px;">Veuillez patienter quelques instants</p>
+            <p style="color:#64748b;font-size:16px;">Vérification du statut 2FA...</p>
           </div>
         }
 
-        @if (twoFASetupStep() === 2) {
-          <!-- Étape 2 : Activation -->
-          <div class="form-block">
-            <div class="block-title">
-              <span class="material-symbols-outlined">qr_code_scanner</span>
-              Scannez le QR Code
+        @if (twoFASetupStep() === 0) {
+          <!-- Étape 0 : Proposition d'initiation -->
+          <div class="form-block text-center">
+            <div style="font-size:48px; margin-bottom:16px; color: #0f6b5c;">
+              <span class="material-symbols-outlined" style="font-size:48px;">qr_code_scanner</span>
             </div>
-            <p class="hint">Utilisez Google Authenticator ou une application compatible pour scanner ce code QR.</p>
-            
-            <div class="qr-code-container" style="display:flex;justify-content:center;padding:20px 0;">
-              <img [src]="twoFAQrCode()" alt="QR Code 2FA" style="max-width:200px;border:2px solid #e2e8f0;border-radius:12px;padding:12px;background:white;" />
+            <h3 style="margin-bottom:8px;">Activer la double authentification</h3>
+            <p style="color:#4A6867; margin:12px 0;">
+              Cette action générera un code secret pour <strong>{{ selected2FAEmployee()?.prenom }} {{ selected2FAEmployee()?.nom }}</strong>.
+              L'employé devra ensuite scanner le QR code depuis son espace personnel pour finaliser l'activation.
+            </p>
+            <div style="background:#fefce8; border:1px solid #fef08a; border-radius:8px; padding:12px; margin-top:16px;">
+              <span class="material-symbols-outlined" style="vertical-align:middle; color:#854d0e;">info</span>
+              <span style="font-size:14px; color:#78350f;">L'employé recevra une notification dans le SIRH pour activer son 2FA.</span>
             </div>
+          </div>
+        }
 
-            <div style="background:#f8fafc;border-radius:8px;padding:12px 16px;margin:12px 0;font-family:monospace;font-size:14px;color:#0f172a;word-break:break-all;border:1px solid #e2e8f0;">
-              <strong>Clé secrète :</strong> {{ twoFASecret() }}
+        @if (twoFASetupStep() === 4) {
+          <!-- Étape 4 : Confirmation d'initiation -->
+          <div class="form-block text-center" style="padding:20px 0;">
+            <div style="font-size:56px; margin-bottom:12px; color: #10b981;">
+              <span class="material-symbols-outlined" style="font-size:56px;">check_circle</span>
             </div>
-
-            <div class="form-group" style="margin-top:16px;">
-              <label>Code de vérification (6 chiffres) *</label>
-              <input type="text" 
-                     [(ngModel)]="twoFAVerificationCode" 
-                     placeholder="Ex: 123456" 
-                     maxlength="6"
-                     pattern="[0-9]*"
-                     style="width:100%;padding:12px 16px;border:1px solid #e2e8f0;border-radius:8px;font-size:16px;text-align:center;letter-spacing:4px;"
-                     (keypress)="onlyNumbers($event)" />
-              <small style="display:block;margin-top:6px;color:#94a3b8;">Entrez le code à 6 chiffres affiché dans votre application d'authentification</small>
-            </div>
-
-            <div class="backup-codes" style="margin-top:20px;background:#fefce8;border:1px solid #fef08a;border-radius:8px;padding:16px;">
-              <div style="display:flex;align-items:center;gap:8px;color:#854d0e;font-weight:500;margin-bottom:8px;">
-                <span class="material-symbols-outlined" style="font-size:20px;">safety_check</span>
-                Codes de récupération
-              </div>
-              <p style="color:#78350f;font-size:13px;margin-bottom:8px;">Conservez ces codes dans un endroit sûr. Chaque code ne peut être utilisé qu'une seule fois.</p>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-family:monospace;font-size:13px;">
-                @for (code of twoFABackupCodes(); track $index) {
-                  <span style="background:#fef9c3;padding:4px 8px;border-radius:4px;text-align:center;">{{ code }}</span>
-                }
-              </div>
-            </div>
+            <h3 style="color:#166534; margin-bottom:8px;">Initiation réussie</h3>
+            <p style="color:#4A6867;">
+              Le 2FA a été initié pour {{ selected2FAEmployee()?.prenom }} {{ selected2FAEmployee()?.nom }}.
+              Il peut maintenant se connecter et activer la double authentification depuis son espace personnel.
+            </p>
           </div>
         }
 
@@ -1437,7 +1553,9 @@
           <!-- Étape 3 : Désactivation -->
           <div class="form-block">
             <div class="text-center" style="padding:20px 0;">
-              <div style="font-size:64px;margin-bottom:16px;">lock</div>
+              <div style="font-size:64px; margin-bottom:16px; color: #7f0505;">
+                <span class="material-symbols-outlined" style="font-size:64px;">lock</span>
+              </div>
               <h3 style="margin-bottom:8px;">Le 2FA est actuellement activé</h3>
               <p style="color:#64748b;">{{ selected2FAEmployee()?.prenom }} {{ selected2FAEmployee()?.nom }} utilise l'authentification à deux facteurs.</p>
               <p style="color:#94a3b8;font-size:14px;margin-top:8px;">La désactivation du 2FA réduira la sécurité du compte.</p>
@@ -1458,14 +1576,14 @@
 
       <!-- Footer -->
       <div class="modal-footer-bar">
-        <button class="btn btn-ghost" (click)="close2FAModal()">Annuler</button>
+        <button class="btn btn-ghost" style="margin-right: auto;" (click)="close2FAModal()">Annuler</button>
         
-        @if (twoFASetupStep() === 2) {
-          <button class="btn btn-success" 
-                  (click)="enableTwoFactorForEmployee(selected2FAEmployee()?.userId || selected2FAEmployee()?.user?.id || selected2FAEmployee()?.user_id)"
-                  [disabled]="twoFAVerificationCode().length !== 6 || isToggling2FA()[selected2FAEmployee()?.id]">
-            <span class="material-symbols-outlined">check_circle</span>
-            {{ isToggling2FA()[selected2FAEmployee()?.id] ? 'Activation...' : 'Activer le 2FA' }}
+        @if (twoFASetupStep() === 0) {
+          <button class="btn btn-primary" 
+                  (click)="initiateTwoFactorForEmployee()"
+                  [disabled]="isToggling2FA()[selected2FAEmployee()?.id]">
+            <span class="material-symbols-outlined">qr_code_scanner</span>
+            {{ isToggling2FA()[selected2FAEmployee()?.id] ? 'Initiation...' : 'Initier le 2FA' }}
           </button>
         }
 
@@ -1476,6 +1594,10 @@
             <span class="material-symbols-outlined">shield</span>
             {{ isToggling2FA()[selected2FAEmployee()?.id] ? 'Désactivation...' : 'Désactiver le 2FA' }}
           </button>
+        }
+
+        @if (twoFASetupStep() === 4) {
+          <button class="btn btn-success" (click)="close2FAModal()">Terminé</button>
         }
       </div>
     </div>

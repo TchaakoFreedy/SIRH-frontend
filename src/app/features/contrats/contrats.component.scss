@@ -1337,3 +1337,35 @@
     max-height: 60px;
   }
 }
+/* ==========================================================
+   CONTRATS EXPIRANTS (ROUGE)
+   ========================================================== */
+
+/* Ligne de contrat en expiration */
+.row-expiring {
+  background-color: #fef2f2 !important;
+  border-left: 4px solid #dc2626;
+  transition: background-color 0.2s;
+}
+
+.row-expiring:hover {
+  background-color: #fee2e2 !important;
+}
+
+.row-expiring td {
+  color: #991b1b;
+}
+
+.row-expiring .expiring-badge {
+  background-color: #dc2626;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: inline-block;
+  vertical-align: middle;
+}

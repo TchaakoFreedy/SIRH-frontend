@@ -1,3 +1,5 @@
+<!-- src/app/features/rh/contrats/contrats.component.html -->
+
 <div class="unity-container">
   
   <!-- Toast Notification -->
@@ -28,8 +30,13 @@
       <button *ngIf="canCreate()" class="btn btn-primary" (click)="openModal()">
         <span class="material-symbols-outlined">add</span> Nouveau contrat
       </button>
-      <button class="btn btn-secondary" (click)="contratService.checkExpiring().subscribe()">
+      <!-- <button class="btn btn-secondary" (click)="contratService.checkExpiring().subscribe()">
         <span class="material-symbols-outlined">refresh</span> Vérifier expirations
+      </button> -->
+      <!-- Nouveau bouton : Paramètres d'alerte -->
+      <button class="btn btn-secondary" (click)="toggleAlertConfigPanel()">
+        <span class="material-symbols-outlined">notifications_active</span>
+        Paramètres d'alerte
       </button>
     </div>
   </div>
@@ -145,7 +152,7 @@
             </td>
           </tr>
 
-          <tr *ngFor="let contrat of paginatedContrats">
+          <tr *ngFor="let contrat of paginatedContrats" [class.row-expiring]="isContractExpiring(contrat)">
             <td>
               <div class="user-cell">
                 <div class="avatar small" style="background:#2563eb; color:white;">
@@ -158,7 +165,10 @@
             </td>
             <td><span style="font-weight:600;">{{ getTypeLibelle(contrat.typeContrat) }}</span></td>
             <td>{{ contrat.dateDebut | date:'dd/MM/yyyy' }}</td>
-            <td>{{ contrat.dateFin ? (contrat.dateFin | date:'dd/MM/yyyy') : 'Sans fin' }}</td>
+            <td>
+              {{ contrat.dateFin ? (contrat.dateFin | date:'dd/MM/yyyy') : 'Sans fin' }}
+              <span *ngIf="isContractExpiring(contrat)" class="expiring-badge">Expire bientôt</span>
+            </td>
             <td>
               <span class="status-pill" [class.active]="isActive(contrat.statut)" [class.suspended]="!isActive(contrat.statut)">
                 {{ getStatutLibelle(contrat.statut) }}
@@ -166,14 +176,14 @@
             </td>
             <td>
               <div class="actions-cell">
-                <!-- NOUVEAU : Bouton Détails -->
                 <button *ngIf="canView()" class="action-btn info" matTooltip="Voir détails" (click)="openDetail(contrat)">
                   <span class="material-symbols-outlined">visibility</span>
                 </button>
                 <button *ngIf="canUpdate()" class="action-btn warning" matTooltip="Modifier" (click)="openModal(contrat)">
                   <span class="material-symbols-outlined">edit</span>
                 </button>
-                <button *ngIf="isActive(contrat.statut) && canUpdate()" class="action-btn success" matTooltip="Renouveler" (click)="renouveler(contrat)">
+                <!-- RENOUVELLEMENT : accessible pour les contrats actifs OU de type ESSAI -->
+                <button *ngIf="isRenewable(contrat) && canUpdate()" class="action-btn success" matTooltip="Renouveler" (click)="renouveler(contrat)">
                   <span class="material-symbols-outlined">autorenew</span>
                 </button>
                 <button *ngIf="isActive(contrat.statut) && canDelete()" class="action-btn danger" matTooltip="Résilier" (click)="resilier(contrat)">
@@ -298,7 +308,8 @@
               <label>Date de début <span class="required">*</span></label>
               <input type="date" formControlName="dateDebut" class="form-control" [class.is-invalid]="form.get('dateDebut')?.invalid && form.get('dateDebut')?.touched">
             </div>
-            <div class="form-group">
+            <!-- Champ Date de fin : masqué pour les CDI -->
+            <div class="form-group" *ngIf="contractHasEndDate(form.get('typeContrat')?.value)">
               <label>Date de fin <span *ngIf="form.get('typeContrat')?.value && contractHasEndDate(form.get('typeContrat')?.value)" class="required">*</span></label>
               <input type="date" formControlName="dateFin" class="form-control"
                      [min]="form.get('statut')?.value === 'ACTIF' ? today : null"
@@ -315,8 +326,8 @@
           </div>
         </div>
 
-        <!-- Section : Période d'essai -->
-        <div class="form-block" *ngIf="form.get('typeContrat')?.value && contractRequiresTrialPeriod(form.get('typeContrat')?.value)">
+        <!-- Section : Période d'essai (uniquement pour le type ESSAI, pas pour CDI ni CDD) -->
+        <div class="form-block" *ngIf="form.get('typeContrat')?.value && contractRequiresTrialPeriod(form.get('typeContrat')?.value) && form.get('typeContrat')?.value !== 'CDI' && form.get('typeContrat')?.value !== 'CDD'">
           <div class="block-title"><span class="material-symbols-outlined">timer</span> Période d'essai</div>
           <div class="form-grid grid-2">
             <div class="form-group">
@@ -450,7 +461,7 @@
         </div>
 
         <div class="modal-footer-bar">
-          <button type="button" class="btn btn-ghost" (click)="closeModal()">Annuler</button>
+          <button type="button" class="btn btn-ghost" style="margin-right: auto;" (click)="closeModal()">Annuler</button>
           <button type="submit" [disabled]="form.invalid || isLoading()" class="btn btn-primary">
             {{ editMode() ? 'Mettre à jour' : 'Créer' }}
           </button>
@@ -460,9 +471,7 @@
   </div>
 </div>
 
-<!-- ============================================ -->
-<!-- MODALE : Détails du contrat (sans IDs)       -->
-<!-- ============================================ -->
+<!-- MODALE : Détails du contrat -->
 <div class="modal-overlay" *ngIf="showDetailModal()">
   <div class="modal-glass max-lg">
     <div class="modal-top-header">
@@ -484,7 +493,7 @@
 
     <div class="modal-body-scroll" *ngIf="selectedContratForDetail()">
       <div class="detail-grid">
-        <!-- Informations générales (sans ID) -->
+        <!-- Informations générales -->
         <div class="detail-section">
           <div class="section-title">
             <span class="material-symbols-outlined">info</span>
@@ -510,7 +519,7 @@
           </div>
         </div>
 
-        <!-- Employé (sans ID) -->
+        <!-- Employé -->
         <div class="detail-section">
           <div class="section-title">
             <span class="material-symbols-outlined">person</span>
@@ -681,7 +690,6 @@
           </div>
         </div>
 
-
         <!-- Métadonnées -->
         <div class="detail-section">
           <div class="section-title">
@@ -710,6 +718,98 @@
 
     <div class="modal-footer-bar">
       <button type="button" class="btn btn-ghost" (click)="closeDetailModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================== -->
+<!-- PANEL DE CONFIGURATION DES ALERTES (GLOBAL)                -->
+<!-- ========================================================== -->
+<div class="modal-overlay" *ngIf="showAlertConfigPanel()">
+  <div class="modal-glass max-md">
+    <div class="modal-top-header" style="background: linear-gradient(135deg, #0d9488, #14b8a6);">
+      <div class="modal-title-group">
+        <div class="modal-icon">
+          <span class="material-symbols-outlined">notifications_active</span>
+        </div>
+        <div>
+          <h3>Paramètres des alertes de contrat</h3>
+          <p>Configurez les notifications par email et in-app pour les expirations de contrat</p>
+        </div>
+      </div>
+      <button class="close-btn" (click)="showAlertConfigPanel.set(false)">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="modal-body-scroll" *ngIf="!isAlertConfigLoading()">
+      <form [formGroup]="alertConfigForm" (ngSubmit)="saveAlertConfig()">
+        <!-- Activation -->
+        <div class="form-block">
+          <div class="block-title"><span class="material-symbols-outlined">toggle_on</span> Activation</div>
+          <div class="form-group" style="flex-direction: row; align-items: center; gap: 12px;">
+            <input type="checkbox" formControlName="enabled" id="enabledCheckbox" style="width: 20px; height: 20px;">
+            <label for="enabledCheckbox" style="font-weight: 500; cursor: pointer;">Activer les alertes d'expiration</label>
+          </div>
+        </div>
+
+        <!-- Délai -->
+        <div class="form-block">
+          <div class="block-title"><span class="material-symbols-outlined">calendar_today</span> Délai d'alerte</div>
+          <div class="form-group">
+            <label>Nombre de jours avant l'expiration <span class="required">*</span></label>
+            <input type="number" formControlName="daysBefore" class="form-control" min="1" max="365">
+            <div *ngIf="alertConfigForm.get('daysBefore')?.invalid && alertConfigForm.get('daysBefore')?.touched" class="invalid-feedback">
+              <span *ngIf="alertConfigForm.get('daysBefore')?.errors?.['required']">Le nombre de jours est requis.</span>
+              <span *ngIf="alertConfigForm.get('daysBefore')?.errors?.['min']">Au moins 1 jour.</span>
+              <span *ngIf="alertConfigForm.get('daysBefore')?.errors?.['max']">Maximum 365 jours.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Destinataires email -->
+        <div class="form-block">
+          <div class="block-title"><span class="material-symbols-outlined">email</span> Destinataires des emails</div>
+          <div class="form-group">
+            <label>Adresses email principales (séparées par des virgules)</label>
+            <input type="text" formControlName="emailRecipients" class="form-control" placeholder="ex: rh@entreprise.com, manager@entreprise.com">
+          </div>
+          <div class="form-group" style="margin-top: 12px;">
+            <label>Adresses en copie (CC) (séparées par des virgules)</label>
+            <input type="text" formControlName="emailCc" class="form-control" placeholder="ex: direction@entreprise.com">
+          </div>
+        </div>
+
+        <!-- Contenu de l'email -->
+        <div class="form-block">
+          <div class="block-title"><span class="material-symbols-outlined">edit_note</span> Contenu de l'email</div>
+          <div class="form-group">
+            <label>Sujet</label>
+            <input type="text" formControlName="emailSubject" class="form-control" placeholder="Sujet de l'email">
+          </div>
+          <div class="form-group" style="margin-top: 12px;">
+            <label>Corps du message (utilisez les variables entre accolades)</label>
+            <textarea formControlName="emailBodyTemplate" class="form-control" rows="4" placeholder="Ex: Le contrat de l'employé &#123;employeeName&#125; (type &#123;typeContrat&#125;) arrive à expiration le &#123;endDate&#125;."></textarea>
+            <span style="font-size: 12px; color: #64748b; margin-top: 4px;">
+              Variables disponibles : &#123;employeeName&#125;, &#123;endDate&#125;, &#123;startDate&#125;, &#123;typeContrat&#125;, &#123;employeeId&#125;, &#123;contratId&#125;
+            </span>
+          </div>
+        </div>
+
+        <div class="modal-footer-bar">
+          <button type="button" class="btn btn-ghost" style="margin-right: auto;" (click)="showAlertConfigPanel.set(false)">Annuler</button>
+          <button type="submit" class="btn btn-primary" [disabled]="alertConfigForm.invalid || isAlertConfigLoading()">
+            {{ isAlertConfigLoading() ? 'Enregistrement...' : 'Enregistrer' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="modal-body-scroll" *ngIf="isAlertConfigLoading()" style="display: flex; justify-content: center; align-items: center; min-height: 200px;">
+      <div class="loader-box" style="border: none; box-shadow: none; padding: 0;">
+        <div class="spinner"></div>
+        <span>Chargement...</span>
+      </div>
     </div>
   </div>
 </div>
