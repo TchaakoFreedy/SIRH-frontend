@@ -3,7 +3,7 @@
 export interface DocumentData {
   employeeName: string;
   employeeMatricule: string;
-  employeeMatriculeCNPS: string;  // ✅ Ajout du matricule CNPS
+  employeeMatriculeCNPS: string;
   employeePoste: string;
   employeeDepartement: string;
   dateEmbauche: string;
@@ -28,11 +28,12 @@ export interface DocumentData {
   stageDateDebut?: string;
   stageDateFin?: string;
   stageService?: string;
-  stageSuperviseur?: string;  // ✅ Renommé
+  stageSuperviseur?: string;
   stagiaireQualites?: string;
-  stageDureeMois?: string;    // ✅ Durée en mois uniquement
+  stageDureeMois?: string;
+  stageType?: 'ACADEMIQUE' | 'PROFESSIONNEL';  // AJOUTÉ
   
-  // ✅ Responsable RH
+  // Responsable RH
   responsableRH?: {
     id: string;
     nom: string;
@@ -48,7 +49,7 @@ export interface EmployeeInfo {
   prenom: string;
   matriculeInterne: string;
   matricule_interne: string;
-  matricule_CNPS: string;     // ✅ AJOUTÉ
+  matricule_CNPS: string;
   poste: string;
   posteId: string;
   departement: string;
@@ -58,16 +59,17 @@ export interface EmployeeInfo {
   email: string;
   telephone: string;
   
-  // ✅ Propriétés pour l'attestation de stage
+  // Propriétés pour l'attestation de stage
   stagiaireFormation?: string;
   stageDateDebut?: string;
   stageDateFin?: string;
   stageService?: string;
-  stageSuperviseur?: string;   // ✅ Renommé
+  stageSuperviseur?: string;
   stagiaireQualites?: string;
-  stageDureeMois?: string;     // ✅ Durée en mois
+  stageDureeMois?: string;
+  stageType?: 'ACADEMIQUE' | 'PROFESSIONNEL';  // AJOUTÉ
   
-  // ✅ Propriétés pour le certificat de travail
+  // Propriétés pour le certificat de travail
   dateNaissance?: string;
   nationalite?: string;
   adresse?: string;

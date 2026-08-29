@@ -11,6 +11,15 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { Subscription, forkJoin } from 'rxjs';
 import { DepartementService } from '../../../../core/services/departement.service';
 
+interface Particle {
+  x: number;
+  y: number;
+  color: string;
+  size: number;
+  delay: number;
+  duration: number;
+}
+
 @Component({
   selector: 'app-employee-ranking',
   standalone: false,
@@ -25,36 +34,35 @@ export class EmployeeRankingComponent implements OnInit, OnDestroy {
   currentYear = new Date().getFullYear();
   years: number[] = [];
   
-  // Filtres
   searchTerm = '';
   searchControl = new FormControl('');
   selectedYear = this.currentYear;
   filterByDepartment = '';
   departments: string[] = [];
   
-  // Pagination
   pageSize = 20;
   currentPage = 0;
   totalItems = 0;
   
-  // Current user
   currentEmployeeId: string | null = null;
   
-  // Cache des départements
   private departmentCache: Map<string, string> = new Map();
-  
   private searchSubscription?: Subscription;
+
+  // Pour les feux d'artifice
+  bestScore = 0;
+  bestEmployeeId: string | null = null;
+  particles: Particle[] = [];
+  showFireworks = false;
 
   Math = Math;
 
-  // Couleurs pour les rangs
   rankColors: Record<number, string> = {
     1: '#f59e0b',
     2: '#9ca3af',
     3: '#cd7f32'
   };
 
-  // ✅ Mapping complet des mentions avec toutes les variantes possibles
   mentionMapping: Record<string, { label: string; class: string; color: string }> = {
     'EXCEPTIONNEL': { label: 'Exceptionnel', class: 'exceptionnel', color: '#10b981' },
     'EXCELLENT': { label: 'Exceptionnel', class: 'exceptionnel', color: '#10b981' },
@@ -64,7 +72,6 @@ export class EmployeeRankingComponent implements OnInit, OnDestroy {
     'ASSEZ_BIEN': { label: 'Assez Bien', class: 'assez_bien', color: '#8b5cf6' },
     'MOYEN': { label: 'Moyen', class: 'moyen', color: '#f59e0b' },
     'INSUFFISANT': { label: 'Insuffisant', class: 'insuffisant', color: '#ef4444' },
-    // ✅ Ajout des variantes avec accents
     'TRES BIEN': { label: 'Très Bien', class: 'tres_bien', color: '#3b82f6' },
     'TRÈS BIEN': { label: 'Très Bien', class: 'tres_bien', color: '#3b82f6' },
     'ASSEZ BIEN': { label: 'Assez Bien', class: 'assez_bien', color: '#8b5cf6' }
@@ -80,14 +87,13 @@ export class EmployeeRankingComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    console.log('✅ EmployeeRankingComponent initialisé');
+    console.log('EmployeeRankingComponent initialisé');
     
     for (let year = this.currentYear; year >= 2020; year--) {
       this.years.push(year);
     }
     
     this.currentEmployeeId = this.authService.getCurrentUserId();
-    console.log('👤 Utilisateur courant:', this.currentEmployeeId);
     
     this.searchSubscription = this.searchControl.valueChanges
       .pipe(debounceTime(300), distinctUntilChanged())
@@ -105,25 +111,18 @@ export class EmployeeRankingComponent implements OnInit, OnDestroy {
 
   loadRanking(): void {
     this.isLoading = true;
-    console.log('📊 Chargement du classement pour l\'année:', this.selectedYear);
+    this.bestEmployeeId = null;
+    this.particles = [];
+    this.showFireworks = false;
+    console.log('Chargement du classement pour l\'année:', this.selectedYear);
     
     this.performanceService.getClassement(this.selectedYear).subscribe({
       next: (data) => {
-        console.log('✅ Classement reçu:', data);
-        console.log('📊 Nombre d\'éléments:', data?.length);
+        console.log('Classement reçu:', data);
         
-        if (data && data.length > 0) {
-          console.log('📊 Premier élément:', data[0]);
-          console.log('📊 Clés du premier élément:', Object.keys(data[0]));
-          console.log('📊 Mention brute:', data[0].mention);
-          console.log('📊 Type de la mention:', typeof data[0].mention);
-        }
-        
-        // ✅ Stocker les données brutes
         this.ranking = data || [];
         this.totalItems = this.ranking.length;
         
-        // ✅ Récupérer les IDs des départements uniques
         const departmentIds = new Set<string>();
         this.ranking.forEach(item => {
           if (item.departementId) {
@@ -131,21 +130,18 @@ export class EmployeeRankingComponent implements OnInit, OnDestroy {
           }
         });
         
-        console.log('📊 IDs des départements à charger:', Array.from(departmentIds));
-        
-        // ✅ Si des départements existent, les charger
         if (departmentIds.size > 0) {
           this.loadDepartmentNames(Array.from(departmentIds));
         } else {
-          // ✅ Si pas de départements, mettre à jour les données directement
           this.updateRankingData();
           this.applyFilters();
+          this.detectBestPerformance();
           this.isLoading = false;
           this.cdr.detectChanges();
         }
       },
       error: (error) => {
-        console.error('❌ Erreur chargement classement:', error);
+        console.error('Erreur chargement classement:', error);
         this.snackBar.open('Erreur lors du chargement du classement', 'Fermer', { duration: 3000 });
         this.isLoading = false;
         this.ranking = [];
@@ -155,67 +151,51 @@ export class EmployeeRankingComponent implements OnInit, OnDestroy {
     });
   }
 
-  // ✅ Charger les noms des départements
   loadDepartmentNames(departmentIds: string[]): void {
-    console.log('📤 Chargement des noms de départements...');
-    
     const requests = departmentIds.map(id => 
       this.departementService.getById(id)
     );
     
     forkJoin(requests).subscribe({
       next: (departements) => {
-        console.log('✅ Départements chargés:', departements);
-        
         departements.forEach((dept, index) => {
           if (dept && dept.name) {
             this.departmentCache.set(departmentIds[index], dept.name);
-            console.log(`📌 ${departmentIds[index]} -> ${dept.name}`);
           } else {
             this.departmentCache.set(departmentIds[index], 'Département inconnu');
           }
         });
         
-        // ✅ Mettre à jour les données avec les noms des départements et les mentions
         this.updateRankingData();
-        
         this.applyFilters();
+        this.detectBestPerformance();
         this.isLoading = false;
         this.cdr.detectChanges();
-        console.log('✅ Chargement terminé');
       },
       error: (error) => {
-        console.error('❌ Erreur lors du chargement des départements:', error);
+        console.error('Erreur lors du chargement des départements:', error);
         this.updateRankingData();
         this.applyFilters();
+        this.detectBestPerformance();
         this.isLoading = false;
         this.cdr.detectChanges();
       }
     });
   }
 
-  // ✅ Mettre à jour les données avec les noms des départements et les mentions
   updateRankingData(): void {
     this.ranking = this.ranking.map(item => {
-      // ✅ Département
       let departmentName = item.departementNom || 'Non attribué';
       if (item.departementId && this.departmentCache.has(item.departementId)) {
         departmentName = this.departmentCache.get(item.departementId)!;
       }
       
-      // ✅ Mention - Normalisation
       let mentionValue = item.mention;
-      console.log(`🔍 Mention brute pour ${item.employeNom}:`, mentionValue, 'type:', typeof mentionValue);
-      
-      // ✅ Si la mention est null, undefined, ou une chaîne vide
       if (!mentionValue || mentionValue === '' || mentionValue === 'null' || mentionValue === 'undefined') {
         mentionValue = 'N/A';
       }
       
-      // ✅ Normaliser en majuscules et supprimer les accents
       let mentionKey = mentionValue.toUpperCase().trim();
-      
-      // ✅ Remplacer les accents
       mentionKey = mentionKey
         .replace(/É/g, 'E')
         .replace(/È/g, 'E')
@@ -227,16 +207,6 @@ export class EmployeeRankingComponent implements OnInit, OnDestroy {
         .replace(/Ô/g, 'O')
         .replace(/Ù/g, 'U');
       
-      console.log(`🔍 Mention normalisée pour ${item.employeNom}:`, mentionKey);
-      
-      // ✅ Vérifier si la mention existe dans le mapping
-      const mentionInfo = this.mentionMapping[mentionKey];
-      if (mentionInfo) {
-        console.log(`✅ Mention trouvée pour ${item.employeNom}: ${mentionInfo.label}`);
-      } else {
-        console.warn(`⚠️ Mention non reconnue pour ${item.employeNom}:`, mentionKey);
-      }
-      
       return {
         ...item,
         departementNom: departmentName,
@@ -244,7 +214,6 @@ export class EmployeeRankingComponent implements OnInit, OnDestroy {
       };
     });
     
-    // ✅ Extraire les départements uniques pour le filtre
     const depts = new Set<string>();
     this.ranking.forEach(item => {
       if (item.departementNom && 
@@ -254,11 +223,6 @@ export class EmployeeRankingComponent implements OnInit, OnDestroy {
       }
     });
     this.departments = Array.from(depts).sort();
-    console.log('📊 Départements disponibles pour le filtre:', this.departments);
-    
-    // ✅ Afficher les mentions uniques pour debug
-    const uniqueMentions = new Set(this.ranking.map(item => item.mention));
-    console.log('📊 Mentions uniques dans les données:', Array.from(uniqueMentions));
   }
 
   applyFilters(): void {
@@ -281,7 +245,60 @@ export class EmployeeRankingComponent implements OnInit, OnDestroy {
     this.filteredRanking = filtered;
     this.totalItems = filtered.length;
     this.currentPage = 0;
-    console.log('📊 Données filtrées:', this.filteredRanking.length);
+  }
+
+  /** Détecte le meilleur score et déclenche les feux d'artifice */
+  private detectBestPerformance(): void {
+    if (this.filteredRanking.length === 0) {
+      this.bestEmployeeId = null;
+      this.particles = [];
+      this.showFireworks = false;
+      return;
+    }
+
+    let best = this.filteredRanking[0];
+    this.bestScore = best.scoreTotal || 0;
+    for (const item of this.filteredRanking) {
+      if ((item.scoreTotal || 0) > this.bestScore) {
+        this.bestScore = item.scoreTotal || 0;
+        best = item;
+      }
+    }
+
+    // Si le score est >= 80, on déclenche les feux d'artifice
+    if (this.bestScore >= 80 && best.employeId) {
+      this.bestEmployeeId = best.employeId;
+      this.generateFireworks();
+      this.showFireworks = true;
+    } else {
+      this.bestEmployeeId = null;
+      this.particles = [];
+      this.showFireworks = false;
+    }
+  }
+
+  /** Génère les particules de feux d'artifice */
+  private generateFireworks(): void {
+    const colors = ['#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#f97316', '#06b6d4'];
+    const count = 100;
+    this.particles = [];
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * 2 * Math.PI;
+      const distance = 15 + Math.random() * 55;
+      this.particles.push({
+        x: 50 + Math.cos(angle) * distance,
+        y: 50 + Math.sin(angle) * distance,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 3 + Math.random() * 9,
+        delay: Math.random() * 0.8,
+        duration: 0.8 + Math.random() * 1.5
+      });
+    }
+  }
+
+  /** Vérifie si un employé est le meilleur */
+  isBestEmployee(employeeId: string): boolean {
+    return this.bestEmployeeId === employeeId;
   }
 
   onYearChange(year: number): void {
@@ -293,6 +310,7 @@ export class EmployeeRankingComponent implements OnInit, OnDestroy {
   onDepartmentChange(department: string): void {
     this.filterByDepartment = department;
     this.applyFilters();
+    this.detectBestPerformance();
   }
 
   clearFilters(): void {
@@ -300,13 +318,13 @@ export class EmployeeRankingComponent implements OnInit, OnDestroy {
     this.searchTerm = '';
     this.filterByDepartment = '';
     this.applyFilters();
+    this.detectBestPerformance();
   }
 
   getRankColor(rang: number): string {
     return this.rankColors[rang] || '#6b7280';
   }
 
-  // ✅ Méthodes pour les mentions - avec fallback
   getMentionLabel(mention: string | undefined | null): string {
     if (!mention || mention === 'N/A' || mention === 'null' || mention === '') {
       return 'Non évalué';
@@ -350,6 +368,12 @@ export class EmployeeRankingComponent implements OnInit, OnDestroy {
     if (score >= 60) return '#3b82f6';
     if (score >= 40) return '#f59e0b';
     return '#ef4444';
+  }
+
+  /** Retourne le pourcentage pour la barre de progression (basé sur 100) */
+  getScorePercentage(score: number | undefined): number {
+    if (score === undefined || score === null) return 0;
+    return Math.min(100, Math.max(0, score));
   }
 
   getTotalPages(): number {

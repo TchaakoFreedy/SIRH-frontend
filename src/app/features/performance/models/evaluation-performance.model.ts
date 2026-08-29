@@ -10,13 +10,13 @@ export interface EvaluationPerformance {
   evaluateurNom?: string;
   periode: PeriodeEvaluation;
   annee: number;
+  mois?: number;
   commentaires?: string;
   dateEvaluation?: Date;
   notes: NoteEvaluation[];
   
-  // ===== FIELDS =====
   typeEvaluation?: 'GLOBALE' | 'INDIVIDUELLE';
-  criteresUtilises?: string[];  // IDs des critères utilisés pour traçabilité
+  criteresUtilises?: string[];
   
   totalObtenu?: number;
   totalMaximal?: number;
@@ -35,14 +35,15 @@ export interface NoteEvaluation {
   note: number;
   coefficient?: number;
   scorePondere?: number;
+  noteMaximale?: number;  // ✅ AJOUT
 }
 
 // ============================================
-// 📊 MENTION PERFORMANCE
+// MENTION PERFORMANCE
 // ============================================
 
 export enum MentionPerformance {
-  EXCELLENT = 'EXCELLENT',
+  EXCEPTIONNEL = 'EXCEPTIONNEL',
   TRES_BIEN = 'TRES_BIEN',
   BIEN = 'BIEN',
   ASSEZ_BIEN = 'ASSEZ_BIEN',
@@ -51,25 +52,25 @@ export enum MentionPerformance {
 }
 
 export const MentionPerformanceLabels: Record<MentionPerformance, string> = {
-  [MentionPerformance.EXCELLENT]: '🌟 Excellent',
-  [MentionPerformance.TRES_BIEN]: '⭐ Très Bien',
-  [MentionPerformance.BIEN]: '✅ Bien',
-  [MentionPerformance.ASSEZ_BIEN]: '👍 Assez Bien',
-  [MentionPerformance.MOYEN]: '⚠️ Moyen',
-  [MentionPerformance.INSUFFISANT]: '❌ Insuffisant'
+  [MentionPerformance.EXCEPTIONNEL]: 'Exceptionnel',
+  [MentionPerformance.TRES_BIEN]: 'Très Bien',
+  [MentionPerformance.BIEN]: 'Bien',
+  [MentionPerformance.ASSEZ_BIEN]: 'Assez Bien',
+  [MentionPerformance.MOYEN]: 'Moyen',
+  [MentionPerformance.INSUFFISANT]: 'Insuffisant'
 };
 
 export const MentionPerformanceColors: Record<MentionPerformance, string> = {
-  [MentionPerformance.EXCELLENT]: '#2e7d32',
-  [MentionPerformance.TRES_BIEN]: '#1565c0',
-  [MentionPerformance.BIEN]: '#00897b',
-  [MentionPerformance.ASSEZ_BIEN]: '#4caf50',
-  [MentionPerformance.MOYEN]: '#ffa000',
-  [MentionPerformance.INSUFFISANT]: '#c62828'
+  [MentionPerformance.EXCEPTIONNEL]: '#10b981',
+  [MentionPerformance.TRES_BIEN]: '#3b82f6',
+  [MentionPerformance.BIEN]: '#06b6d4',
+  [MentionPerformance.ASSEZ_BIEN]: '#8b5cf6',
+  [MentionPerformance.MOYEN]: '#f59e0b',
+  [MentionPerformance.INSUFFISANT]: '#ef4444'
 };
 
 export const MentionPerformanceIcons: Record<MentionPerformance, string> = {
-  [MentionPerformance.EXCELLENT]: 'emoji_events',
+  [MentionPerformance.EXCEPTIONNEL]: 'emoji_events',
   [MentionPerformance.TRES_BIEN]: 'star',
   [MentionPerformance.BIEN]: 'check_circle',
   [MentionPerformance.ASSEZ_BIEN]: 'thumb_up',
@@ -77,17 +78,8 @@ export const MentionPerformanceIcons: Record<MentionPerformance, string> = {
   [MentionPerformance.INSUFFISANT]: 'error'
 };
 
-export const MentionPerformanceBgColors: Record<MentionPerformance, string> = {
-  [MentionPerformance.EXCELLENT]: 'bg-success',
-  [MentionPerformance.TRES_BIEN]: 'bg-primary',
-  [MentionPerformance.BIEN]: 'bg-info',
-  [MentionPerformance.ASSEZ_BIEN]: 'bg-info',
-  [MentionPerformance.MOYEN]: 'bg-warning',
-  [MentionPerformance.INSUFFISANT]: 'bg-danger'
-};
-
 export function getMentionFromScore(score: number): MentionPerformance {
-  if (score >= 90) return MentionPerformance.EXCELLENT;
+  if (score >= 90) return MentionPerformance.EXCEPTIONNEL;
   if (score >= 80) return MentionPerformance.TRES_BIEN;
   if (score >= 70) return MentionPerformance.BIEN;
   if (score >= 60) return MentionPerformance.ASSEZ_BIEN;
@@ -95,32 +87,22 @@ export function getMentionFromScore(score: number): MentionPerformance {
   return MentionPerformance.INSUFFISANT;
 }
 
-export function getMentionLabel(mention: MentionPerformance): string {
-  return MentionPerformanceLabels[mention] || mention;
+export function getMentionLabel(mention: string): string {
+  const key = mention as MentionPerformance;
+  return MentionPerformanceLabels[key] || mention;
 }
 
-export function getMentionColor(mention: MentionPerformance): string {
-  return MentionPerformanceColors[mention] || '#666';
+export function getMentionColor(mention: string): string {
+  const key = mention as MentionPerformance;
+  return MentionPerformanceColors[key] || '#6c757d';
 }
-
-export function getMentionIcon(mention: MentionPerformance): string {
-  return MentionPerformanceIcons[mention] || 'info';
-}
-
-export function getMentionBgColor(mention: MentionPerformance): string {
-  return MentionPerformanceBgColors[mention] || 'bg-secondary';
-}
-
-// ============================================
-// 📋 TYPE D'ÉVALUATION
-// ============================================
 
 export const TypeEvaluationOptions = [
-  { value: 'GLOBALE', label: '🌍 Globale - Tous les critères' },
-  { value: 'INDIVIDUELLE', label: '👤 Individuelle - Critères sélectionnés' }
+  { value: 'GLOBALE', label: 'Globale - Tous les critères' },
+  { value: 'INDIVIDUELLE', label: 'Individuelle - Critères sélectionnés' }
 ];
 
 export const TypeEvaluationLabels: Record<string, string> = {
-  'GLOBALE': '🌍 Globale',
-  'INDIVIDUELLE': '👤 Individuelle'
+  'GLOBALE': 'Globale',
+  'INDIVIDUELLE': 'Individuelle'
 };

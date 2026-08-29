@@ -37,8 +37,8 @@ export class DocumentGeneratorService {
   private entrepriseInfo: EntrepriseInfo = { ...this.DEFAULT_ENTREPRISE };
   private entrepriseLoaded = false;
   private pdfMakeReady = false;
+  private logoBase64: string | null = null;
 
-  // ✅ Liste des responsables RH
   private responsablesRHSubject = new BehaviorSubject<ResponsableRH[]>([]);
   responsablesRH$ = this.responsablesRHSubject.asObservable();
 
@@ -54,22 +54,48 @@ export class DocumentGeneratorService {
   ) {
     this.initPdfMake();
     this.loadResponsablesRH();
+    this.loadLogoBase64();
   }
 
   // ==========================================
-  // ✅ GESTION DES RESPONSABLES RH
+  // CHARGEMENT DU LOGO EN BASE64
+  // ==========================================
+
+  private async loadLogoBase64(): Promise<void> {
+    try {
+      const logoUrl = '/logo.png';
+      const response = await fetch(logoUrl);
+      if (!response.ok) {
+        console.warn('Logo non trouvé, utilisation du texte à la place');
+        return;
+      }
+      const blob = await response.blob();
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.logoBase64 = reader.result as string;
+        console.log('Logo chargé en base64');
+      };
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      console.warn('Erreur lors du chargement du logo:', error);
+      this.logoBase64 = null;
+    }
+  }
+
+  // ==========================================
+  // GESTION DES RESPONSABLES RH
   // ==========================================
 
   async loadResponsablesRH(): Promise<void> {
     try {
       const employees = await firstValueFrom(this.employeeService.getAll());
       const users = await firstValueFrom(this.userService.getUsers());
-      
+
       const rhEmployees = employees.filter(emp => {
         const user = users.find(u => u.id === emp.userId || u.employeeId === emp.id);
         if (!user) return false;
         const roleId = user.roleId || '';
-        return roleId.toUpperCase().includes('RH') || 
+        return roleId.toUpperCase().includes('RH') ||
                roleId.toUpperCase().includes('RESPONSABLE');
       });
 
@@ -79,7 +105,7 @@ export class DocumentGeneratorService {
         const nom = emp.nom || user?.lastName || '';
         const prenom = emp.prenom || user?.firstName || '';
         const nomComplet = `${prenom} ${nom}`.trim() || 'Responsable RH';
-        
+
         return {
           id: id,
           nom: nom,
@@ -244,7 +270,8 @@ export class DocumentGeneratorService {
           email: entreprise.email || this.DEFAULT_ENTREPRISE.email,
           siteWeb: entreprise.siteWeb || this.DEFAULT_ENTREPRISE.siteWeb,
           siret: '',
-          nif: ''
+          nif: '',
+          logo: entreprise.logo || '/logo.png'
         };
         this.entrepriseLoaded = true;
       } else {
@@ -284,6 +311,7 @@ export class DocumentGeneratorService {
       stageSuperviseur: employee.stageSuperviseur || employee.stageEncadrant || '',
       stagiaireQualites: employee.stagiaireQualites || '',
       stageDureeMois: employee.stageDureeMois || '',
+      stageType: employee.stageType || 'ACADEMIQUE',
       dateNaissance: employee.dateNaissance || employee.date_naissance || '',
       nationalite: employee.nationalite || 'Camerounaise',
       adresse: employee.adresse || employee.adressee || '',
@@ -321,10 +349,11 @@ export class DocumentGeneratorService {
     return `${prefix}-${year}-${random}`;
   }
 
-  private formatDate(dateStr: string): string {
+  private formatDate(dateStr: string | null | undefined): string {
     if (!dateStr) return 'Non spécifiée';
     try {
       const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
       return date.toLocaleDateString('fr-FR', {
         day: '2-digit',
         month: 'long',
@@ -360,31 +389,81 @@ export class DocumentGeneratorService {
     return `${employeeData.prenom} ${employeeData.nom}`.trim();
   }
 
+  private calculateMonths(dateDebutStr: string | null | undefined, dateFinStr: string | null | undefined): number {
+    if (!dateDebutStr || !dateFinStr) return 0;
+    const debut = new Date(dateDebutStr);
+    const fin = new Date(dateFinStr);
+    if (isNaN(debut.getTime()) || isNaN(fin.getTime())) return 0;
+    const diffTime = Math.abs(fin.getTime() - debut.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.round(diffDays / 30);
+  }
+
+  // ==========================================
+  // EN-TÊTE AVEC LOGO CENTRÉ ET PLUS GRAND
+  // ==========================================
   private getDocumentHeader(numDocument: string): any {
     const entreprise = this.getEntrepriseInfo();
+    const logoBase64 = this.logoBase64;
+
+    // Logo centré de taille 120x120
+    let logoRow: any;
+    if (logoBase64) {
+      logoRow = {
+        image: logoBase64,
+        width: 120,
+        height: 120,
+        alignment: 'center',
+        margin: [0, 0, 0, 8]
+      };
+    } else {
+      logoRow = {
+        text: 'RH',
+        style: 'logoText',
+        alignment: 'center',
+        margin: [0, 0, 0, 8]
+      };
+    }
+
+    // Nom de l'entreprise en gros et gras
+    const companyNameRow = {
+      text: entreprise.nom,
+      style: 'companyNameLarge',
+      alignment: 'center',
+      margin: [0, 0, 0, 4]
+    };
+
+    // Coordonnées en style plus petit
+    const contactRow = {
+      text: `${entreprise.adresse} | Tél: ${entreprise.telephone} | Email: ${entreprise.email}`,
+      style: 'companyContact',
+      alignment: 'center',
+      margin: [0, 0, 0, 8]
+    };
+
+    // Ligne de séparation fine
+    const separatorRow = {
+      canvas: [{ type: 'line', x1: 0, y1: 0, x2: 520, y2: 0, lineWidth: 1, color: '#cbd5e1' }],
+      margin: [0, 4, 0, 8]
+    };
+
+    // Numéro de document aligné à droite
+    const docNumberRow = {
+      text: 'N° ' + numDocument,
+      style: 'documentNumber',
+      alignment: 'right',
+      margin: [0, 0, 0, 4]
+    };
+
     return {
-      columns: [
-        {
-          width: '15%',
-          alignment: 'center',
-          stack: [{ text: 'RH', style: 'logoText', margin: [0, 0, 0, 4] }]
-        },
-        {
-          width: '60%',
-          alignment: 'center',
-          stack: [
-            { text: entreprise.nom, style: 'companyName', margin: [0, 0, 0, 4] },
-            { text: entreprise.adresse, style: 'companyAddress', margin: [0, 0, 0, 2] },
-            { text: `Tél: ${entreprise.telephone} | Email: ${entreprise.email}`, style: 'companyContact', margin: [0, 0, 0, 2] }
-          ]
-        },
-        {
-          width: '25%',
-          alignment: 'right',
-          stack: [{ text: 'N° ' + numDocument, style: 'documentNumber', margin: [0, 0, 0, 4] }]
-        }
+      stack: [
+        logoRow,
+        companyNameRow,
+        contactRow,
+        separatorRow,
+        docNumberRow
       ],
-      margin: [0, 0, 0, 15]
+      margin: [0, 0, 0, 10] // Réduire l'espace après l'en-tête
     };
   }
 
@@ -404,7 +483,7 @@ export class DocumentGeneratorService {
           style: 'footerTextBold'
         }
       ],
-      margin: [0, 20, 0, 0]
+      margin: [0, 15, 0, 0] // Réduire l'espace avant le pied de page
     };
   }
 
@@ -435,17 +514,23 @@ export class DocumentGeneratorService {
   // ============ GÉNÉRATION DU CERTIFICAT DE TRAVAIL ============
   async generateCertificatTravail(employee: any, motif?: string): Promise<void> {
     await this.loadEntrepriseInfoFromEmployee(employee);
+    if (!this.logoBase64) {
+      await this.loadLogoBase64();
+    }
     const employeeData = this.getEmployeeData(employee);
     const numDocument = this.generateDocumentNumber('CERTIFICAT');
     const dateGeneration = this.getCurrentDate();
     const dateHeureGeneration = this.getCurrentDateTime();
     const entreprise = this.getEntrepriseInfo();
-    
-    // ✅ Récupérer le nom du responsable RH depuis l'employé ou fallback
+
     const responsableNom = employee.responsableRHNom || employee.responsableRH?.nomComplet || '_______________________';
     const responsableTitre = 'RESPONSABLE DES RESSOURCES HUMAINES';
 
-    const matriculeCNPS = employeeData.matricule_CNPS || '.............' ;
+    const matriculeCNPS = employeeData.matricule_CNPS || '.............';
+    const cinNumber = employeeData.cin || '.............';
+    const dateNaissance = this.formatDate(employeeData.dateNaissance);
+    const dateEmbauche = this.formatDate(employeeData.date_embauche);
+    const dateFin = employee.dateFinContrat || employeeData.dateFinContrat || 'ce jour';
 
     const docDefinition = {
       pageSize: 'A4',
@@ -453,15 +538,22 @@ export class DocumentGeneratorService {
       defaultStyle: { font: 'Roboto', fontSize: 10, lineHeight: 1.5 },
       content: [
         this.getDocumentHeader(numDocument),
-        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 520, y2: 0, lineWidth: 2, color: '#0d9488' }], margin: [0, 0, 0, 18] },
         { text: 'CERTIFICAT DE TRAVAIL', style: 'title', margin: [0, 0, 0, 16] },
         {
           stack: [
             { text: `Je soussignée ${responsableNom} agissant en qualité de ${responsableTitre} de la société dénommée ${entreprise.nom} dont le siège se trouve à ${entreprise.adresse},`, style: 'bodyText', margin: [0, 0, 0, 6] },
-            { text: `Certifie par la présente que le nommé Mme/Mr ${this.getFullName(employeeData)}, né(e) le ${this.formatDate(employeeData.dateNaissance || employee.date_naissance || '')},`, style: 'bodyText', margin: [0, 0, 0, 6] },
-            { text: `CNI N° : ${employeeData.cin || '.............'}`, style: 'bodyText', margin: [0, 0, 0, 6] },
+            { text: [
+                { text: 'Certifie par la présente que le nommé Mme/Mr ', style: 'bodyText' },
+                { text: this.getFullName(employeeData), style: 'bodyTextBold' },
+                { text: `, né(e) le ${dateNaissance},`, style: 'bodyText' }
+              ], margin: [0, 0, 0, 6] },
+            { text: `CNI N° : ${cinNumber}`, style: 'bodyText', margin: [0, 0, 0, 6] },
             { text: `Matricule CNPS : ${matriculeCNPS}`, style: 'bodyText', margin: [0, 0, 0, 6] },
-            { text: `A été employé au sein de cette entreprise en tant que ${employeeData.poste} du ${this.formatDate(employeeData.date_embauche)} au ${employeeData.dateFinContrat || 'ce jour'}.`, style: 'bodyText', margin: [0, 0, 0, 6] },
+            { text: [
+                { text: 'A été employé au sein de cette entreprise en tant que ', style: 'bodyText' },
+                { text: employeeData.poste, style: 'bodyTextBold' },
+                { text: ` du ${dateEmbauche} au ${dateFin}.`, style: 'bodyText' }
+              ], margin: [0, 0, 0, 6] },
             ...(motif ? [{ text: `Motif de la demande : ${motif}`, style: 'bodyText', margin: [0, 0, 0, 6] }] : []),
             { text: 'Le présent certificat est délivré à l\'intéressé(e) pour servir et valoir ce que de droit.', style: 'bodyText', margin: [0, 0, 0, 16] }
           ]
@@ -491,23 +583,32 @@ export class DocumentGeneratorService {
   // ============ GÉNÉRATION DE L'ATTESTATION DE STAGE ============
   async generateAttestationStage(employee: any, motif?: string): Promise<void> {
     await this.loadEntrepriseInfoFromEmployee(employee);
+    if (!this.logoBase64) {
+      await this.loadLogoBase64();
+    }
     const employeeData = this.getEmployeeData(employee);
     const numDocument = this.generateDocumentNumber('ATTESTATION_STAGE');
     const dateGeneration = this.getCurrentDate();
     const dateHeureGeneration = this.getCurrentDateTime();
     const entreprise = this.getEntrepriseInfo();
-    
-    // ✅ Récupérer le nom du responsable RH depuis l'employé ou fallback
+
     const responsableNom = employee.responsableRHNom || employee.responsableRH?.nomComplet || '_______________________';
     const responsableTitre = 'RESPONSABLE DES RESSOURCES HUMAINES';
 
-    const stageDateDebut = employee.stageDateDebut || employeeData.date_embauche || '...';
-    const stageDateFin = employee.stageDateFin || employeeData.stageDateFin || '...';
+    const dateDebutStage = employeeData.date_embauche;
+    const dateFinStage = new Date().toISOString().split('T')[0];
+    const dureeMois = this.calculateMonths(dateDebutStage, dateFinStage);
+
     const stagiaireFormation = employee.stagiaireFormation || employeeData.stagiaireFormation || 'étudiant(e)';
     const stageService = employee.stageService || employeeData.stageService || employeeData.departement || '...';
     const stageSuperviseur = employee.stageSuperviseur || employeeData.stageSuperviseur || 'le responsable du service';
     const stagiaireQualites = employee.stagiaireQualites || employeeData.stagiaireQualites || 'sérieux, rigueur et autonomie';
-    const stageDureeMois = employee.stageDureeMois || employeeData.stageDureeMois || '...';
+    const stageType = employee.stageType || employeeData.stageType || 'ACADEMIQUE';
+    const stageTypeLabel = stageType === 'ACADEMIQUE' ? 'académique' : 'professionnel';
+
+    const titleText = stageType === 'ACADEMIQUE'
+      ? 'ATTESTATION DE STAGE ACADEMIQUE'
+      : 'ATTESTATION DE STAGE PROFESSIONNEL';
 
     const docDefinition = {
       pageSize: 'A4',
@@ -515,12 +616,29 @@ export class DocumentGeneratorService {
       defaultStyle: { font: 'Roboto', fontSize: 10, lineHeight: 1.5 },
       content: [
         this.getDocumentHeader(numDocument),
-        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 520, y2: 0, lineWidth: 2, color: '#0d9488' }], margin: [0, 0, 0, 18] },
-        { text: 'ATTESTATION DE STAGE ACADEMIQUE', style: 'title', margin: [0, 0, 0, 16] },
+        { text: titleText, style: 'title', margin: [0, 0, 0, 16] },
         {
           stack: [
-            { text: `Je soussignée ${responsableNom}, agissant en qualité de ${responsableTitre} d'${entreprise.nom}, certifie par la présente que ${this.getFullName(employeeData)}, a effectué un stage de ${stageDureeMois} mois au sein de notre entreprise ${entreprise.nom}.`, style: 'bodyText', margin: [0, 0, 0, 6] },
-            { text: `Date : Du ${this.formatDate(stageDateDebut)} au ${this.formatDate(stageDateFin)}. En qualité de stagiaire académique au sein du département ${stageService}, spécialisation ${stagiaireFormation} sous la supervision de ${stageSuperviseur}.`, style: 'bodyText', margin: [0, 0, 0, 6] },
+            { text: `Je soussignée ${responsableNom}, agissant en qualité de ${responsableTitre} d'${entreprise.nom}, certifie par la présente que`, style: 'bodyText', margin: [0, 0, 0, 6] },
+            { text: [
+                { text: this.getFullName(employeeData), style: 'bodyTextBold' },
+                { text: `, ${stagiaireFormation}, a effectué un stage ${stageTypeLabel} de ` },
+                { text: `${dureeMois} mois`, style: 'bodyTextBold' },
+                { text: ` au sein de notre entreprise ${entreprise.nom}.` }
+              ], style: 'bodyText', margin: [0, 0, 0, 6] },
+            { text: [
+                { text: 'Date : Du ' },
+                { text: this.formatDate(dateDebutStage), style: 'bodyTextBold' },
+                { text: ' au ' },
+                { text: this.formatDate(dateFinStage), style: 'bodyTextBold' },
+                { text: `. En qualité de stagiaire ${stageTypeLabel} au sein du département ` },
+                { text: stageService, style: 'bodyTextBold' },
+                { text: `, spécialisation ` },
+                { text: stagiaireFormation, style: 'bodyTextBold' },
+                { text: ` sous la supervision de ` },
+                { text: stageSuperviseur, style: 'bodyTextBold' },
+                { text: '.' }
+              ], margin: [0, 0, 0, 6] },
             ...(motif ? [{ text: `Motif de la demande : ${motif}`, style: 'bodyText', margin: [0, 0, 0, 6] }] : []),
             { text: 'Cette attestation est délivrée à l\'intéressé(e) pour servir et valoir ce que de droit.', style: 'bodyText', margin: [0, 0, 0, 16] }
           ]
@@ -544,24 +662,27 @@ export class DocumentGeneratorService {
       styles: this.getStyles()
     };
 
-    this.createAndDownloadPdf(docDefinition, `Attestation_Stage_${this.getFullName(employeeData)}_${numDocument}.pdf`);
+    this.createAndDownloadPdf(docDefinition, `Attestation_Stage_${stageTypeLabel}_${this.getFullName(employeeData)}_${numDocument}.pdf`);
   }
 
   // ============ GÉNÉRATION DE L'ATTESTATION DE TRAVAIL ============
   async generateAttestationTravail(employee: any, motif?: string): Promise<void> {
     await this.loadEntrepriseInfoFromEmployee(employee);
+    if (!this.logoBase64) {
+      await this.loadLogoBase64();
+    }
     const employeeData = this.getEmployeeData(employee);
     const numDocument = this.generateDocumentNumber('ATTESTATION');
     const dateGeneration = this.getCurrentDate();
     const dateHeureGeneration = this.getCurrentDateTime();
     const entreprise = this.getEntrepriseInfo();
-    
-    // ✅ Récupérer le nom du responsable RH depuis l'employé ou fallback
+
     const responsableNom = employee.responsableRHNom || employee.responsableRH?.nomComplet || '_______________________';
     const responsableTitre = 'RESPONSABLE DES RESSOURCES HUMAINES';
 
-    const matriculeCNPS = employeeData.matricule_CNPS || '.............' ;
-    const cinNumber = employeeData.cin || '.............' ;
+    const matriculeCNPS = employeeData.matricule_CNPS || '.............';
+    const cinNumber = employeeData.cin || '.............';
+    const dateNaissance = this.formatDate(employeeData.dateNaissance);
     const dateEmbauche = this.formatDate(employeeData.date_embauche);
 
     const docDefinition = {
@@ -570,15 +691,22 @@ export class DocumentGeneratorService {
       defaultStyle: { font: 'Roboto', fontSize: 10, lineHeight: 1.5 },
       content: [
         this.getDocumentHeader(numDocument),
-        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 520, y2: 0, lineWidth: 2, color: '#0d9488' }], margin: [0, 0, 0, 18] },
         { text: 'ATTESTATION DE TRAVAIL', style: 'title', margin: [0, 0, 0, 16] },
         {
           stack: [
             { text: `Je soussignée ${responsableNom} agissant en qualité de ${responsableTitre} de la société dénommée ${entreprise.nom} dont le siège se trouve à ${entreprise.adresse},`, style: 'bodyText', margin: [0, 0, 0, 6] },
-            { text: `Atteste par la présente que le nommé Mme/Mr ${this.getFullName(employeeData)}, né(e) le ${this.formatDate(employeeData.dateNaissance || employee.date_naissance || '')},`, style: 'bodyText', margin: [0, 0, 0, 6] },
+            { text: [
+                { text: 'Atteste par la présente que le nommé Mme/Mr ', style: 'bodyText' },
+                { text: this.getFullName(employeeData), style: 'bodyTextBold' },
+                { text: `, né(e) le ${dateNaissance},`, style: 'bodyText' }
+              ], margin: [0, 0, 0, 6] },
             { text: `CNI N° : ${cinNumber}`, style: 'bodyText', margin: [0, 0, 0, 6] },
             { text: `Matricule CNPS : ${matriculeCNPS}`, style: 'bodyText', margin: [0, 0, 0, 6] },
-            { text: `Est employé au sein de cette entreprise en tant que ${employeeData.poste} du ${dateEmbauche} jusqu'à date.`, style: 'bodyText', margin: [0, 0, 0, 6] },
+            { text: [
+                { text: 'Est employé au sein de cette entreprise en tant que ', style: 'bodyText' },
+                { text: employeeData.poste, style: 'bodyTextBold' },
+                { text: ` du ${dateEmbauche} jusqu'à date.`, style: 'bodyText' }
+              ], margin: [0, 0, 0, 6] },
             ...(motif ? [{ text: `Motif de la demande : ${motif}`, style: 'bodyText', margin: [0, 0, 0, 6] }] : []),
             { text: 'La présente attestation est délivrée à l\'intéressé(e) pour servir et valoir ce que de droit.', style: 'bodyText', margin: [0, 0, 0, 16] }
           ]
@@ -612,9 +740,17 @@ export class DocumentGeneratorService {
     const numDocument = this.generateDocumentNumber(documentType);
     const dateGeneration = this.getCurrentDate();
     const entreprise = this.getEntrepriseInfo();
-    
-    // ✅ Récupérer le nom du responsable RH depuis l'employé
+
     const responsableNom = employee.responsableRHNom || '';
+
+    let stageDebut = employeeData.date_embauche;
+    let stageFin = new Date().toISOString().split('T')[0];
+    let dureeMois = this.calculateMonths(stageDebut, stageFin);
+    let stagiaireFormation = employee.stagiaireFormation || employeeData.stagiaireFormation || 'étudiant(e)';
+    let stageService = employee.stageService || employeeData.stageService || employeeData.departement || '...';
+    let stageSuperviseur = employee.stageSuperviseur || employeeData.stageSuperviseur || 'le responsable du service';
+    let stagiaireQualites = employee.stagiaireQualites || employeeData.stagiaireQualites || 'sérieux, rigueur et autonomie';
+    let stageType = employee.stageType || employeeData.stageType || 'ACADEMIQUE';
 
     return {
       employeeName: this.getFullName(employeeData),
@@ -631,14 +767,15 @@ export class DocumentGeneratorService {
       motif: motif || '',
       documentType: documentType,
       numeroDocument: numDocument,
-      stageDateDebut: this.formatDate(employeeData.date_embauche),
-      stageDateFin: employeeData.stageDateFin || '',
-      stagiaireFormation: employeeData.stagiaireFormation || '',
-      stageService: employeeData.stageService || '',
-      stageSuperviseur: employeeData.stageSuperviseur || '',
-      stagiaireQualites: employeeData.stagiaireQualites || '',
-      stageDureeMois: employeeData.stageDureeMois || '',
-      employeeDateNaissance: employeeData.dateNaissance || '',
+      stageDateDebut: this.formatDate(stageDebut),
+      stageDateFin: this.formatDate(stageFin),
+      stageDureeMois: String(dureeMois),
+      stagiaireFormation: stagiaireFormation,
+      stageService: stageService,
+      stageSuperviseur: stageSuperviseur,
+      stagiaireQualites: stagiaireQualites,
+      stageType: stageType,
+      employeeDateNaissance: this.formatDate(employeeData.dateNaissance),
       employeeNationalite: employeeData.nationalite || 'Camerounaise',
       employeeAdresse: employeeData.adresse || '',
       employeeCIN: employeeData.cin || '',
@@ -657,12 +794,14 @@ export class DocumentGeneratorService {
   private getStyles(): any {
     return {
       logoText: { fontSize: 20, bold: true, color: '#0d9488' },
+      companyNameLarge: { fontSize: 22, bold: true, color: '#0d9488', alignment: 'center' },
       companyName: { fontSize: 16, bold: true, color: '#0d9488' },
       companyAddress: { fontSize: 9, color: '#475569' },
-      companyContact: { fontSize: 9, color: '#475569' },
+      companyContact: { fontSize: 9, color: '#475569', alignment: 'center' },
       documentNumber: { fontSize: 9, bold: true, color: '#0d9488' },
       title: { fontSize: 18, bold: true, alignment: 'center', color: '#0d9488', letterSpacing: 2, margin: [0, 0, 0, 12] },
       bodyText: { fontSize: 10, lineHeight: 1.6, alignment: 'justify' },
+      bodyTextBold: { fontSize: 10, bold: true, lineHeight: 1.6, alignment: 'justify' },
       signatureText: { fontSize: 10, alignment: 'center' },
       signatureName: { fontSize: 11, bold: true, alignment: 'center', color: '#0f172a' },
       signatureTitle: { fontSize: 9, alignment: 'center', color: '#475569' },

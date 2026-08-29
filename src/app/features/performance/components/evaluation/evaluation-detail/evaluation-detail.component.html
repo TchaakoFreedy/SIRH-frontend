@@ -128,7 +128,8 @@
                   <span class="critere-name">{{ note.critereNom }}</span>
                 </td>
                 <td class="center">
-                  <span class="note-value">{{ note.note }}/5</span>
+                  <!-- ✅ Affichage dynamique de la note maximale -->
+                  <span class="note-value">{{ note.note }} / {{ note.noteMaximale ?? 10 }}</span>
                 </td>
                 <td class="center">
                   <span class="coeff-value">{{ note.coefficient || 1 }}</span>

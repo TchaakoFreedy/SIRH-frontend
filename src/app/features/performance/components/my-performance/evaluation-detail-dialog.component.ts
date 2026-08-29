@@ -2,6 +2,7 @@ import { Component, Inject, HostListener } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { EvaluationPerformance } from '../../models/evaluation-performance.model';
 import { PerformanceService } from '../../services/performance.service';
+import { PeriodeEvaluationLabels } from '../../models/periode-evaluation.enum';
 
 export interface DialogData {
   evaluationId: string;
@@ -89,6 +90,10 @@ export class EvaluationDetailDialogComponent {
       INSUFFISANT: 'insuffisant'
     };
     return classes[mention] || 'secondary';
+  }
+
+  getPeriodeLabel(periode: string): string {
+    return PeriodeEvaluationLabels[periode as keyof typeof PeriodeEvaluationLabels] || periode;
   }
 
   close(): void {

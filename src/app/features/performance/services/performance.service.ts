@@ -9,7 +9,7 @@ import { EvaluationPerformance } from '../models/evaluation-performance.model';
 import { ClassementDTO, DashboardPerformanceDTO } from '../models/classement.model';
 import { EmployeeSelectionDTO } from '../models/employee-selection.dto';
 import { PerformanceStats } from '../models/performance-stats.model';
-import { EvolutionPoint } from '../models/evolution-point.model'; // ADD THIS IMPORT
+import { EvolutionPoint } from '../models/evolution-point.model';
 import { EvaluationFilterParams, buildEvaluationFilterParams } from '../models/performance-filter.model';
 import { Page } from '../../../shared/models/page.model';
 import { PeriodeEvaluation } from '../models/periode-evaluation.enum';
@@ -21,7 +21,7 @@ export class PerformanceService {
   constructor(private http: HttpClient) {}
 
   // ============================================
-  // 📋 CRITÈRES DE PERFORMANCE
+  // CRITÈRES DE PERFORMANCE
   // ============================================
 
   getCriteres(): Observable<CriterePerformance[]> {
@@ -49,7 +49,7 @@ export class PerformanceService {
   }
 
   // ============================================
-  // 🆕 CRITÈRES PAR EMPLOYÉ (GLOBAL + SELECTIVE)
+  // CRITÈRES PAR EMPLOYÉ (GLOBAL + SELECTIVE)
   // ============================================
 
   getCriteresForEmployee(employeeId: string): Observable<CriterePerformance[]> {
@@ -69,7 +69,7 @@ export class PerformanceService {
   }
 
   // ============================================
-  // 📋 ÉVALUATIONS
+  // ÉVALUATIONS
   // ============================================
 
   getEvaluations(params?: EvaluationFilterParams): Observable<Page<EvaluationPerformance>> {
@@ -136,12 +136,15 @@ export class PerformanceService {
     return this.http.get<ClassementDTO>(`${this.baseUrl}/classement/my-rank?annee=${annee}`);
   }
 
+  // ✅ Mise à jour de createEvaluation pour accepter critereIds
   createEvaluation(data: {
     employeId: string;
     periode: PeriodeEvaluation;
     annee: number;
+    mois?: number;
     commentaires?: string;
     notes: Array<{ critereId: string; note: number }>;
+    critereIds?: string[];   // ✅ AJOUT
   }): Observable<EvaluationPerformance> {
     return this.http.post<EvaluationPerformance>(`${this.baseUrl}/evaluations`, data);
   }
@@ -179,16 +182,16 @@ export class PerformanceService {
   }
 
   // ============================================
-  // 📊 CLASSEMENT ET DASHBOARD
+  // CLASSEMENT ET DASHBOARD
   // ============================================
 
-getClassement(annee: number, entrepriseId?: string, departementId?: string, top?: number): Observable<ClassementDTO[]> {
-  let params = new HttpParams().set('annee', annee.toString());
-  if (entrepriseId) params = params.set('entrepriseId', entrepriseId);
-  if (departementId) params = params.set('departementId', departementId);
-  if (top) params = params.set('top', top.toString());
-  return this.http.get<ClassementDTO[]>(`${this.baseUrl}/classement`, { params });
-}
+  getClassement(annee: number, entrepriseId?: string, departementId?: string, top?: number): Observable<ClassementDTO[]> {
+    let params = new HttpParams().set('annee', annee.toString());
+    if (entrepriseId) params = params.set('entrepriseId', entrepriseId);
+    if (departementId) params = params.set('departementId', departementId);
+    if (top) params = params.set('top', top.toString());
+    return this.http.get<ClassementDTO[]>(`${this.baseUrl}/classement`, { params });
+  }
 
   getTopEmployes(annee: number, top: number = 10): Observable<ClassementDTO[]> {
     return this.http.get<ClassementDTO[]>(`${this.baseUrl}/classement/top/${top}?annee=${annee}`);
@@ -197,6 +200,4 @@ getClassement(annee: number, entrepriseId?: string, departementId?: string, top?
   getDashboard(): Observable<DashboardPerformanceDTO> {
     return this.http.get<DashboardPerformanceDTO>(`${this.baseUrl}/dashboard`);
   }
-
-  
 }

@@ -1,9 +1,7 @@
-<!-- ==========================================================
-     DIALOGUE DÉTAIL ÉVALUATION - DESIGN TURQUOISE PREMIUM
-     ========================================================== -->
+<!-- src/app/features/performance/components/evaluation/evaluation-detail-dialog/evaluation-detail-dialog.component.html -->
 
 <div class="dialog-container">
-  <!-- Header avec dégradé turquoise -->
+  <!-- Header avec dégradé -->
   <div class="dialog-header-glass">
     <div class="header-left">
       <div class="header-icon">
@@ -35,7 +33,7 @@
       <div class="detail-header">
         <div>
           <div class="periode-annee">
-            <span class="periode">{{ evaluation.periode }}</span>
+            <span class="periode">{{ getPeriodeLabel(evaluation.periode) }}</span>
             <span class="annee">{{ evaluation.annee }}</span>
           </div>
           <div class="date">
@@ -48,7 +46,7 @@
         </div>
       </div>
 
-      <!-- Score global (carte stat) -->
+      <!-- Score global -->
       <div class="stat-card score-card">
         <div class="stat-icon">
           <span class="material-symbols-outlined">scoreboard</span>
@@ -75,12 +73,11 @@
             @for (note of evaluation.notes; track note.critereId) {
               <div class="note-item">
                 <div class="critere-info">
-                  <!-- ✅ Utilisation directe du nom du critère (provenant du backend) -->
                   <span class="critere-nom">{{ note.critereNom }}</span>
-                  <span class="note-valeur">{{ note.note }} / 10</span>
+                  <span class="note-valeur">{{ note.note }} / {{ note.noteMaximale || 10 }}</span>
                 </div>
                 <div class="note-bar-wrapper">
-                  <div class="note-bar" [style.width.%]="(note.note / 10) * 100"></div>
+                  <div class="note-bar" [style.width.%]="(note.note / (note.noteMaximale || 10)) * 100"></div>
                 </div>
               </div>
             }
@@ -103,7 +100,7 @@
     </div>
   }
 
-  <!-- Footer avec navigation et fermeture -->
+  <!-- Footer avec navigation -->
   @if (!loading) {
     <div class="dialog-footer">
       <div class="nav-buttons">

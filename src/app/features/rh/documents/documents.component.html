@@ -6,8 +6,8 @@
     <div class="header-content">
       <div class="header-left">
         <div class="company-logo">
-          <img 
-            [src]="entrepriseLogo() || '/logo.png'" 
+          <img
+            [src]="entrepriseLogo() || '/logo.png'"
             [alt]="'Logo ' + entrepriseName()"
             (error)="onImageError($event)"
           />
@@ -74,15 +74,15 @@
     </div>
   }
 
-  <!-- ✅ Champ texte pour le nom du Responsable RH -->
+  <!-- Champ texte pour le nom du Responsable RH -->
   <div class="form-card">
     <div class="form-group">
       <label for="responsableRHNom">
         <i class="fas fa-user-tie"></i> Responsable RH signataire
       </label>
-      <input 
+      <input
         id="responsableRHNom"
-        type="text" 
+        type="text"
         [(ngModel)]="responsableRHNom"
         placeholder="Entrez le nom du responsable RH"
         class="form-control"
@@ -95,7 +95,7 @@
 
   <!-- Sélection du type de document -->
   <div class="document-type-selector">
-    <div class="type-option" 
+    <div class="type-option"
          [class.active]="documentType === 'ATTESTATION_STAGE'"
          (click)="selectDocumentType('ATTESTATION_STAGE')">
       <i class="fas fa-file-alt"></i>
@@ -104,7 +104,7 @@
         <small>Attestation pour les stagiaires en formation</small>
       </div>
     </div>
-    <div class="type-option" 
+    <div class="type-option"
          [class.active]="documentType === 'ATTESTATION'"
          (click)="selectDocumentType('ATTESTATION')">
       <i class="fas fa-file-signature"></i>
@@ -113,7 +113,7 @@
         <small>Attestation de situation professionnelle</small>
       </div>
     </div>
-    <div class="type-option" 
+    <div class="type-option"
          [class.active]="documentType === 'CERTIFICAT'"
          (click)="selectDocumentType('CERTIFICAT')">
       <i class="fas fa-certificate"></i>
@@ -131,9 +131,9 @@
       <label for="motif">
         <i class="fas fa-comment"></i> Motif de la demande <span class="optional">(optionnel)</span>
       </label>
-      <input 
+      <input
         id="motif"
-        type="text" 
+        type="text"
         [(ngModel)]="motif"
         placeholder="Ex: Demande de prêt bancaire, constitution de dossier, inscription universitaire..."
         class="form-control"
@@ -144,69 +144,81 @@
     @if (documentType === 'ATTESTATION_STAGE') {
       <div class="form-row">
         <div class="form-group half">
+          <label for="stageType">
+            <i class="fas fa-tag"></i> Type de stage
+          </label>
+          <select
+            id="stageType"
+            [(ngModel)]="stageType"
+            class="form-control"
+          >
+            <option value="ACADEMIQUE">Académique</option>
+            <option value="PROFESSIONNEL">Professionnel</option>
+          </select>
+        </div>
+        <div class="form-group half">
           <label for="stagiaireFormation">
             <i class="fas fa-graduation-cap"></i> Formation / Spécialisation
           </label>
-          <input 
+          <input
             id="stagiaireFormation"
-            type="text" 
+            type="text"
             [(ngModel)]="stagiaireFormation"
             placeholder="Ex: Master en Informatique"
             class="form-control"
           />
         </div>
+      </div>
+
+      <div class="form-row">
         <div class="form-group half">
           <label for="stageService">
-            <i class="fas fa-building"></i>Département
+            <i class="fas fa-building"></i> Département
           </label>
-          <input 
+          <input
             id="stageService"
-            type="text" 
+            type="text"
             [(ngModel)]="stageService"
             [placeholder]="'Service ' + (departementNom() || '...')"
             class="form-control"
           />
         </div>
-      </div>
-
-      <div class="form-row">
-       
-        <div class="form-group half">
-          <label for="stageDateFin">
-            <i class="fas fa-calendar-minus"></i> Date de fin du stage
-          </label>
-          <input 
-            id="stageDateFin"
-            type="date" 
-            [(ngModel)]="stageDateFin"
-            class="form-control"
-          />
-        </div>
-      </div>
-
-      <div class="form-row">
         <div class="form-group half">
           <label for="stageSuperviseur">
             <i class="fas fa-user-tie"></i> Superviseur
           </label>
-          <input 
+          <input
             id="stageSuperviseur"
-            type="text" 
+            type="text"
             [(ngModel)]="stageSuperviseur"
             placeholder="Nom du responsable encadrant"
             class="form-control"
           />
         </div>
-      
       </div>
 
       <div class="form-row">
-       
+        <div class="form-group half">
+          <label for="stagiaireQualites">
+            <i class="fas fa-star"></i> Qualités / Appréciation
+          </label>
+          <input
+            id="stagiaireQualites"
+            type="text"
+            [(ngModel)]="stagiaireQualites"
+            placeholder="Ex: sérieux, rigueur et autonomie"
+            class="form-control"
+          />
+        </div>
         <div class="form-group half">
           <label>
-            <i class="fas fa-calculator"></i> Durée estimée : 
+            <i class="fas fa-calculator"></i> Durée estimée :
             <strong>{{ calculateStageDuree() }} mois</strong>
           </label>
+          <div class="stage-dates">
+            <span><i class="fas fa-calendar-check"></i> Du {{ stageDateDebut | date:'dd/MM/yyyy' }}</span>
+            <span><i class="fas fa-calendar-check"></i> Au {{ stageDateFin | date:'dd/MM/yyyy' }}</span>
+          </div>
         </div>
       </div>
     }
@@ -217,187 +229,15 @@
         <label for="cinNumber">
           <i class="fas fa-id-card"></i> CNI N°
         </label>
-        <input 
+        <input
           id="cinNumber"
-          type="text" 
+          type="text"
           [(ngModel)]="cinNumber"
           placeholder="Entrez le numéro de la CNI"
           class="form-control"
         />
       </div>
-
-      <div class="form-group">
-        <label for="dateFinContrat">
-          <i class="fas fa-calendar-check"></i> Date de fin de contrat
-        </label>
-        <input 
-          id="dateFinContrat"
-          type="date" 
-          [(ngModel)]="dateFinContrat"
-          class="form-control"
-        />
-        ----------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-        <small class="form-help">Si non renseigné, la date par défaut sera "ce jour"</small>
-      </div>
+      <!-- Le champ date de fin de contrat est récupéré automatiquement depuis le contrat actif -->
     }
 
     <!-- Actions -->
@@ -418,7 +258,7 @@
     <div class="info-note">
       <i class="fas fa-info-circle"></i>
       <span>
-        Le document sera généré au format PDF et téléchargé automatiquement. 
+        Le document sera généré au format PDF et téléchargé automatiquement.
         Après téléchargement, vous pourrez l'imprimer pour signature.
       </span>
     </div>
@@ -445,8 +285,8 @@
         <div class="modal-header">
           <div class="modal-header-left">
             <div class="modal-logo">
-              <img 
-                [src]="entrepriseLogo() || '/logo.png'" 
+              <img
+                [src]="entrepriseLogo() || '/logo.png'"
                 [alt]="'Logo ' + entrepriseName()"
                 (error)="onImageError($event)"
               />
@@ -466,8 +306,8 @@
             <div class="preview-header">
               <div class="preview-company">
                 <div class="preview-logo">
-                  <img 
-                    [src]="entrepriseLogo() || '/logo.png'" 
+                  <img
+                    [src]="entrepriseLogo() || '/logo.png'"
                     [alt]="'Logo ' + entrepriseName()"
                     (error)="onImageError($event)"
                   />
@@ -476,7 +316,7 @@
                   <h4>{{ previewData?.raisonSociale || entrepriseName() }}</h4>
                   <p>{{ previewData?.adresseSociete || entrepriseAddress() }}</p>
                   <p>
-                    <i class="fas fa-phone"></i> {{ previewData?.telephoneSociete || entrepriseTelephone() }} 
+                    <i class="fas fa-phone"></i> {{ previewData?.telephoneSociete || entrepriseTelephone() }}
                     <i class="fas fa-envelope"></i> {{ previewData?.emailSociete || entrepriseEmail() }}
                   </p>
                 </div>
@@ -495,30 +335,30 @@
               @if (documentType === 'ATTESTATION_STAGE') {
                 <!-- Attestation de stage -->
                 <p>
-                  Je soussignée <strong>{{ previewData?.responsableRH?.nomComplet || responsableRHNom || '_______________________' }}</strong>, 
-                  agissant en qualité de <strong>RESPONSABLE DES RESSOURCES HUMAINES</strong> d'<strong>{{ previewData?.raisonSociale || entrepriseName() }}</strong>, 
+                  Je soussignée <strong>{{ previewData?.responsableRH?.nomComplet || responsableRHNom || '_______________________' }}</strong>,
+                  agissant en qualité de <strong>RESPONSABLE DES RESSOURCES HUMAINES</strong> d'<strong>{{ previewData?.raisonSociale || entrepriseName() }}</strong>,
                   certifie par la présente que :
                 </p>
 
-                <p style="margin-left: 20px; font-size: 1.1em; line-height: 1.8;">
+                <p class="preview-indent">
                   <strong>{{ previewData?.employeeName || 'Nom du stagiaire' }}</strong>,
                   {{ previewData?.stagiaireFormation || 'étudiant(e)' }},
-                  a effectué un stage de <strong>{{ previewData?.stageDureeMois || '...' }} mois</strong> 
+                  a effectué un stage <strong>{{ previewData?.stageType === 'PROFESSIONNEL' ? 'professionnel' : 'académique' }}</strong> de <strong>{{ previewData?.stageDureeMois || '...' }} mois</strong>
                   au sein de notre entreprise <strong>{{ previewData?.raisonSociale || entrepriseName() }}</strong>.
                 </p>
 
-                <p style="margin-left: 20px;">
-                  Date : Du <strong>{{ previewData?.stageDateDebut || '...' }}</strong> au 
-                  <strong>{{ previewData?.stageDateFin || '...' }}</strong>. 
-                  En qualité de stagiaire académique au sein du département 
-                  <strong>{{ previewData?.stageService || previewData?.employeeDepartement || '...' }}</strong>, 
-                  spécialisation <strong>{{ previewData?.stagiaireFormation || '...' }}</strong> 
+                <p class="preview-indent">
+                  Date : Du <strong>{{ previewData?.stageDateDebut || '...' }}</strong> au
+                  <strong>{{ previewData?.stageDateFin || '...' }}</strong>.
+                  En qualité de stagiaire <strong>{{ previewData?.stageType === 'PROFESSIONNEL' ? 'professionnel' : 'académique' }}</strong> au sein du département
+                  <strong>{{ previewData?.stageService || previewData?.employeeDepartement || '...' }}</strong>,
+                  spécialisation <strong>{{ previewData?.stagiaireFormation || '...' }}</strong>
                   sous la supervision de <strong>{{ previewData?.stageSuperviseur || 'le responsable du service' }}</strong>.
                 </p>
 
                 <p>
-                  {{ previewData?.employeeName || 'Le/La stagiaire' }} 
-                  a fait preuve de {{ previewData?.stagiaireQualites || 'sérieux, rigueur et autonomie' }} 
+                  {{ previewData?.employeeName || 'Le/La stagiaire' }}
+                  a fait preuve de {{ previewData?.stagiaireQualites || 'sérieux, rigueur et autonomie' }}
                   tout au long de son stage.
                 </p>
 
@@ -530,32 +370,32 @@
               @if (documentType === 'ATTESTATION') {
                 <!-- Attestation de travail -->
                 <p>
-                  Je soussignée <strong>{{ previewData?.responsableRH?.nomComplet || responsableRHNom || '_______________________' }}</strong> 
-                  agissant en qualité de <strong>RESPONSABLE DES RESSOURCES HUMAINES</strong> de la société dénommée 
-                  <strong>{{ previewData?.raisonSociale || entrepriseName() }}</strong> dont le siège se trouve à 
+                  Je soussignée <strong>{{ previewData?.responsableRH?.nomComplet || responsableRHNom || '_______________________' }}</strong>
+                  agissant en qualité de <strong>RESPONSABLE DES RESSOURCES HUMAINES</strong> de la société dénommée
+                  <strong>{{ previewData?.raisonSociale || entrepriseName() }}</strong> dont le siège se trouve à
                   <strong>{{ previewData?.adresseSociete || entrepriseAddress() }}</strong>,
                 </p>
 
-                <p style="margin-left: 20px;">
-                  Atteste par la présente que le nommé <strong>{{ previewData?.employeeName || '...' }}</strong>, 
+                <p class="preview-indent">
+                  Atteste par la présente que le nommé <strong>{{ previewData?.employeeName || '...' }}</strong>,
                   né(e) le <strong>{{ previewData?.employeeDateNaissance || '...' }}</strong>
                 </p>
 
-                <p style="margin-left: 20px;">
+                <p class="preview-indent">
                   CNI N° : <strong>{{ previewData?.employeeCIN || cinNumber || '.............' }}</strong>
                 </p>
 
-                <p style="margin-left: 20px;">
+                <p class="preview-indent">
                   Matricule CNPS : <strong>{{ previewData?.employeeMatriculeCNPS || selectedEmployee?.matricule_CNPS || '.............' }}</strong>
                 </p>
 
-                <p style="margin-left: 20px;">
-                  Est employé au sein de cette entreprise en tant que <strong>{{ previewData?.employeePoste || '...' }}</strong> 
+                <p class="preview-indent">
+                  Est employé au sein de cette entreprise en tant que <strong>{{ previewData?.employeePoste || '...' }}</strong>
                   du <strong>{{ previewData?.dateEmbauche || '...' }}</strong> jusqu'à date.
                 </p>
 
                 @if (previewData?.motif) {
-                  <p style="margin-left: 20px;">
+                  <p class="preview-indent">
                     <strong>Motif de la demande :</strong> {{ previewData?.motif }}
                   </p>
                 }
@@ -568,33 +408,33 @@
               @if (documentType === 'CERTIFICAT') {
                 <!-- Certificat de travail -->
                 <p>
-                  Je soussignée <strong>{{ previewData?.responsableRH?.nomComplet || responsableRHNom || '_______________________' }}</strong> 
-                  agissant en qualité de <strong>RESPONSABLE DES RESSOURCES HUMAINES</strong> de la société dénommée 
-                  <strong>{{ previewData?.raisonSociale || entrepriseName() }}</strong> dont le siège se trouve à 
+                  Je soussignée <strong>{{ previewData?.responsableRH?.nomComplet || responsableRHNom || '_______________________' }}</strong>
+                  agissant en qualité de <strong>RESPONSABLE DES RESSOURCES HUMAINES</strong> de la société dénommée
+                  <strong>{{ previewData?.raisonSociale || entrepriseName() }}</strong> dont le siège se trouve à
                   <strong>{{ previewData?.adresseSociete || entrepriseAddress() }}</strong>,
                 </p>
 
-                <p style="margin-left: 20px;">
-                  Certifie par la présente que le nommé <strong>{{ previewData?.employeeName || '...' }}</strong>, 
+                <p class="preview-indent">
+                  Certifie par la présente que le nommé <strong>{{ previewData?.employeeName || '...' }}</strong>,
                   né(e) le <strong>{{ previewData?.employeeDateNaissance || '...' }}</strong>
                 </p>
 
-                <p style="margin-left: 20px;">
+                <p class="preview-indent">
                   CNI N° : <strong>{{ previewData?.employeeCIN || cinNumber || '.............' }}</strong>
                 </p>
 
-                <p style="margin-left: 20px;">
+                <p class="preview-indent">
                   Matricule CNPS : <strong>{{ previewData?.employeeMatriculeCNPS || selectedEmployee?.matricule_CNPS || '.............' }}</strong>
                 </p>
 
-                <p style="margin-left: 20px;">
-                  A été employé au sein de cette entreprise en tant que <strong>{{ previewData?.employeePoste || '...' }}</strong> 
-                  du <strong>{{ previewData?.dateEmbauche || '...' }}</strong> au 
+                <p class="preview-indent">
+                  A été employé au sein de cette entreprise en tant que <strong>{{ previewData?.employeePoste || '...' }}</strong>
+                  du <strong>{{ previewData?.dateEmbauche || '...' }}</strong> au
                   <strong>{{ previewData?.dateFin || 'ce jour' }}</strong>.
                 </p>
 
                 @if (previewData?.motif) {
-                  <p style="margin-left: 20px;">
+                  <p class="preview-indent">
                     <strong>Motif de la demande :</strong> {{ previewData?.motif }}
                   </p>
                 }
@@ -604,7 +444,7 @@
                 </p>
               }
 
-              <p style="margin-top: 30px;">
+              <p class="preview-fait">
                 Fait à <strong>{{ previewData?.adresseSociete || entrepriseAddress() }}</strong>,
                 le {{ formatDate(previewData?.dateGeneration) }}.
               </p>
@@ -614,18 +454,12 @@
             <div class="preview-signatures">
               <div class="signature-left">
                 <p><strong>La Direction des Ressources Humaines</strong></p>
-                <p style="margin-top: 10px;">
+                <p class="signature-name">
                   <strong>{{ previewData?.responsableRH?.nomComplet || responsableRHNom || '_______________________' }}</strong><br>
                   RESPONSABLE DES RESSOURCES HUMAINES
                 </p>
-                <p style="margin-top: 50px;"><em>Signature et Cachet</em></p>
-              </div>
-              <div class="signature-right">
-                <p><strong>L'intéressé(e)</strong></p>
-                <p style="margin-top: 10px;">
-                  <strong>{{ previewData?.employeeName || 'Nom du bénéficiaire' }}</strong>
-                </p>
-                <p style="margin-top: 50px;"><em>(Signature précédée de la mention "Lu et approuvé")</em></p>
+                <p class="signature-line">_________________________</p>
+                <p class="signature-label">Signature et Cachet</p>
               </div>
             </div>
           </div>

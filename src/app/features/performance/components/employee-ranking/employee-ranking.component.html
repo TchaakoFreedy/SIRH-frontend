@@ -2,8 +2,21 @@
 
 <div class="ranking-container">
   
-  <!-- ===== HEADER ===== -->
-  <div class="ranking-header">
+  <!-- Feux d'artifice (superposés) -->
+  <div class="fireworks-container" *ngIf="showFireworks && !isLoading">
+    <div class="particle" *ngFor="let p of particles" 
+         [style.left.%]="p.x" 
+         [style.top.%]="p.y"
+         [style.background]="p.color"
+         [style.animation-delay]="p.delay + 's'"
+         [style.animation-duration]="p.duration + 's'"
+         [style.width.px]="p.size"
+         [style.height.px]="p.size">
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <div class="ranking-header animate-fade-in">
     <div class="header-left">
       <h1>
         <span class="material-symbols-outlined">leaderboard</span>
@@ -19,10 +32,9 @@
     </div>
   </div>
 
-  <!-- ===== FILTRES ===== -->
-  <div class="filters-bar">
+  <!-- FILTRES -->
+  <div class="filters-bar animate-fade-in">
     <div class="filters-left">
-      <!-- Recherche -->
       <div class="search-box">
         <span class="material-symbols-outlined">search</span>
         <input 
@@ -38,7 +50,6 @@
         }
       </div>
       
-      <!-- Filtre département -->
       @if (departments.length > 0) {
         <div class="filter-select">
           <span class="material-symbols-outlined">business</span>
@@ -53,7 +64,6 @@
     </div>
     
     <div class="filters-right">
-      <!-- Année -->
       <div class="year-selector">
         <span class="material-symbols-outlined">calendar_today</span>
         <select [(ngModel)]="selectedYear" (change)="onYearChange(selectedYear)">
@@ -69,23 +79,29 @@
     </div>
   </div>
 
-  <!-- ===== LOADING ===== -->
+  <!-- LOADING -->
   @if (isLoading) {
     <div class="loading-spinner">
-      <mat-spinner diameter="40"></mat-spinner>
+      <div class="spinner-ring"></div>
+      <span>Chargement du classement...</span>
     </div>
   }
 
-  <!-- ===== CONTENU ===== -->
+  <!-- CONTENU -->
   @if (!isLoading) {
     
-    <!-- ===== PODIUM (Top 3) ===== -->
+    <!-- PODIUM (Top 3) -->
     @if (filteredRanking.length >= 3 && !searchTerm && !filterByDepartment) {
-      <div class="podium-section">
+      <div class="podium-section animate-slide-up">
+        <div class="podium-title">
+          <span class="material-symbols-outlined">workspace_premium</span>
+          <h2>Top Performers</h2>
+        </div>
         <div class="podium">
           <!-- 2ème -->
           @if (filteredRanking[1]) {
-            <div class="podium-item second">
+            <div class="podium-item second animate-pop" style="animation-delay: 0.2s"
+                 [class.champion]="isBestEmployee(filteredRanking[1].employeId)">
               <div class="podium-rank">
                 <span class="material-symbols-outlined rank-icon silver">emoji_events</span>
               </div>
@@ -94,16 +110,19 @@
                 <div class="podium-badge silver-badge">2</div>
               </div>
               <div class="podium-name">{{ filteredRanking[1].employeNom }}</div>
-              <div class="podium-score">{{ filteredRanking[1].scoreTotal?.toFixed(1) }}%</div>
+              <!-- <div class="podium-score">
+                <span class="score-pts">{{ filteredRanking[1].scoreTotal?.toFixed(1) }} pts</span>
+              </div> -->
               <div class="podium-bar silver-bar" style="height: 70%;">
-                <span class="podium-percent">{{ filteredRanking[1].scoreTotal?.toFixed(0) }}%</span>
+                <span class="podium-percent">{{ filteredRanking[1].scoreTotal?.toFixed(0) }}pts</span>
               </div>
             </div>
           }
           
           <!-- 1er -->
           @if (filteredRanking[0]) {
-            <div class="podium-item first">
+            <div class="podium-item first animate-pop" style="animation-delay: 0s"
+                 [class.champion]="isBestEmployee(filteredRanking[0].employeId)">
               <div class="podium-rank">
                 <span class="material-symbols-outlined rank-icon gold">emoji_events</span>
               </div>
@@ -111,17 +130,20 @@
                 <div class="avatar-circle gold">{{ getInitials(filteredRanking[0].employeNom) }}</div>
                 <div class="podium-badge gold-badge">1</div>
               </div>
-              <div class="podium-name">{{ filteredRanking[0].employeNom }}</div>
-              <div class="podium-score">{{ filteredRanking[0].scoreTotal?.toFixed(1) }}%</div>
+              <!-- <div class="podium-name">{{ filteredRanking[0].employeNom }}</div>
+              <div class="podium-score">
+                <span class="score-pts">{{ filteredRanking[0].scoreTotal?.toFixed(1) }} pts</span>
+              </div> -->
               <div class="podium-bar gold-bar" style="height: 100%;">
-                <span class="podium-percent">{{ filteredRanking[0].scoreTotal?.toFixed(0) }}%</span>
+                <span class="podium-percent">{{ filteredRanking[0].scoreTotal?.toFixed(0) }}pts</span>
               </div>
             </div>
           }
           
           <!-- 3ème -->
           @if (filteredRanking[2]) {
-            <div class="podium-item third">
+            <div class="podium-item third animate-pop" style="animation-delay: 0.4s"
+                 [class.champion]="isBestEmployee(filteredRanking[2].employeId)">
               <div class="podium-rank">
                 <span class="material-symbols-outlined rank-icon bronze">emoji_events</span>
               </div>
@@ -129,10 +151,12 @@
                 <div class="avatar-circle">{{ getInitials(filteredRanking[2].employeNom) }}</div>
                 <div class="podium-badge bronze-badge">3</div>
               </div>
-              <div class="podium-name">{{ filteredRanking[2].employeNom }}</div>
-              <div class="podium-score">{{ filteredRanking[2].scoreTotal?.toFixed(1) }}%</div>
+              <!-- <div class="podium-name">{{ filteredRanking[2].employeNom }}</div>
+              <div class="podium-score">
+                <span class="score-pts">{{ filteredRanking[2].scoreTotal?.toFixed(1) }} pts</span>
+              </div> -->
               <div class="podium-bar bronze-bar" style="height: 50%;">
-                <span class="podium-percent">{{ filteredRanking[2].scoreTotal?.toFixed(0) }}%</span>
+                <span class="podium-percent">{{ filteredRanking[2].scoreTotal?.toFixed(0) }}pts</span>
               </div>
             </div>
           }
@@ -140,8 +164,8 @@
       </div>
     }
 
-    <!-- ===== TABLEAU DU CLASSEMENT ===== -->
-    <div class="ranking-table-card">
+    <!-- TABLEAU DU CLASSEMENT -->
+    <div class="ranking-table-card animate-slide-up">
       <div class="table-scroll">
         <table class="ranking-table">
           <thead>
@@ -157,7 +181,9 @@
             @for (item of getPaginatedData(); track item.employeId) {
               <tr 
                 [class.current-user]="isCurrentUser(item.employeId)"
-                [class.top-three]="item.rang && item.rang <= 3">
+                [class.top-three]="item.rang && item.rang <= 3"
+                [class.best-employee]="isBestEmployee(item.employeId)"
+                class="animate-row">
                 <td class="col-rank">
                   <span class="rank-number" [style.color]="getRankColor(item.rang)">
                     {{ item.rang }}
@@ -177,6 +203,11 @@
                       <span class="material-symbols-outlined">emoji_events</span>
                     </span>
                   }
+                  @if (isBestEmployee(item.employeId) && item.rang > 3) {
+                    <span class="rank-medal gold-medal">
+                      <span class="material-symbols-outlined">emoji_events</span>
+                    </span>
+                  }
                 </td>
                 <td class="col-employee">
                   <div class="employee-info">
@@ -188,6 +219,9 @@
                       @if (isCurrentUser(item.employeId)) {
                         <span class="current-user-badge">Vous</span>
                       }
+                      @if (isBestEmployee(item.employeId)) {
+                        <span class="best-badge">Meilleur score</span>
+                      }
                     </div>
                   </div>
                 </td>
@@ -198,11 +232,11 @@
                   <div class="score-display">
                     <div class="score-bar-mini">
                       <div class="score-fill-mini" 
-                           [style.width.%]="item.scoreTotal || 0"
+                           [style.width.%]="getScorePercentage(item.scoreTotal)"
                            [style.background]="getScoreColor(item.scoreTotal || 0)">
                       </div>
                     </div>
-                    <span class="score-value-text">{{ item.scoreTotal?.toFixed(1) || '0' }}%</span>
+                    <span class="score-value-text">{{ item.scoreTotal?.toFixed(1) }} pts</span>
                   </div>
                 </td>
                 <td class="col-mention">
@@ -232,7 +266,7 @@
         </table>
       </div>
       
-      <!-- ===== PAGINATION ===== -->
+      <!-- PAGINATION -->
       @if (getTotalPages() > 1) {
         <div class="pagination-footer">
           <div class="pagination-info">

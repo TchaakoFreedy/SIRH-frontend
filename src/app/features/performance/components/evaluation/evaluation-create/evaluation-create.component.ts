@@ -416,164 +416,156 @@ export class EvaluationCreateComponent implements OnInit, OnDestroy {
       });
   }
 
- // evaluation-create.component.ts - onSubmit() corrigé
+  onSubmit(): void {
+    this.showError = false;
+    this.errorMessage = '';
 
-onSubmit(): void {
-  this.showError = false;
-  this.errorMessage = '';
-
-  if (this.evaluationForm.invalid) {
-    this.evaluationForm.markAllAsTouched();
-    this.snackBar.open('Veuillez remplir tous les champs obligatoires', 'Fermer', { duration: 3000 });
-    return;
-  }
-
-  const periode = this.evaluationForm.get('periode')?.value;
-  if (periode === 'MENSUEL') {
-    const mois = this.evaluationForm.get('mois')?.value;
-    if (!mois) {
-      this.snackBar.open('Veuillez sélectionner un mois pour la période mensuelle', 'Fermer', { duration: 3000 });
+    if (this.evaluationForm.invalid) {
+      this.evaluationForm.markAllAsTouched();
+      this.snackBar.open('Veuillez remplir tous les champs obligatoires', 'Fermer', { duration: 3000 });
       return;
     }
-  }
 
-  if (this.selectedCritereIds.size === 0) {
-    this.snackBar.open('Veuillez sélectionner au moins un critère pour l\'évaluation', 'Fermer', { duration: 3000 });
-    return;
-  }
+    const periode = this.evaluationForm.get('periode')?.value;
+    if (periode === 'MENSUEL') {
+      const mois = this.evaluationForm.get('mois')?.value;
+      if (!mois) {
+        this.snackBar.open('Veuillez sélectionner un mois pour la période mensuelle', 'Fermer', { duration: 3000 });
+        return;
+      }
+    }
 
-  const notesFormArray = this.evaluationForm.get('notes') as FormArray;
-  const hasValidNotes = notesFormArray.controls.some(control => {
-    const note = control.get('note')?.value;
-    return note !== null && note !== undefined && note !== '';
-  });
+    if (this.selectedCritereIds.size === 0) {
+      this.snackBar.open('Veuillez sélectionner au moins un critère pour l\'évaluation', 'Fermer', { duration: 3000 });
+      return;
+    }
 
-  if (!hasValidNotes) {
-    this.snackBar.open('Veuillez attribuer des notes pour les critères sélectionnés', 'Fermer', { duration: 3000 });
-    return;
-  }
+    const notesFormArray = this.evaluationForm.get('notes') as FormArray;
+    const hasValidNotes = notesFormArray.controls.some(control => {
+      const note = control.get('note')?.value;
+      return note !== null && note !== undefined && note !== '';
+    });
 
-  const allNotesValid = notesFormArray.controls.every(control => {
-    const note = control.get('note')?.value;
-    const critereId = control.get('critereId')?.value;
-    const critere = this.availableCriteres.find(c => c.id === critereId);
-    const maxNote = critere ? critere.noteMaximale : 10;
-    return note !== null && note !== undefined && note >= 0 && note <= maxNote;
-  });
+    if (!hasValidNotes) {
+      this.snackBar.open('Veuillez attribuer des notes pour les critères sélectionnés', 'Fermer', { duration: 3000 });
+      return;
+    }
 
-  if (!allNotesValid) {
-    this.snackBar.open('Veuillez saisir des notes valides pour tous les critères', 'Fermer', { duration: 3000 });
-    return;
-  }
+    const allNotesValid = notesFormArray.controls.every(control => {
+      const note = control.get('note')?.value;
+      const critereId = control.get('critereId')?.value;
+      const critere = this.availableCriteres.find(c => c.id === critereId);
+      const maxNote = critere ? critere.noteMaximale : 10;
+      return note !== null && note !== undefined && note >= 0 && note <= maxNote;
+    });
 
-  const formValue = this.evaluationForm.value;
-  const notes = formValue.notes.map((note: any) => ({
-    critereId: note.critereId,
-    note: note.note
-  }));
+    if (!allNotesValid) {
+      this.snackBar.open('Veuillez saisir des notes valides pour tous les critères', 'Fermer', { duration: 3000 });
+      return;
+    }
 
-  const data: any = {
-    employeId: formValue.employeId,
-    periode: formValue.periode,
-    annee: formValue.annee,
-    commentaires: formValue.commentaires || '',
-    notes: notes
-  };
+    const formValue = this.evaluationForm.value;
+    const notes = formValue.notes.map((note: any) => ({
+      critereId: note.critereId,
+      note: note.note
+    }));
 
-  if (formValue.periode === 'MENSUEL' && formValue.mois) {
-    data.mois = formValue.mois;
-  }
+    // ✅ Construction de la requête avec critereIds
+    const data: any = {
+      employeId: formValue.employeId,
+      periode: formValue.periode,
+      annee: formValue.annee,
+      commentaires: formValue.commentaires || '',
+      notes: notes,
+      critereIds: Array.from(this.selectedCritereIds) // ✅ Ajout des IDs sélectionnés
+    };
 
-  console.log('📤 Envoi des données:', JSON.stringify(data, null, 2));
-  this.submitting = true;
+    if (formValue.periode === 'MENSUEL' && formValue.mois) {
+      data.mois = formValue.mois;
+    }
 
-  this.performanceService.createEvaluation(data)
-    .pipe(takeUntil(this.destroy$))
-    .subscribe({
-      next: (evaluation) => {
-        console.log('✅ Évaluation créée avec succès:', evaluation);
-        this.submitting = false;
-        
-        this.snackBar.open('✅ Évaluation créée avec succès !', 'Fermer', { 
-          duration: 3000,
-          panelClass: ['success-snackbar']
-        });
-        
-        // ✅ SOLUTION: Rester sur la page et réinitialiser le formulaire
-        // Cela évite complètement les problèmes de guard
-        setTimeout(() => {
-          // Sauvegarder l'ID de l'employé sélectionné pour le réutiliser
-          const currentEmployeeId = this.evaluationForm.get('employeId')?.value;
+    console.log('📤 Envoi des données:', JSON.stringify(data, null, 2));
+    this.submitting = true;
+
+    this.performanceService.createEvaluation(data)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (evaluation) => {
+          console.log('✅ Évaluation créée avec succès:', evaluation);
+          this.submitting = false;
           
-          // Réinitialiser le formulaire
-          this.evaluationForm.reset();
-          this.evaluationForm.patchValue({ 
-            annee: this.currentYear,
-            periode: '',
-            mois: this.currentMonth,
-            employeId: currentEmployeeId // Garder le même employé
+          this.snackBar.open('Évaluation créée avec succès !', 'Fermer', { 
+            duration: 3000,
+            panelClass: ['success-snackbar']
           });
           
-          // Réinitialiser les critères
-          this.selectedCritereIds = new Set();
-          this.clearNotes();
+          setTimeout(() => {
+            const currentEmployeeId = this.evaluationForm.get('employeId')?.value;
+            
+            this.evaluationForm.reset();
+            this.evaluationForm.patchValue({ 
+              annee: this.currentYear,
+              periode: '',
+              mois: this.currentMonth,
+              employeId: currentEmployeeId
+            });
+            
+            this.selectedCritereIds = new Set();
+            this.clearNotes();
+            
+            if (currentEmployeeId) {
+              this.loadCriteresForEmployee(currentEmployeeId);
+            }
+            
+            this.evaluationForm.markAsPristine();
+            this.evaluationForm.markAsUntouched();
+            
+            this.snackBar.open('Formulaire réinitialisé, vous pouvez créer une autre évaluation', 'Fermer', { duration: 3000 });
+          }, 500);
+        },
+        error: (error) => {
+          console.error('❌ Erreur création évaluation:', error);
+          this.submitting = false;
           
-          // Recharger les critères pour le même employé
-          if (currentEmployeeId) {
-            this.loadCriteresForEmployee(currentEmployeeId);
-          }
+          let errorMessage = 'Erreur lors de la création';
           
-          // Marquer le formulaire comme propre
-          this.evaluationForm.markAsPristine();
-          this.evaluationForm.markAsUntouched();
-          
-          this.snackBar.open('Formulaire réinitialisé, vous pouvez créer une autre évaluation', 'Fermer', { duration: 3000 });
-        }, 500);
-      },
-      error: (error) => {
-        console.error('❌ Erreur création évaluation:', error);
-        this.submitting = false;
-        
-        let errorMessage = 'Erreur lors de la création';
-        
-        if (error.status === 401) {
-          errorMessage = 'Session expirée. Veuillez vous reconnecter.';
-          // ✅ NE PAS DÉCONNECTER AUTOMATIQUEMENT
-        } else if (error.status === 403) {
-          errorMessage = 'Vous n\'avez pas la permission de créer une évaluation.';
-        } else if (error.status === 409) {
-          const employee = this.employees.find(e => e.id === formValue.employeId);
-          const employeeName = employee ? this.getEmployeeDisplay(employee) : 'Cet employé';
-          const periodeLabel = this.getPeriodeLabel(formValue.periode);
-          let periodeDisplay = `${periodeLabel} ${formValue.annee}`;
-          
-          if (formValue.periode === 'MENSUEL' && formValue.mois) {
-            periodeDisplay = `${this.getMonthLabel(formValue.mois)} ${formValue.annee}`;
-          }
-          
-          errorMessage = `${employeeName} a déjà une évaluation pour la période ${periodeDisplay}.`;
-          if (error.error?.message) {
+          if (error.status === 401) {
+            errorMessage = 'Session expirée. Veuillez vous reconnecter.';
+          } else if (error.status === 403) {
+            errorMessage = 'Vous n\'avez pas la permission de créer une évaluation.';
+          } else if (error.status === 409) {
+            const employee = this.employees.find(e => e.id === formValue.employeId);
+            const employeeName = employee ? this.getEmployeeDisplay(employee) : 'Cet employé';
+            const periodeLabel = this.getPeriodeLabel(formValue.periode);
+            let periodeDisplay = `${periodeLabel} ${formValue.annee}`;
+            
+            if (formValue.periode === 'MENSUEL' && formValue.mois) {
+              periodeDisplay = `${this.getMonthLabel(formValue.mois)} ${formValue.annee}`;
+            }
+            
+            errorMessage = `${employeeName} a déjà une évaluation pour la période ${periodeDisplay}.`;
+            if (error.error?.message) {
+              errorMessage = error.error.message;
+            }
+            this.showError = true;
+          } else if (error.status === 400) {
+            errorMessage = 'Données invalides. Vérifiez les champs et les notes.';
+            if (error.error?.message) {
+              errorMessage = error.error.message;
+            }
+          } else if (error.status === 500) {
+            errorMessage = 'Erreur serveur. Veuillez réessayer.';
+          } else if (error.status === 0) {
+            errorMessage = 'Impossible de contacter le serveur. Vérifiez votre connexion.';
+          } else if (error.error?.message) {
             errorMessage = error.error.message;
           }
-          this.showError = true;
-        } else if (error.status === 400) {
-          errorMessage = 'Données invalides. Vérifiez les champs et les notes.';
-          if (error.error?.message) {
-            errorMessage = error.error.message;
-          }
-        } else if (error.status === 500) {
-          errorMessage = 'Erreur serveur. Veuillez réessayer.';
-        } else if (error.status === 0) {
-          errorMessage = 'Impossible de contacter le serveur. Vérifiez votre connexion.';
-        } else if (error.error?.message) {
-          errorMessage = error.error.message;
+          
+          this.snackBar.open(errorMessage, 'Fermer', { duration: 5000 });
+          this.errorMessage = errorMessage;
         }
-        
-        this.snackBar.open(errorMessage, 'Fermer', { duration: 5000 });
-        this.errorMessage = errorMessage;
-      }
-    });
-}
+      });
+  }
 
   cancel(): void {
     this.router.navigate(['/performance/evaluations']);

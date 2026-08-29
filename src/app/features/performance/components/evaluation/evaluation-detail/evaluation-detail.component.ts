@@ -78,7 +78,6 @@ export class EvaluationDetailComponent implements OnInit {
     return pourcentage != null ? pourcentage.toFixed(1) + '%' : 'N/A';
   }
 
-  // ✅ CORRECTION : Accepte string | undefined
   getInitials(name: string | undefined): string {
     if (!name) return '?';
     const parts = name.trim().split(' ');

@@ -15,6 +15,8 @@ import { EntrepriseService } from '../../../core/services/entreprise.service';
 import { Entreprise } from '../../../core/models/entreprise.model';
 import { DocumentGeneratorService } from './services/document-generator.service';
 import { DocumentType } from './models/document.model';
+import { ContratService } from '../../../core/services/contrat.service';
+import { Contrat } from '../../../core/models/contrat.model';
 
 @Component({
   selector: 'app-documents',
@@ -31,6 +33,7 @@ export class DocumentsComponent implements OnInit, OnDestroy {
   private postesService = inject(PostesService);
   private entrepriseService = inject(EntrepriseService);
   private documentGenerator = inject(DocumentGeneratorService);
+  private contratService = inject(ContratService);
   private cdr = inject(ChangeDetectorRef);
 
   private destroy$ = new Subject<void>();
@@ -39,36 +42,37 @@ export class DocumentsComponent implements OnInit, OnDestroy {
   errorMessage = signal('');
   successMessage = signal('');
   showPreviewModal = signal(false);
-  
+
   selectedEmployee: any = null;
   currentUser: User | null = null;
   authUser: any = null;
   previewData: any = null;
-  
+
   documentType: DocumentType = 'CERTIFICAT';
   motif: string = '';
 
-  // ✅ Nom du responsable RH (champ texte) - initialisé vide
+  // Nom du responsable RH
   responsableRHNom: string = '';
 
   // Champs pour l'attestation de stage
   stagiaireFormation: string = '';
-  stageDateDebut: string = '';
-  stageDateFin: string = '';
   stageService: string = '';
   stageSuperviseur: string = '';
   stagiaireQualites: string = '';
-  stageDureeMois: string = '';
+  stageType: 'ACADEMIQUE' | 'PROFESSIONNEL' = 'ACADEMIQUE';  // AJOUTÉ
 
   // Champs pour le certificat de travail / attestation
-  dateFinContrat: string = '';
   cinNumber: string = '';
 
-  // Signaux pour poste et département
+  // Contrat actif
+  activeContrat: Contrat | null = null;
+  dateFinContrat: string = '';
+
+  // Signaux
   posteNom = signal<string>('');
   departementNom = signal<string>('');
 
-  // Signaux pour l'entreprise
+  // Signaux entreprise
   entreprise = signal<Entreprise | null>(null);
   entrepriseName = signal<string>('');
   entrepriseLogo = signal<string>('');
@@ -78,12 +82,14 @@ export class DocumentsComponent implements OnInit, OnDestroy {
   entrepriseEmail = signal<string>('');
   entrepriseSiteWeb = signal<string>('');
 
-  // ✅ Tableau vide pour le template (pour éviter les erreurs)
   responsablesRH: any[] = [];
+
+  // Dates de stage
+  stageDateDebut: string = '';
+  stageDateFin: string = '';
 
   ngOnInit(): void {
     this.loadCurrentEmployee();
-    this.initDefaultDates();
   }
 
   ngOnDestroy(): void {
@@ -91,18 +97,15 @@ export class DocumentsComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  private initDefaultDates(): void {
-    const today = new Date();
-    const oneMonthAgo = new Date(today);
-    oneMonthAgo.setMonth(today.getMonth() - 1);
-    
-    this.stageDateDebut = oneMonthAgo.toISOString().split('T')[0];
-    this.stageDateFin = today.toISOString().split('T')[0];
-  }
-
-  // ✅ Méthode pour le changement de responsable (non utilisée car on utilise un champ texte)
-  onResponsableRHChange(event: Event): void {
-    // Ne fait rien
+  calculateStageDuree(): string {
+    if (!this.stageDateDebut || !this.stageDateFin) return '...';
+    const debut = new Date(this.stageDateDebut);
+    const fin = new Date(this.stageDateFin);
+    if (isNaN(debut.getTime()) || isNaN(fin.getTime())) return '...';
+    const diffTime = Math.abs(fin.getTime() - debut.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const months = Math.round(diffDays / 30);
+    return String(months);
   }
 
   onImageError(event: Event): void {
@@ -114,48 +117,38 @@ export class DocumentsComponent implements OnInit, OnDestroy {
 
   formatDate(dateStr: any): string {
     if (!dateStr) {
-      return new Date().toLocaleDateString('fr-FR', { 
-        day: '2-digit', 
-        month: 'long', 
-        year: 'numeric' 
+      return new Date().toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
       });
     }
     try {
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) {
-        return new Date().toLocaleDateString('fr-FR', { 
-          day: '2-digit', 
-          month: 'long', 
-          year: 'numeric' 
+        return new Date().toLocaleDateString('fr-FR', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric'
         });
       }
-      return date.toLocaleDateString('fr-FR', { 
-        day: '2-digit', 
-        month: 'long', 
-        year: 'numeric' 
+      return date.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
       });
     } catch {
-      return new Date().toLocaleDateString('fr-FR', { 
-        day: '2-digit', 
-        month: 'long', 
-        year: 'numeric' 
+      return new Date().toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
       });
     }
   }
 
-  calculateStageDuree(): string {
-    if (!this.stageDateDebut || !this.stageDateFin) return '...';
-    const debut = new Date(this.stageDateDebut);
-    const fin = new Date(this.stageDateFin);
-    const diffTime = Math.abs(fin.getTime() - debut.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const months = Math.round(diffDays / 30);
-    return `${months}`;
-  }
-
   private loadEntrepriseFromDepartement(departementId: string): void {
     console.log('🏢 Chargement de l\'entreprise via le département:', departementId);
-    
+
     this.departementService.getById(departementId).pipe(
       takeUntil(this.destroy$),
       catchError((err) => {
@@ -219,7 +212,7 @@ export class DocumentsComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (userFromAuth) => {
         this.authUser = userFromAuth;
-        
+
         if (!userFromAuth || !userFromAuth.id) {
           this.loading.set(false);
           this.errorMessage.set('❌ Utilisateur non authentifié.');
@@ -231,9 +224,9 @@ export class DocumentsComponent implements OnInit, OnDestroy {
         ).subscribe({
           next: (userFull: User) => {
             this.currentUser = userFull;
-            
+
             const employeeId = userFull.employeeId || this.authUser?.employeeId || this.authUser?.id || '';
-            
+
             if (employeeId) {
               this.loadEmployeeData(employeeId);
             } else {
@@ -266,7 +259,10 @@ export class DocumentsComponent implements OnInit, OnDestroy {
     this.loading.set(true);
 
     forkJoin({
-      employe: this.employeeService.getById(employeeId).pipe(catchError(() => of(null)))
+      employe: this.employeeService.getById(employeeId).pipe(catchError(() => of(null))),
+      contratActif: this.contratService.getActiveByEmployee(employeeId).pipe(
+        catchError(() => of(null))
+      )
     }).pipe(
       takeUntil(this.destroy$),
       finalize(() => {
@@ -277,7 +273,31 @@ export class DocumentsComponent implements OnInit, OnDestroy {
         if (res.employe) {
           this.selectedEmployee = res.employe;
           console.log('✅ Employé chargé:', this.selectedEmployee);
-          
+
+          if (res.contratActif) {
+            this.activeContrat = res.contratActif;
+            if (this.activeContrat.dateFin) {
+              this.dateFinContrat = this.activeContrat.dateFin;
+            } else {
+              this.dateFinContrat = 'ce jour';
+            }
+            console.log('✅ Contrat actif chargé:', this.activeContrat);
+          } else {
+            this.activeContrat = null;
+            this.dateFinContrat = 'ce jour';
+            console.warn('⚠️ Aucun contrat actif trouvé pour cet employé.');
+          }
+
+          this.stageDateDebut = this.selectedEmployee.date_embauche || new Date().toISOString().split('T')[0];
+          this.stageDateFin = new Date().toISOString().split('T')[0];
+
+          this.stagiaireFormation = this.selectedEmployee.stagiaireFormation || '';
+          this.stageService = this.selectedEmployee.stageService || '';
+          this.stageSuperviseur = this.selectedEmployee.stageSuperviseur || '';
+          this.stagiaireQualites = this.selectedEmployee.stagiaireQualites || '';
+          this.stageType = this.selectedEmployee.stageType || 'ACADEMIQUE';  // AJOUTÉ
+          this.cinNumber = this.selectedEmployee.cin || this.selectedEmployee.numero_piece_identite || '';
+
           if (this.selectedEmployee.departementId) {
             this.departementService
               .getById(this.selectedEmployee.departementId)
@@ -336,11 +356,11 @@ export class DocumentsComponent implements OnInit, OnDestroy {
 
   private createEmployeeFromToken(authUser: any): void {
     console.warn('⚠️ Fallback avec données du token');
-    
+
     const userInfo = authUser || this.authService.getCurrentUser();
     const employeeId = this.authService.getCurrentEmployeeId();
     const userData = this.currentUser || userInfo;
-    
+
     this.selectedEmployee = {
       id: employeeId || userData?.id || 'unknown',
       matriculeInterne: employeeId || userData?.matriculeInterne || userData?.matricule_interne || 'INCONNU',
@@ -360,11 +380,16 @@ export class DocumentsComponent implements OnInit, OnDestroy {
       statut: userData?.statut || 'ACTIF',
       user: userData
     };
-    
+
+    this.stageDateDebut = this.selectedEmployee.date_embauche;
+    this.stageDateFin = new Date().toISOString().split('T')[0];
+    this.dateFinContrat = 'ce jour';
+    this.stageType = 'ACADEMIQUE';  // AJOUTÉ
+
     this.posteNom.set(this.selectedEmployee.poste || 'Non défini');
     this.departementNom.set(this.selectedEmployee.departement || 'Non défini');
     this.setDefaultEntreprise();
-    
+
     this.loading.set(false);
     console.log('📋 Employé factice créé:', this.selectedEmployee);
   }
@@ -383,7 +408,7 @@ export class DocumentsComponent implements OnInit, OnDestroy {
 
     try {
       this.loading.set(true);
-      
+
       const employeeWithDetails = {
         ...this.selectedEmployee,
         poste: this.posteNom() || this.selectedEmployee.poste || 'Non défini',
@@ -396,17 +421,14 @@ export class DocumentsComponent implements OnInit, OnDestroy {
           email: this.entrepriseEmail(),
           siteWeb: this.entrepriseSiteWeb()
         },
-        // ✅ Passer le nom du responsable RH
         responsableRHNom: this.responsableRHNom || '',
         stagiaireFormation: this.stagiaireFormation || 'étudiant(e)',
-        stageDateDebut: this.stageDateDebut || '...',
-        stageDateFin: this.stageDateFin || '...',
         stageService: this.stageService || this.departementNom() || '...',
         stageSuperviseur: this.stageSuperviseur || 'le responsable du service',
         stagiaireQualites: this.stagiaireQualites || 'sérieux, rigueur et autonomie',
-        stageDureeMois: this.stageDureeMois || this.calculateStageDuree(),
+        stageType: this.stageType,  // AJOUTÉ
         dateFinContrat: this.dateFinContrat || 'ce jour',
-        dateNaissance: this.selectedEmployee.dateNaissance || '...',
+        dateNaissance: this.selectedEmployee.dateNaissance || this.selectedEmployee.date_naissance || '',
         nationalite: this.selectedEmployee.nationalite || 'Camerounaise',
         adresse: this.selectedEmployee.adresse || '...',
         cin: this.cinNumber || this.selectedEmployee.cin || this.selectedEmployee.numero_piece_identite || '...',
@@ -451,30 +473,20 @@ export class DocumentsComponent implements OnInit, OnDestroy {
           email: this.entrepriseEmail(),
           siteWeb: this.entrepriseSiteWeb()
         },
-        // ✅ Passer le nom du responsable RH saisi
         responsableRHNom: this.responsableRHNom || '',
         stagiaireFormation: this.stagiaireFormation || 'étudiant(e)',
-        stageDateDebut: this.stageDateDebut || '...',
-        stageDateFin: this.stageDateFin || '...',
         stageService: this.stageService || this.departementNom() || '...',
         stageSuperviseur: this.stageSuperviseur || 'le responsable du service',
         stagiaireQualites: this.stagiaireQualites || 'sérieux, rigueur et autonomie',
-        stageDureeMois: this.stageDureeMois || this.calculateStageDuree(),
+        stageType: this.stageType,  // AJOUTÉ
         dateFinContrat: this.dateFinContrat || 'ce jour',
-        dateNaissance: this.selectedEmployee.dateNaissance || '...',
+        dateNaissance: this.selectedEmployee.dateNaissance || this.selectedEmployee.date_naissance || '',
         nationalite: this.selectedEmployee.nationalite || 'Camerounaise',
         adresse: this.selectedEmployee.adresse || '...',
         cin: this.cinNumber || this.selectedEmployee.cin || this.selectedEmployee.numero_piece_identite || '...',
         matricule_CNPS: this.selectedEmployee.matricule_CNPS || this.selectedEmployee.matriculeCNPS || ''
       };
 
-      // ✅ Utilisation du nom RH saisi (pas de fallback)
-      const responsableRH = {
-        nomComplet: this.responsableRHNom || '',
-        titre: 'RESPONSABLE DES RESSOURCES HUMAINES'
-      };
-
-      // Passer le responsable RH au service
       this.documentGenerator['responsablesRHSubject'].next([{
         id: 'custom',
         nom: this.responsableRHNom ? this.responsableRHNom.split(' ').slice(1).join(' ') : '',
@@ -488,29 +500,29 @@ export class DocumentsComponent implements OnInit, OnDestroy {
       switch (this.documentType) {
         case 'CERTIFICAT':
           await this.documentGenerator.generateCertificatTravail(
-            employeeWithDetails, 
+            employeeWithDetails,
             this.motif || undefined
           );
           this.successMessage.set('✅ Certificat de travail généré avec succès !');
           break;
-          
+
         case 'ATTESTATION_STAGE':
           await this.documentGenerator.generateAttestationStage(
-            employeeWithDetails, 
+            employeeWithDetails,
             this.motif || undefined
           );
           this.successMessage.set('✅ Attestation de stage générée avec succès !');
           break;
-          
+
         case 'ATTESTATION':
           await this.documentGenerator.generateAttestationTravail(
-            employeeWithDetails, 
+            employeeWithDetails,
             this.motif || undefined
           );
           this.successMessage.set('✅ Attestation de travail générée avec succès !');
           break;
       }
-      
+
       this.showPreviewModal.set(false);
     } catch (error) {
       console.error('❌ Erreur lors de la génération:', error);
@@ -541,7 +553,9 @@ export class DocumentsComponent implements OnInit, OnDestroy {
     const titles: Record<DocumentType, string> = {
       'CERTIFICAT': 'CERTIFICAT DE TRAVAIL',
       'ATTESTATION': 'ATTESTATION DE TRAVAIL',
-      'ATTESTATION_STAGE': 'ATTESTATION DE STAGE ACADEMIQUE'
+      'ATTESTATION_STAGE': this.stageType === 'ACADEMIQUE' 
+        ? 'ATTESTATION DE STAGE ACADEMIQUE' 
+        : 'ATTESTATION DE STAGE PROFESSIONNEL'
     };
     return titles[type] || type;
   }
